@@ -2,12 +2,14 @@ import React, { createContext, useContext, useState, useEffect, useRef, useCallb
 import type { User, Session } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { fetchOrganisation, getResolvedOrgSlug, DEFAULT_ORGANISATION } from '../lib/organisation';
-import type { Organisation, Profile, UserRole } from '../types/database';
+import { claimUserInvites, fetchUserEnrolment, joinBatchByCode } from '../lib/batchService';
+import type { Organisation, Profile, UserRole, Enrolment } from '../types/database';
 
 interface AuthContextType {
   session: Session | null;
   user: User | null;
   profile: Profile | null;
+  enrolment: Enrolment | null;
   organisation: Organisation;
   role: UserRole;
   hasConsent: boolean;
@@ -16,6 +18,8 @@ interface AuthContextType {
   deleteAccount: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  refreshEnrolment: () => Promise<void>;
+  joinBatch: (code: string) => Promise<{ success: boolean; message?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -24,15 +28,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [enrolment, setEnrolment] = useState<Enrolment | null>(null);
   const [organisation, setOrganisation] = useState<Organisation>(DEFAULT_ORGANISATION);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Keep a ref to the latest organisation to avoid dependency cycles in callbacks
   const orgRef = useRef<Organisation>(DEFAULT_ORGANISATION);
+
+  const loadEnrolmentForUser = async (userId: string) => {
+    try {
+      const activeEnrolment = await fetchUserEnrolment(userId);
+      setEnrolment(activeEnrolment);
+    } catch (err) {
+      console.error('Error loading enrolment:', err);
+    }
+  };
 
   const fetchProfileForUser = async (currentUser: User, activeOrg: Organisation) => {
     try {
-      // 1. Fetch existing profile
+      // Step A: Check for unclaimed invites on sign in (per SPEC)
+      await claimUserInvites();
+
+      // Step B: Load enrolment
+      await loadEnrolmentForUser(currentUser.id);
+
+      // Step C: Fetch existing profile
       const { data: existingProfile, error } = await supabase
         .from('profiles')
         .select('*')
@@ -48,7 +67,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.warn('Profiles query note:', error.message);
       }
 
-      // 2. If table exists and has an org, try auto-creating if trigger didn't run
+      // Step D: Auto-create profile if missing and org id is valid
       if (activeOrg.id) {
         let assignedRole: UserRole = 'student';
         const { data: grant } = await supabase
@@ -82,7 +101,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      // Fallback in-memory profile if database table not yet migrated
+      // Fallback in-memory profile
       setProfile({
         id: currentUser.id,
         org_id: activeOrg.id,
@@ -104,13 +123,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user]);
 
+  const refreshEnrolment = useCallback(async () => {
+    if (user) {
+      await loadEnrolmentForUser(user.id);
+    }
+  }, [user]);
+
+  const joinBatch = async (code: string) => {
+    const res = await joinBatchByCode(code);
+    if (res.success && user) {
+      await loadEnrolmentForUser(user.id);
+    }
+    return res;
+  };
+
   // Initialise Auth & Organization ONCE on mount
   useEffect(() => {
     let isCancelled = false;
 
     async function init() {
       try {
-        // Step 1: Load organisation details
         const slug = getResolvedOrgSlug();
         const loadedOrg = await fetchOrganisation(slug);
         if (!isCancelled) {
@@ -118,7 +150,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setOrganisation(loadedOrg);
         }
 
-        // Step 2: Check Supabase session
         if (!isSupabaseConfigured) {
           if (!isCancelled) setIsLoading(false);
           return;
@@ -144,7 +175,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     init();
 
-    // Step 3: Listen for auth state changes (sign in, sign out)
+    // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
       if (isCancelled) return;
 
@@ -156,6 +187,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await fetchProfileForUser(newUser, orgRef.current);
       } else {
         setProfile(null);
+        setEnrolment(null);
       }
       setIsLoading(false);
     });
@@ -164,7 +196,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isCancelled = true;
       subscription.unsubscribe();
     };
-  }, []); // Run ONCE on mount
+  }, []);
 
   // Give consent
   const giveConsent = async () => {
@@ -178,7 +210,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq('id', user.id);
 
       if (error) {
-        console.warn('Failed to update consent_at in profiles table:', error.message);
+        console.warn('Failed to update consent_at:', error.message);
       }
 
       setProfile(prev => prev ? { ...prev, consent_at: nowIso } : null);
@@ -193,7 +225,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const { error } = await supabase.rpc('delete_user_account');
       if (error) {
-        console.warn('delete_user_account RPC error, trying direct profile delete:', error.message);
         await supabase.from('profiles').delete().eq('id', user.id);
       }
     } catch (err) {
@@ -203,6 +234,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setSession(null);
       setUser(null);
       setProfile(null);
+      setEnrolment(null);
     }
   };
 
@@ -211,6 +243,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setSession(null);
     setUser(null);
     setProfile(null);
+    setEnrolment(null);
   };
 
   const role = profile?.role ?? 'student';
@@ -222,6 +255,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         session,
         user,
         profile,
+        enrolment,
         organisation,
         role,
         hasConsent,
@@ -230,6 +264,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         deleteAccount,
         signOut,
         refreshProfile,
+        refreshEnrolment,
+        joinBatch,
       }}
     >
       {children}

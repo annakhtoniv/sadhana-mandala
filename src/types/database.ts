@@ -34,3 +34,49 @@ export interface RoleGrant {
   role: UserRole;
   created_at: string;
 }
+
+export interface Course {
+  id: string;
+  org_id: string;
+  name: string;
+  description: string | null;
+  duration_days: number;
+  created_at: string;
+}
+
+export interface Batch {
+  id: string;
+  org_id: string;
+  course_id: string;
+  teacher_id: string;
+  name: string;
+  start_date: string;
+  join_code: string;
+  created_at: string;
+  // Joined relation fields for convenience
+  course?: Course;
+  teacher?: Profile;
+}
+
+export interface BatchInvite {
+  id: string;
+  org_id: string;
+  batch_id: string;
+  email: string;
+  claimed_by: string | null;
+  created_at: string;
+}
+
+export type EnrolmentSource = 'invite' | 'code' | 'manual';
+
+export interface Enrolment {
+  id: string;
+  org_id: string;
+  batch_id: string;
+  student_id: string;
+  source: EnrolmentSource;
+  joined_at: string;
+  // Joined relation fields
+  batch?: Batch;
+  student?: Profile;
+}

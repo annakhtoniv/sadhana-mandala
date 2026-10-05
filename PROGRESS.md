@@ -10,30 +10,26 @@
 - Added SPA routing rewrite configurations (`.htaccess` for Spaceship/Apache and `_redirects` for static hosts).
 - Configured automated GitHub Actions deployment pipeline ([.github/workflows/deploy.yml](file:///c:/Users/annak/sadhana-mandala/.github/workflows/deploy.yml)) to build and deploy straight to Spaceship on every `git push`.
 - Configured GitHub Repository Secrets for automated FTP deployment (`FTP_SERVER`, `FTP_USERNAME`, `FTP_PASSWORD`, and `FTP_SERVER_DIR`).
-- Drafted and perfected Phase 1 database schema in [supabase/schema.sql](file:///c:/Users/annak/sadhana-mandala/supabase/schema.sql) (`organisations`, `profiles`, `role_grants`, RLS security definer helper functions, auto-provisioning trigger, backfill for existing auth users, and account deletion RPC).
-- Built [src/types/database.ts](file:///c:/Users/annak/sadhana-mandala/src/types/database.ts) with strict TypeScript types for data models and roles.
-- Built [src/lib/organisation.ts](file:///c:/Users/annak/sadhana-mandala/src/lib/organisation.ts) resolving organisation via `VITE_ORG_SLUG` with fallback and structured subdomain readiness.
-- Built [src/context/AuthContext.tsx](file:///c:/Users/annak/sadhana-mandala/src/context/AuthContext.tsx) managing user session, automatic profile sync, role determination, consent recording (`consent_at`), and account deletion.
-- Fixed infinite re-render loop in [src/context/AuthContext.tsx](file:///c:/Users/annak/sadhana-mandala/src/context/AuthContext.tsx) by executing initialization strictly once on mount with no dependency re-triggers.
-- Built [src/components/ConsentModal.tsx](file:///c:/Users/annak/sadhana-mandala/src/components/ConsentModal.tsx) enforcing mandatory first sign-in consent detailing data storage and teacher visibility.
-- Built white-label [src/components/Header.tsx](file:///c:/Users/annak/sadhana-mandala/src/components/Header.tsx) and [src/components/Footer.tsx](file:///c:/Users/annak/sadhana-mandala/src/components/Footer.tsx) ("Powered by ZYXENAI" per `show_powered_by`, "Concept" label, zero hardcoded branding).
-- Built role-based homes:
-  - [src/components/StudentHome.tsx](file:///c:/Users/annak/sadhana-mandala/src/components/StudentHome.tsx): today's dynamic question, Done / Not yet / Rest day buttons, streak counter, 40-day trail in rows of 7, and un-enrolled join code panel.
-  - [src/components/TeacherHome.tsx](file:///c:/Users/annak/sadhana-mandala/src/components/TeacherHome.tsx): "My Batches" dashboard and teacher metrics.
-  - [src/components/AdminHome.tsx](file:///c:/Users/annak/sadhana-mandala/src/components/AdminHome.tsx): "Users & Roles", role pre-granting form, and organisation parameters.
-- Built [src/components/ProfileScreen.tsx](file:///c:/Users/annak/sadhana-mandala/src/components/ProfileScreen.tsx) with formatted consent timestamp, role details, and account deletion with confirmation.
-- Verified TypeScript compilation (`npm.cmd run build`) with zero errors and packaged updated bundle into `sadhana-mandala-build.zip`.
+- Completed Phase 1: White-label theming, mandatory consent modal storing `consent_at`, role routing, profile screen with account deletion, and resolved re-render loop.
+- Completed Phase 2:
+  - Drafted [supabase/schema_phase2.sql](file:///c:/Users/annak/sadhana-mandala/supabase/schema_phase2.sql) with tables `courses`, `batches`, `batch_invites`, `enrolments`, RLS policies, and RPC functions (`claim_pending_invites`, `join_batch_by_code`, `add_batch_invites`).
+  - Added timezone-aware date utilities in [src/lib/dateUtils.ts](file:///c:/Users/annak/sadhana-mandala/src/lib/dateUtils.ts) calculating batch day numbers from `start_date` in the organisation timezone.
+  - Built [src/lib/batchService.ts](file:///c:/Users/annak/sadhana-mandala/src/lib/batchService.ts) for courses, batches, invites, enrolments, and auto-mapping.
+  - Updated [src/context/AuthContext.tsx](file:///c:/Users/annak/sadhana-mandala/src/context/AuthContext.tsx) to automatically claim pending invites on sign-in and manage enrolment state.
+  - Enhanced [src/components/StudentHome.tsx](file:///c:/Users/annak/sadhana-mandala/src/components/StudentHome.tsx) with un-enrolled join code panel and active enrolled view (day number, question, and dynamic `duration_days` practice trail).
+  - Built [src/components/TeacherBatchDetail.tsx](file:///c:/Users/annak/sadhana-mandala/src/components/TeacherBatchDetail.tsx) with join code display, live QR code (`qrcode.react`), email pasting with auto-mapping, and student roster.
+  - Enhanced [src/components/TeacherHome.tsx](file:///c:/Users/annak/sadhana-mandala/src/components/TeacherHome.tsx) with "My Batches" dashboard and batch creation modal.
+  - Enhanced [src/components/AdminHome.tsx](file:///c:/Users/annak/sadhana-mandala/src/components/AdminHome.tsx) with Course Catalog management and All Batches overview.
+  - Verified clean TypeScript compilation (`npm.cmd run build`) with zero errors and packaged updated bundle into `sadhana-mandala-build.zip`.
 
 ## Next
-- Verify automated GitHub Actions build & deploy to Spaceship.
-- Run [supabase/schema.sql](file:///c:/Users/annak/sadhana-mandala/supabase/schema.sql) in the Supabase SQL Editor.
-- Phase 1 Verification:
-  - Sign in with Google at `https://sadhana.zyxenai.com`.
-  - Confirm Consent screen appears on first sign-in; click "I Understand & Consent".
-  - Confirm user lands on the Student Home with today's practice question and trail.
-  - Test role routing: In Admin console (or role switcher), assign Teacher role or Admin role and verify landing on the corresponding home.
-  - Test Profile screen to verify consent timestamp is visible and test "Delete my account" flow.
-- Await PM go-ahead to begin Phase 2 (Courses, batches, invites, auto-mapping, join code and QR).
+- Run [supabase/schema_phase2.sql](file:///c:/Users/annak/sadhana-mandala/supabase/schema_phase2.sql) in the Supabase SQL Editor.
+- Phase 2 Verification:
+  - Teacher creates a batch, views the unique join code and QR code.
+  - Teacher pastes student emails into the batch (auto-enrolling matching accounts).
+  - Student entering the join code joins the batch immediately.
+  - Invited email auto-enrols on sign-in; uninvited email sees the no-batch panel.
+- Await PM go-ahead to begin Phase 3 (Student check-in, streak and trail logic, with unit tests).
 
 ## Known Issues
 - None.
