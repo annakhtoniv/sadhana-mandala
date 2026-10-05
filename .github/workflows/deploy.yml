@@ -1,0 +1,42 @@
+name: Build and Deploy to Spaceship
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build Production Website
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://pshapxojprvgmwhdivim.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBzaGFweG9qcHJ2Z213aGRpdmltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEyMDc0MTYsImV4cCI6MjEwNjc4MzQxNn0.-GOesOz0tkg7ZOp_Xxr1cs6ZEnD7v-DOCXshBL_c9lA' }}
+          VITE_ORG_SLUG: ${{ secrets.VITE_ORG_SLUG || 'sadhana-mandala' }}
+        run: npm run build
+
+      - name: Deploy to Spaceship Hosting
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          server-dir: ${{ secrets.FTP_SERVER_DIR || '/' }}
+          local-dir: ./dist/
+          dangerous-clean-slate: false
