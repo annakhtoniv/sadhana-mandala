@@ -8,7 +8,8 @@
 - Created [.env.example](file:///c:/Users/annak/sadhana-mandala/.env.example) and configured [.env.local](file:///c:/Users/annak/sadhana-mandala/.env.local) with live Supabase credentials (`https://pshapxojprvgmwhdivim.supabase.co`).
 - Verified Phase 0 Google sign-in and sign-out live flow.
 - Added SPA routing rewrite configurations (`.htaccess` for Spaceship/Apache and `_redirects` for static hosts).
-- Configured automated GitHub Actions deployment pipeline ([.github/workflows/deploy.yml](file:///c:/Users/annak/sadhana-mandala/.github/workflows/deploy.yml)) to build and deploy straight to Spaceship on every `git push`, eliminating manual zip uploads and laptop dependency.
+- Configured automated GitHub Actions deployment pipeline ([.github/workflows/deploy.yml](file:///c:/Users/annak/sadhana-mandala/.github/workflows/deploy.yml)) to build and deploy straight to Spaceship on every `git push`.
+- Configured GitHub Repository Secrets for automated FTP deployment (`FTP_SERVER`, `FTP_USERNAME`, `FTP_PASSWORD`, and `FTP_SERVER_DIR`).
 - Drafted and perfected Phase 1 database schema in [supabase/schema.sql](file:///c:/Users/annak/sadhana-mandala/supabase/schema.sql) (`organisations`, `profiles`, `role_grants`, RLS security definer helper functions, auto-provisioning trigger, backfill for existing auth users, and account deletion RPC).
 - Built [src/types/database.ts](file:///c:/Users/annak/sadhana-mandala/src/types/database.ts) with strict TypeScript types for data models and roles.
 - Built [src/lib/organisation.ts](file:///c:/Users/annak/sadhana-mandala/src/lib/organisation.ts) resolving organisation via `VITE_ORG_SLUG` with fallback and structured subdomain readiness.
@@ -24,8 +25,7 @@
 - Verified TypeScript compilation (`npm.cmd run build`) with zero errors and packaged updated bundle into `sadhana-mandala-build.zip`.
 
 ## Next
-- Configure GitHub Secrets for automated deployment:
-  - Add `FTP_SERVER`, `FTP_USERNAME`, `FTP_PASSWORD`, and `FTP_SERVER_DIR` to GitHub Repository Secrets.
+- Verify automated GitHub Actions build & deploy to Spaceship.
 - Run [supabase/schema.sql](file:///c:/Users/annak/sadhana-mandala/supabase/schema.sql) in the Supabase SQL Editor.
 - Phase 1 Verification:
   - Sign in with Google at `https://sadhana.zyxenai.com`.
