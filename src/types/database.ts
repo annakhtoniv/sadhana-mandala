@@ -80,3 +80,34 @@ export interface Enrolment {
   batch?: Batch;
   student?: Profile;
 }
+
+export type CheckinStatus = 'done' | 'not_yet' | 'rest';
+
+export interface Checkin {
+  id: string;
+  org_id: string;
+  batch_id: string;
+  student_id: string;
+  day_number: number;
+  status: CheckinStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export type LessonScope = 'general' | 'course' | 'batch';
+
+export interface Lesson {
+  id: string;
+  org_id: string;
+  title: string;
+  body: string;
+  video_url?: string | null;
+  scope: LessonScope;
+  course_id?: string | null;
+  batch_id?: string | null;
+  day_number?: number | null;
+  published: boolean;
+  author_id?: string | null;
+  created_at: string;
+  updated_at: string;
+}

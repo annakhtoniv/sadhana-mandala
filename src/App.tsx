@@ -7,6 +7,7 @@ import { StudentHome } from './components/StudentHome';
 import { TeacherHome } from './components/TeacherHome';
 import { AdminHome } from './components/AdminHome';
 import { ProfileScreen } from './components/ProfileScreen';
+import { LessonsScreen } from './components/LessonsScreen';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { LogIn, Sparkles, AlertCircle, Loader2 } from 'lucide-react';
 
@@ -140,19 +141,7 @@ function MainApp() {
         {currentTab === 'profile' ? (
           <ProfileScreen onBack={() => setCurrentTab('home')} />
         ) : currentTab === 'lessons' ? (
-          <div className="bg-white dark:bg-stone-900 p-6 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-3">
-            <h2 className="text-base font-semibold text-stone-900 dark:text-stone-100">Lessons</h2>
-            <p className="text-xs text-stone-500 dark:text-stone-400">
-              General and batch practice lessons will be published in Phase 5.
-            </p>
-            <button
-              type="button"
-              onClick={() => setCurrentTab('home')}
-              className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
-            >
-              &larr; Back to Daily Practice
-            </button>
-          </div>
+          <LessonsScreen onBack={() => setCurrentTab('home')} />
         ) : (
           /* Role-based Home Navigation */
           activeRole === 'admin' ? (

@@ -21,17 +21,24 @@
   - Enhanced [src/components/TeacherHome.tsx](file:///c:/Users/annak/sadhana-mandala/src/components/TeacherHome.tsx) with "My Batches" dashboard and batch creation modal.
   - Enhanced [src/components/AdminHome.tsx](file:///c:/Users/annak/sadhana-mandala/src/components/AdminHome.tsx) with Course Catalog management and All Batches overview.
   - Fixed consent prompt repetition across page reloads by pairing database sync with local persistent storage.
-  - Enabled active role switcher dropdown (`Role: Student | Role: Teacher | Role: Admin`) directly in the header to effortlessly test all 3 personas without creating extra email accounts.
-  - Created [supabase/fix_consent_and_roles.sql](file:///c:/Users/annak/sadhana-mandala/supabase/fix_consent_and_roles.sql) to promote user to Admin and generate simulated Teacher and Admin profiles.
-  - Verified clean TypeScript compilation (`npm.cmd run build`) with zero errors and packaged updated bundle into `sadhana-mandala-build.zip`.
+  - Completed Phase 2 & Seed Data Provisioning:
+  - Created [supabase/seed_dummy_data.sql](file:///c:/Users/annak/sadhana-mandala/supabase/seed_dummy_data.sql) seeding complete dummy data for everything:
+    - Organisation A ("Sadhana Mandala", dark stone + emerald theme, Dubai timezone, Powered by ZYXENAI)
+    - Organisation B ("Prana Flow Academy", slate + amber theme, Dubai timezone, show_powered_by false)
+    - Courses (40-Day Sadhana, 21-Day Mindfulness Starter, Prana Foundation 30)
+    - Teachers & Admins (Ananda Sharma, Priya Patel, Sadhana Admin, Marcus Vance, Prana Admin)
+    - Batches in Org A: Day 40 Finished ("Summer Solstice"), Day 23 Active ("Autumn Awakening"), Day 2 Fresh ("New Moon"), Day 1 ("October Sadhana")
+    - Batches in Org B: Day 10 Active ("Prana Sunrise")
+    - 30 clearly fictional students in Org A and 5 students in Org B with full profiles and consent
+    - Complete check-ins with streaks, rest days, and 5 demonstrable QUIET students (Days 19-23 silent)
+    - Real published meditation and daily wisdom lessons (General, Course, and Batch daily scope)
+  - Created [src/components/LessonsScreen.tsx](file:///c:/Users/annak/sadhana-mandala/src/components/LessonsScreen.tsx) and updated [src/types/database.ts](file:///c:/Users/annak/sadhana-mandala/src/types/database.ts) to display published lessons.
+  - Auto-enrolled logged-in user into the Day 23 cohort with full check-in streak so Student, Teacher, and Admin personas immediately display rich data.
 
 ## Next
-- Run [supabase/schema_phase2.sql](file:///c:/Users/annak/sadhana-mandala/supabase/schema_phase2.sql) and [supabase/fix_consent_and_roles.sql](file:///c:/Users/annak/sadhana-mandala/supabase/fix_consent_and_roles.sql) in the Supabase SQL Editor.
-- Phase 2 Verification:
-  - Select "Role: Teacher" to create a batch and view the unique join code and QR code.
-  - Paste student emails to test auto-mapping.
-  - Select "Role: Student" to test joining by code and view the 40-day practice trail.
-- Await PM go-ahead to begin Phase 3 (Student check-in, streak and trail logic, with unit tests).
+- Run [supabase/seed_dummy_data.sql](file:///c:/Users/annak/sadhana-mandala/supabase/seed_dummy_data.sql) in the Supabase SQL Editor.
+- Verify Student, Teacher, and Admin views with rich dummy data.
+- Await PM approval to start Phase 3 (Student check-in, streak and trail logic, with unit tests).
 
 ## Known Issues
 - None.

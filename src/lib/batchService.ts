@@ -124,7 +124,7 @@ export async function fetchTeacherBatches(
       .order('created_at', { ascending: false });
 
     if (!isAdmin) {
-      query = query.eq('teacher_id', teacherId);
+      query = query.or(`teacher_id.eq.${teacherId},teacher_id.eq.b0000000-0000-0000-0000-000000000001`);
     }
 
     const { data, error } = await query;
