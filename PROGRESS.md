@@ -12,6 +12,7 @@
 - Built [src/types/database.ts](file:///c:/Users/annak/sadhana-mandala/src/types/database.ts) with strict TypeScript types for data models and roles.
 - Built [src/lib/organisation.ts](file:///c:/Users/annak/sadhana-mandala/src/lib/organisation.ts) resolving organisation via `VITE_ORG_SLUG` with fallback and structured subdomain readiness.
 - Built [src/context/AuthContext.tsx](file:///c:/Users/annak/sadhana-mandala/src/context/AuthContext.tsx) managing user session, automatic profile sync, role determination, consent recording (`consent_at`), and account deletion.
+- Fixed infinite re-render loop in [src/context/AuthContext.tsx](file:///c:/Users/annak/sadhana-mandala/src/context/AuthContext.tsx) by executing initialization strictly once on mount with no dependency re-triggers.
 - Built [src/components/ConsentModal.tsx](file:///c:/Users/annak/sadhana-mandala/src/components/ConsentModal.tsx) enforcing mandatory first sign-in consent detailing data storage and teacher visibility.
 - Built white-label [src/components/Header.tsx](file:///c:/Users/annak/sadhana-mandala/src/components/Header.tsx) and [src/components/Footer.tsx](file:///c:/Users/annak/sadhana-mandala/src/components/Footer.tsx) ("Powered by ZYXENAI" per `show_powered_by`, "Concept" label, zero hardcoded branding).
 - Built role-based homes:

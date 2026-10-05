@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { fetchOrganisation, getResolvedOrgSlug, DEFAULT_ORGANISATION } from '../lib/organisation';
@@ -27,23 +27,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [organisation, setOrganisation] = useState<Organisation>(DEFAULT_ORGANISATION);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Load organisation branding
-  const loadOrganisation = useCallback(async () => {
-    const slug = getResolvedOrgSlug();
-    const org = await fetchOrganisation(slug);
-    setOrganisation(org);
-    return org;
-  }, []);
+  // Keep a ref to the latest organisation to avoid dependency cycles in callbacks
+  const orgRef = useRef<Organisation>(DEFAULT_ORGANISATION);
 
-  // Fetch or safely ensure profile exists in DB
-  const loadUserProfile = useCallback(async (currentUser: User, activeOrg: Organisation) => {
-    if (!currentUser) {
-      setProfile(null);
-      return;
-    }
-
+  const fetchProfileForUser = async (currentUser: User, activeOrg: Organisation) => {
     try {
-      // 1. Try to fetch existing profile
+      // 1. Fetch existing profile
       const { data: existingProfile, error } = await supabase
         .from('profiles')
         .select('*')
@@ -55,14 +44,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
-      // If table doesn't exist yet or query failed, handle gracefully
       if (error && error.code !== 'PGRST116') {
-        console.warn('Could not read profiles table. Has schema.sql been run?', error.message);
+        console.warn('Profiles query note:', error.message);
       }
 
-      // 2. Fallback: If profile doesn't exist yet and we have a valid org id in DB
+      // 2. If table exists and has an org, try auto-creating if trigger didn't run
       if (activeOrg.id) {
-        // Check if user has a pre-granted role
         let assignedRole: UserRole = 'student';
         const { data: grant } = await supabase
           .from('role_grants')
@@ -95,7 +82,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      // Virtual fallback profile if database schema is not yet applied
+      // Fallback in-memory profile if database table not yet migrated
       setProfile({
         id: currentUser.id,
         org_id: activeOrg.id,
@@ -107,54 +94,66 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updated_at: new Date().toISOString(),
       });
     } catch (err) {
-      console.error('Error loading profile:', err);
+      console.error('Error fetching profile:', err);
     }
-  }, []);
+  };
 
   const refreshProfile = useCallback(async () => {
     if (user) {
-      await loadUserProfile(user, organisation);
+      await fetchProfileForUser(user, orgRef.current);
     }
-  }, [user, organisation, loadUserProfile]);
+  }, [user]);
 
+  // Initialise Auth & Organization ONCE on mount
   useEffect(() => {
-    let mounted = true;
+    let isCancelled = false;
 
-    async function initAuth() {
-      setIsLoading(true);
+    async function init() {
       try {
-        const org = await loadOrganisation();
+        // Step 1: Load organisation details
+        const slug = getResolvedOrgSlug();
+        const loadedOrg = await fetchOrganisation(slug);
+        if (!isCancelled) {
+          orgRef.current = loadedOrg;
+          setOrganisation(loadedOrg);
+        }
 
+        // Step 2: Check Supabase session
         if (!isSupabaseConfigured) {
-          if (mounted) setIsLoading(false);
+          if (!isCancelled) setIsLoading(false);
           return;
         }
 
         const { data: { session: initialSession } } = await supabase.auth.getSession();
-        if (mounted) {
-          setSession(initialSession);
-          setUser(initialSession?.user ?? null);
-        }
+        if (isCancelled) return;
+
+        setSession(initialSession);
+        setUser(initialSession?.user ?? null);
 
         if (initialSession?.user) {
-          await loadUserProfile(initialSession.user, org);
+          await fetchProfileForUser(initialSession.user, loadedOrg);
         }
       } catch (err) {
-        console.error('Error during auth initialization:', err);
+        console.error('Error in auth initialization:', err);
       } finally {
-        if (mounted) setIsLoading(false);
+        if (!isCancelled) {
+          setIsLoading(false);
+        }
       }
     }
 
-    initAuth();
+    init();
 
-    // Listen for auth state changes
+    // Step 3: Listen for auth state changes (sign in, sign out)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
-      setSession(newSession);
-      setUser(newSession?.user ?? null);
+      if (isCancelled) return;
 
-      if (newSession?.user) {
-        await loadUserProfile(newSession.user, organisation);
+      setSession(newSession);
+      const newUser = newSession?.user ?? null;
+      setUser(newUser);
+
+      if (newUser) {
+        await fetchProfileForUser(newUser, orgRef.current);
       } else {
         setProfile(null);
       }
@@ -162,10 +161,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     return () => {
-      mounted = false;
+      isCancelled = true;
       subscription.unsubscribe();
     };
-  }, [loadOrganisation, loadUserProfile, organisation]);
+  }, []); // Run ONCE on mount
 
   // Give consent
   const giveConsent = async () => {
@@ -192,14 +191,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const deleteAccount = async () => {
     if (!user) return;
     try {
-      // Calls server-side security definer RPC function that deletes user from auth.users
       const { error } = await supabase.rpc('delete_user_account');
       if (error) {
-        console.warn('RPC delete_user_account not found or failed, falling back to profile delete:', error.message);
+        console.warn('delete_user_account RPC error, trying direct profile delete:', error.message);
         await supabase.from('profiles').delete().eq('id', user.id);
       }
     } catch (err) {
-      console.error('Error during account deletion:', err);
+      console.error('Error deleting account:', err);
     } finally {
       await supabase.auth.signOut();
       setSession(null);
