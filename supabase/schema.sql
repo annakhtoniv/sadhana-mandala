@@ -238,3 +238,19 @@ insert into public.organisations (
   true
 )
 on conflict (slug) do nothing;
+
+-- ============================================================================
+-- 9. BACKFILL EXISTING AUTH USERS (for users who already signed in)
+-- ============================================================================
+insert into public.profiles (id, org_id, email, full_name, role)
+select 
+  u.id, 
+  o.id as org_id, 
+  coalesce(u.email, ''), 
+  coalesce(u.raw_user_meta_data->>'full_name', u.raw_user_meta_data->>'name', ''),
+  coalesce((select rg.role from public.role_grants rg where rg.org_id = o.id and lower(rg.email) = lower(u.email) limit 1), 'student') as role
+from auth.users u
+cross join (select id from public.organisations where slug = 'sadhana-mandala' limit 1) o
+on conflict (id) do update set
+  email = excluded.email,
+  full_name = coalesce(nullif(excluded.full_name, ''), public.profiles.full_name);
