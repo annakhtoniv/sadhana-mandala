@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "package": "npm run build && powershell -Command \"Compress-Archive -Path dist/* -DestinationPath sadhana-mandala-build.zip -Force\""
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",
