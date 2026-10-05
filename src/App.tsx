@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
@@ -8,20 +8,13 @@ import { TeacherHome } from './components/TeacherHome';
 import { AdminHome } from './components/AdminHome';
 import { ProfileScreen } from './components/ProfileScreen';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
-import type { UserRole } from './types/database';
 import { LogIn, Sparkles, AlertCircle, Loader2 } from 'lucide-react';
 
 function MainApp() {
-  const { user, role, hasConsent, isLoading, organisation } = useAuth();
+  const { user, activeRole, setActiveRole, hasConsent, isLoading, organisation } = useAuth();
   const [currentTab, setCurrentTab] = useState<'home' | 'lessons' | 'profile'>('home');
-  const [activeRoleView, setActiveRoleView] = useState<UserRole>(role);
   const [authError, setAuthError] = useState<string | null>(null);
   const [isSigningIn, setIsSigningIn] = useState(false);
-
-  // Sync activeRoleView when user's actual role changes
-  useEffect(() => {
-    setActiveRoleView(role);
-  }, [role]);
 
   const handleGoogleSignIn = async () => {
     if (!isSupabaseConfigured) {
@@ -61,7 +54,6 @@ function MainApp() {
   if (!user) {
     return (
       <div className="flex flex-col min-h-screen bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 transition-colors">
-        {/* Minimal White-label Header */}
         <header className="w-full border-b border-stone-200 dark:border-stone-800 bg-white/70 dark:bg-stone-900/70 backdrop-blur sticky top-0 z-10">
           <div className="max-w-md mx-auto px-4 h-14 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -84,10 +76,8 @@ function MainApp() {
           </div>
         </header>
 
-        {/* Main Sign-In Card */}
         <main className="flex-1 w-full max-w-md mx-auto px-4 py-10 flex flex-col justify-center items-center">
           <div className="w-full space-y-6 text-center">
-            {/* Dynamic Title and Intro */}
             <div className="space-y-2">
               <h1 className="text-2xl font-semibold tracking-tight text-stone-900 dark:text-stone-50">
                 {organisation.app_name}
@@ -120,7 +110,6 @@ function MainApp() {
               )}
             </div>
 
-            {/* White-label Organization Card */}
             <div className="p-4 rounded-xl bg-stone-100/60 dark:bg-stone-900/40 border border-stone-200/50 dark:border-stone-800/50 text-left text-xs text-stone-500 space-y-1">
               <div className="font-medium text-stone-700 dark:text-stone-300">Organisation Workspace:</div>
               <div>{organisation.name} ({organisation.timezone})</div>
@@ -133,7 +122,7 @@ function MainApp() {
     );
   }
 
-  // Signed in: Check for mandatory first sign-in consent
+  // Signed in
   return (
     <div className="flex flex-col min-h-screen bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 transition-colors">
       {!hasConsent && <ConsentModal />}
@@ -142,8 +131,8 @@ function MainApp() {
       <Header
         currentTab={currentTab}
         onNavigate={(tab) => setCurrentTab(tab as 'home' | 'lessons' | 'profile')}
-        activeRoleView={activeRoleView}
-        onRoleSwitch={(newRole) => setActiveRoleView(newRole)}
+        activeRoleView={activeRole}
+        onRoleSwitch={(newRole) => setActiveRole(newRole)}
       />
 
       {/* Main Container */}
@@ -166,9 +155,9 @@ function MainApp() {
           </div>
         ) : (
           /* Role-based Home Navigation */
-          activeRoleView === 'admin' ? (
+          activeRole === 'admin' ? (
             <AdminHome />
-          ) : activeRoleView === 'teacher' ? (
+          ) : activeRole === 'teacher' ? (
             <TeacherHome />
           ) : (
             <StudentHome onNavigateLessons={() => setCurrentTab('lessons')} />

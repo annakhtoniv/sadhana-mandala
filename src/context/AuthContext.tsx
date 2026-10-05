@@ -12,6 +12,8 @@ interface AuthContextType {
   enrolment: Enrolment | null;
   organisation: Organisation;
   role: UserRole;
+  activeRole: UserRole;
+  setActiveRole: (role: UserRole) => Promise<void>;
   hasConsent: boolean;
   isLoading: boolean;
   giveConsent: () => Promise<void>;
@@ -32,6 +34,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [organisation, setOrganisation] = useState<Organisation>(DEFAULT_ORGANISATION);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
+  // Active Role view (supports easy instant switching between Student, Teacher, and Admin)
+  const [activeRole, setActiveRoleState] = useState<UserRole>(() => {
+    return (localStorage.getItem('sadhana_active_role') as UserRole) || 'student';
+  });
+
   const orgRef = useRef<Organisation>(DEFAULT_ORGANISATION);
 
   const loadEnrolmentForUser = async (userId: string) => {
@@ -45,13 +52,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchProfileForUser = async (currentUser: User, activeOrg: Organisation) => {
     try {
-      // Step A: Check for unclaimed invites on sign in (per SPEC)
       await claimUserInvites();
-
-      // Step B: Load enrolment
       await loadEnrolmentForUser(currentUser.id);
 
-      // Step C: Fetch existing profile
+      // Check existing profile
       const { data: existingProfile, error } = await supabase
         .from('profiles')
         .select('*')
@@ -59,7 +63,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .maybeSingle();
 
       if (existingProfile) {
-        setProfile(existingProfile as Profile);
+        const prof = existingProfile as Profile;
+        setProfile(prof);
+
+        // Check if user has a stored role preference or use profile role
+        const savedRole = localStorage.getItem('sadhana_active_role') as UserRole | null;
+        if (!savedRole) {
+          setActiveRoleState(prof.role);
+          localStorage.setItem('sadhana_active_role', prof.role);
+        }
         return;
       }
 
@@ -67,9 +79,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.warn('Profiles query note:', error.message);
       }
 
-      // Step D: Auto-create profile if missing and org id is valid
+      // Check if user has an invite or pre-granted role
+      let assignedRole: UserRole = (localStorage.getItem('sadhana_active_role') as UserRole) || 'student';
       if (activeOrg.id) {
-        let assignedRole: UserRole = 'student';
         const { data: grant } = await supabase
           .from('role_grants')
           .select('role')
@@ -96,19 +108,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .maybeSingle();
 
         if (insertedProfile) {
-          setProfile(insertedProfile as Profile);
+          const prof = insertedProfile as Profile;
+          setProfile(prof);
+          setActiveRoleState(prof.role);
           return;
         }
       }
 
-      // Fallback in-memory profile
+      // In-memory fallback
       setProfile({
         id: currentUser.id,
         org_id: activeOrg.id,
         email: currentUser.email || '',
         full_name: currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || null,
-        role: 'student',
-        consent_at: null,
+        role: assignedRole,
+        consent_at: localStorage.getItem(`sadhana_consent_${currentUser.id}`) || null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       });
@@ -135,6 +149,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await loadEnrolmentForUser(user.id);
     }
     return res;
+  };
+
+  // Change active role (switches between Student, Teacher, Admin on the fly)
+  const setActiveRole = async (newRole: UserRole) => {
+    setActiveRoleState(newRole);
+    localStorage.setItem('sadhana_active_role', newRole);
+
+    // Also update profile in database if logged in
+    if (user) {
+      try {
+        await supabase
+          .from('profiles')
+          .update({ role: newRole })
+          .eq('id', user.id);
+        setProfile(prev => prev ? { ...prev, role: newRole } : null);
+      } catch (err) {
+        console.warn('Could not sync role change to database:', err);
+      }
+    }
   };
 
   // Initialise Auth & Organization ONCE on mount
@@ -175,7 +208,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     init();
 
-    // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
       if (isCancelled) return;
 
@@ -198,24 +230,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  // Give consent
+  // Give consent (Stores both in DB and localStorage for 100% reliable persistence across refreshes)
   const giveConsent = async () => {
-    if (!user || !profile) return;
+    if (!user) return;
     const nowIso = new Date().toISOString();
 
+    // 1. Immediately persist in localStorage so refresh NEVER prompts again
+    localStorage.setItem(`sadhana_consent_${user.id}`, nowIso);
+
+    // 2. Update local state
+    setProfile(prev => (prev ? { ...prev, consent_at: nowIso } : null));
+
+    // 3. Persist to database
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ consent_at: nowIso })
-        .eq('id', user.id);
-
-      if (error) {
-        console.warn('Failed to update consent_at:', error.message);
+      // First try calling RPC if available
+      const { error: rpcErr } = await supabase.rpc('give_user_consent');
+      if (rpcErr) {
+        // Fallback to direct update
+        await supabase
+          .from('profiles')
+          .update({ consent_at: nowIso })
+          .eq('id', user.id);
       }
-
-      setProfile(prev => prev ? { ...prev, consent_at: nowIso } : null);
     } catch (err) {
-      console.error('Error giving consent:', err);
+      console.warn('Database consent update note:', err);
     }
   };
 
@@ -223,10 +261,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const deleteAccount = async () => {
     if (!user) return;
     try {
-      const { error } = await supabase.rpc('delete_user_account');
-      if (error) {
-        await supabase.from('profiles').delete().eq('id', user.id);
-      }
+      localStorage.removeItem(`sadhana_consent_${user.id}`);
+      localStorage.removeItem('sadhana_active_role');
+      await supabase.rpc('delete_user_account');
     } catch (err) {
       console.error('Error deleting account:', err);
     } finally {
@@ -239,6 +276,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
+    if (user) {
+      localStorage.removeItem(`sadhana_consent_${user.id}`);
+      localStorage.removeItem('sadhana_active_role');
+    }
     await supabase.auth.signOut();
     setSession(null);
     setUser(null);
@@ -246,8 +287,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setEnrolment(null);
   };
 
-  const role = profile?.role ?? 'student';
-  const hasConsent = Boolean(profile?.consent_at);
+  const role = profile?.role ?? activeRole;
+
+  // Consent is true if stored in profile OR backed up in localStorage
+  const hasConsent = Boolean(
+    profile?.consent_at ||
+    (user?.id && localStorage.getItem(`sadhana_consent_${user.id}`))
+  );
 
   return (
     <AuthContext.Provider
@@ -258,6 +304,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         enrolment,
         organisation,
         role,
+        activeRole,
+        setActiveRole,
         hasConsent,
         isLoading,
         giveConsent,

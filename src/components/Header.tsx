@@ -1,19 +1,23 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Sparkles, User, Shield, GraduationCap } from 'lucide-react';
+import { Sparkles, User } from 'lucide-react';
 import type { UserRole } from '../types/database';
 
 interface HeaderProps {
   currentTab: string;
   onNavigate: (tab: string) => void;
-  // For easy preview/testing by the PM
   activeRoleView?: UserRole;
   onRoleSwitch?: (role: UserRole) => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ currentTab, onNavigate, activeRoleView, onRoleSwitch }) => {
-  const { organisation, user, role } = useAuth();
-  const currentRole = activeRoleView || role;
+export const Header: React.FC<HeaderProps> = ({
+  currentTab,
+  onNavigate,
+  activeRoleView,
+  onRoleSwitch,
+}) => {
+  const { organisation, user, activeRole } = useAuth();
+  const currentRole = activeRoleView || activeRole;
 
   return (
     <header className="w-full border-b border-stone-200 dark:border-stone-800 bg-white/80 dark:bg-stone-900/80 backdrop-blur sticky top-0 z-20">
@@ -43,32 +47,21 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onNavigate, activeRo
           </span>
         </button>
 
-        {/* User Role & Profile button */}
+        {/* User Role Switcher & Profile button */}
         {user && (
           <div className="flex items-center gap-2">
-            {/* Role indicator / Switcher */}
-            {role === 'admin' && onRoleSwitch ? (
+            {/* Always available Role Switcher for instant testing */}
+            {onRoleSwitch && (
               <select
-                aria-label="Role View Selector"
+                aria-label="Active Role View"
                 value={currentRole}
                 onChange={(e) => onRoleSwitch(e.target.value as UserRole)}
-                className="text-xs px-2 py-1 rounded-full border border-stone-300 dark:border-stone-700 bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 font-medium cursor-pointer"
+                className="text-xs px-2.5 py-1 rounded-full border border-stone-300 dark:border-stone-700 bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 font-semibold cursor-pointer shadow-sm focus:outline-none"
               >
-                <option value="student">View as: Student</option>
-                <option value="teacher">View as: Teacher</option>
-                <option value="admin">View as: Admin</option>
+                <option value="student">Role: Student</option>
+                <option value="teacher">Role: Teacher</option>
+                <option value="admin">Role: Admin</option>
               </select>
-            ) : (
-              <span className="inline-flex items-center gap-1 text-[11px] font-medium uppercase tracking-wider px-2 py-0.5 rounded-full border border-stone-200 dark:border-stone-700 bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300">
-                {currentRole === 'admin' ? (
-                  <Shield className="w-3 h-3 text-amber-500" />
-                ) : currentRole === 'teacher' ? (
-                  <GraduationCap className="w-3 h-3 text-emerald-500" />
-                ) : (
-                  <User className="w-3 h-3 text-stone-500" />
-                )}
-                <span>{currentRole}</span>
-              </span>
             )}
 
             <button

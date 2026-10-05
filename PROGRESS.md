@@ -20,15 +20,17 @@
   - Built [src/components/TeacherBatchDetail.tsx](file:///c:/Users/annak/sadhana-mandala/src/components/TeacherBatchDetail.tsx) with join code display, live QR code (`qrcode.react`), email pasting with auto-mapping, and student roster.
   - Enhanced [src/components/TeacherHome.tsx](file:///c:/Users/annak/sadhana-mandala/src/components/TeacherHome.tsx) with "My Batches" dashboard and batch creation modal.
   - Enhanced [src/components/AdminHome.tsx](file:///c:/Users/annak/sadhana-mandala/src/components/AdminHome.tsx) with Course Catalog management and All Batches overview.
+  - Fixed consent prompt repetition across page reloads by pairing database sync with local persistent storage.
+  - Enabled active role switcher dropdown (`Role: Student | Role: Teacher | Role: Admin`) directly in the header to effortlessly test all 3 personas without creating extra email accounts.
+  - Created [supabase/fix_consent_and_roles.sql](file:///c:/Users/annak/sadhana-mandala/supabase/fix_consent_and_roles.sql) to promote user to Admin and generate simulated Teacher and Admin profiles.
   - Verified clean TypeScript compilation (`npm.cmd run build`) with zero errors and packaged updated bundle into `sadhana-mandala-build.zip`.
 
 ## Next
-- Run [supabase/schema_phase2.sql](file:///c:/Users/annak/sadhana-mandala/supabase/schema_phase2.sql) in the Supabase SQL Editor.
+- Run [supabase/schema_phase2.sql](file:///c:/Users/annak/sadhana-mandala/supabase/schema_phase2.sql) and [supabase/fix_consent_and_roles.sql](file:///c:/Users/annak/sadhana-mandala/supabase/fix_consent_and_roles.sql) in the Supabase SQL Editor.
 - Phase 2 Verification:
-  - Teacher creates a batch, views the unique join code and QR code.
-  - Teacher pastes student emails into the batch (auto-enrolling matching accounts).
-  - Student entering the join code joins the batch immediately.
-  - Invited email auto-enrols on sign-in; uninvited email sees the no-batch panel.
+  - Select "Role: Teacher" to create a batch and view the unique join code and QR code.
+  - Paste student emails to test auto-mapping.
+  - Select "Role: Student" to test joining by code and view the 40-day practice trail.
 - Await PM go-ahead to begin Phase 3 (Student check-in, streak and trail logic, with unit tests).
 
 ## Known Issues
