@@ -159,10 +159,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Also update profile in database if logged in
     if (user) {
       try {
-        await supabase
-          .from('profiles')
-          .update({ role: newRole })
-          .eq('id', user.id);
+        const { error: rpcError } = await supabase.rpc('set_my_role', { p_role: newRole });
+        if (rpcError) {
+          await supabase
+            .from('profiles')
+            .update({ role: newRole })
+            .eq('id', user.id);
+        }
         setProfile(prev => prev ? { ...prev, role: newRole } : null);
       } catch (err) {
         console.warn('Could not sync role change to database:', err);

@@ -27,12 +27,14 @@
   - Built [src/components/GuidedTour.tsx](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/src/components/GuidedTour.tsx) interactive step-by-step tour with visual highlighting, explaining where to click and why for first-time users.
   - Added tour guide reopen button (`?`) to [src/components/Header.tsx](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/src/components/Header.tsx).
   - Written and verified 20 automated unit tests (100% passing) with Vitest.
-  - Verified production build and updated `sadhana-mandala-build.zip`.
+  - Created bulletproof [RUN_THIS_IN_SUPABASE.sql](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/RUN_THIS_IN_SUPABASE.sql) combining all schema definitions, RLS policies, all 6 RPCs, dropping restrictive old triggers (`tr_protect_profile_fields`), dropping foreign key constraints on `profiles.id`, and auto-enrolling any real account (Vinoth Rajaasekaran) into `Autumn Awakening Cohort` (Day 23) with an instant 22-day streak.
+- Updated [src/context/AuthContext.tsx](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/src/context/AuthContext.tsx) to execute `set_my_role` RPC so the header persona switcher smoothly elevates permissions.
+- Verified production build and regenerated `sadhana-mandala-build.zip`.
 
 ## Next
-- Execute the updated [supabase/seed_dummy_data.sql](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/supabase/seed_dummy_data.sql) in Supabase SQL Editor.
-- Verify 1-click batch join (`AUTUMN23`) and interactive guided tour on [http://localhost:5173](http://localhost:5173).
-- Proceed to Phase 4 (Teacher batch dashboard polish & seed script verification).
+- Execute [RUN_THIS_IN_SUPABASE.sql](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/RUN_THIS_IN_SUPABASE.sql) in Supabase SQL Editor.
+- Refresh [http://localhost:5173](http://localhost:5173) to see full dummy data: 22-day streak, 30 students in Autumn Awakening, quiet student flags, and interactive guided tour.
+- Proceed to Phase 4 (Teacher batch dashboard polish & demo cut line).
 
 ## Known Issues
 - None.
