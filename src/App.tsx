@@ -13,7 +13,7 @@ import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { LogIn, Sparkles, AlertCircle, Loader2 } from 'lucide-react';
 
 function MainApp() {
-  const { user, activeRole, setActiveRole, hasConsent, isLoading, organisation } = useAuth();
+  const { user, activeRole, setActiveRole, hasConsent, isLoading, organisation, signInDemo } = useAuth();
   const [currentTab, setCurrentTab] = useState<'home' | 'lessons' | 'profile'>('home');
   const [authError, setAuthError] = useState<string | null>(null);
   const [isSigningIn, setIsSigningIn] = useState(false);
@@ -105,6 +105,21 @@ function MainApp() {
               >
                 <LogIn className="w-4 h-4" />
                 <span>{isSigningIn ? 'Connecting to Google...' : 'Continue with Google'}</span>
+              </button>
+
+              <div className="relative py-1 flex items-center justify-center">
+                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-stone-200 dark:border-stone-800" /></div>
+                <span className="relative bg-white dark:bg-stone-900 px-3 text-[11px] uppercase tracking-wider text-stone-400">or</span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => signInDemo('student')}
+                className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
+                title="1-Click Login for PM Demo and IDE Preview"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>1-Click Demo Login (Vinoth Rajaasekaran)</span>
               </button>
 
               {authError && (

@@ -22,6 +22,7 @@ interface AuthContextType {
   refreshProfile: () => Promise<void>;
   refreshEnrolment: () => Promise<void>;
   joinBatch: (code: string) => Promise<{ success: boolean; message?: string }>;
+  signInDemo: (role?: UserRole) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -195,10 +196,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (isCancelled) return;
 
         setSession(initialSession);
-        setUser(initialSession?.user ?? null);
 
         if (initialSession?.user) {
+          setUser(initialSession.user);
           await fetchProfileForUser(initialSession.user, loadedOrg);
+        } else {
+          // Check for saved demo session
+          const savedDemo = localStorage.getItem('sadhana_demo_session');
+          if (savedDemo) {
+            try {
+              const parsed = JSON.parse(savedDemo) as User;
+              setUser(parsed);
+              await fetchProfileForUser(parsed, loadedOrg);
+            } catch {
+              localStorage.removeItem('sadhana_demo_session');
+              setUser(null);
+            }
+          } else {
+            setUser(null);
+          }
         }
       } catch (err) {
         console.error('Error in auth initialization:', err);
@@ -216,11 +232,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setSession(newSession);
       const newUser = newSession?.user ?? null;
-      setUser(newUser);
 
       if (newUser) {
+        setUser(newUser);
         await fetchProfileForUser(newUser, orgRef.current);
-      } else {
+      } else if (!localStorage.getItem('sadhana_demo_session')) {
+        setUser(null);
         setProfile(null);
         setEnrolment(null);
       }
@@ -278,10 +295,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // 1-Click Demo login for testing, PM preview, and embedded IDE preview
+  const signInDemo = async (roleToUse: UserRole = 'admin') => {
+    setIsLoading(true);
+    try {
+      // Find real user profile first or use demo profile
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      const targetProfile = profiles?.find((p: Profile) => p.full_name?.toLowerCase().includes('vinoth')) || profiles?.[0];
+      
+      const demoId = targetProfile?.id || 'b0000000-0000-0000-0000-000000000003';
+      const demoUser = {
+        id: demoId,
+        app_metadata: {},
+        user_metadata: { full_name: targetProfile?.full_name || 'Vinoth Rajaasekaran' },
+        aud: 'authenticated',
+        created_at: new Date().toISOString(),
+        email: targetProfile?.email || 'vinoth@sadhana.zyxenai.com',
+      } as unknown as User;
+
+      localStorage.setItem('sadhana_demo_session', JSON.stringify(demoUser));
+      localStorage.setItem('sadhana_active_role', roleToUse);
+      localStorage.setItem(`sadhana_consent_${demoId}`, new Date().toISOString());
+
+      setUser(demoUser);
+      setActiveRoleState(roleToUse);
+      await fetchProfileForUser(demoUser, orgRef.current);
+    } catch (err) {
+      console.error('Demo sign-in failed:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const signOut = async () => {
     if (user) {
       localStorage.removeItem(`sadhana_consent_${user.id}`);
       localStorage.removeItem('sadhana_active_role');
+      localStorage.removeItem('sadhana_demo_session');
     }
     await supabase.auth.signOut();
     setSession(null);
@@ -317,6 +372,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         refreshProfile,
         refreshEnrolment,
         joinBatch,
+        signInDemo,
       }}
     >
       {children}

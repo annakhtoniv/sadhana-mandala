@@ -29,11 +29,12 @@
   - Written and verified 20 automated unit tests (100% passing) with Vitest.
   - Created bulletproof [RUN_THIS_IN_SUPABASE.sql](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/RUN_THIS_IN_SUPABASE.sql) combining all schema definitions, RLS policies, all 6 RPCs, dropping restrictive old triggers (`tr_protect_profile_fields`), dropping foreign key constraints on `profiles.id`, and auto-enrolling any real account (Vinoth Rajaasekaran) into `Autumn Awakening Cohort` (Day 23) with an instant 22-day streak.
 - Updated [src/context/AuthContext.tsx](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/src/context/AuthContext.tsx) to execute `set_my_role` RPC so the header persona switcher smoothly elevates permissions.
+- Added 1-Click Demo Login (`Vinoth Rajaasekaran`) in [src/App.tsx](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/src/App.tsx) and [src/context/AuthContext.tsx](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/src/context/AuthContext.tsx) to allow instant testing inside embedded IDE webviews and sidebar previews where Google OAuth restricts embedded iframes with 403 errors.
 - Verified production build and regenerated `sadhana-mandala-build.zip`.
 
 ## Next
 - Execute [RUN_THIS_IN_SUPABASE.sql](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/RUN_THIS_IN_SUPABASE.sql) in Supabase SQL Editor.
-- Refresh [http://localhost:5173](http://localhost:5173) to see full dummy data: 22-day streak, 30 students in Autumn Awakening, quiet student flags, and interactive guided tour.
+- Refresh [http://localhost:5173](http://localhost:5173) in your browser or click **1-Click Demo Login** in the sidebar preview.
 - Proceed to Phase 4 (Teacher batch dashboard polish & demo cut line).
 
 ## Known Issues
