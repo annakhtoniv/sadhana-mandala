@@ -1,45 +1,41 @@
 # Progress Tracker: Sadhana Mandala
 
 ## Done
-- Saved master brief as [SPEC.md](file:///c:/Users/annak/sadhana-mandala/SPEC.md).
-- Initialized [PROGRESS.md](file:///c:/Users/annak/sadhana-mandala/PROGRESS.md).
+- Saved master brief as [SPEC.md](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/SPEC.md).
+- Initialized [PROGRESS.md](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/PROGRESS.md).
 - Initialized Git repository on `main` branch connected to remote `https://github.com/annakhtoniv/sadhana-mandala.git`.
 - Configured `.gitignore` to prevent secret and artifact leaks (`.env.local`, `node_modules`, `dist`, `*.zip`).
-- Created [.env.example](file:///c:/Users/annak/sadhana-mandala/.env.example) and configured [.env.local](file:///c:/Users/annak/sadhana-mandala/.env.local) with live Supabase credentials (`https://pshapxojprvgmwhdivim.supabase.co`).
+- Created [.env.example](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/.env.example) and configured [.env.local](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/.env.local) with live Supabase credentials (`https://pshapxojprvgmwhdivim.supabase.co`).
 - Verified Phase 0 Google sign-in and sign-out live flow.
 - Added SPA routing rewrite configurations (`.htaccess` for Spaceship/Apache and `_redirects` for static hosts).
-- Configured automated GitHub Actions deployment pipeline ([.github/workflows/deploy.yml](file:///c:/Users/annak/sadhana-mandala/.github/workflows/deploy.yml)) to build and deploy straight to Spaceship on every `git push`.
-- Configured GitHub Repository Secrets for automated FTP deployment (`FTP_SERVER`, `FTP_USERNAME`, `FTP_PASSWORD`, and `FTP_SERVER_DIR`).
-- Completed Phase 1: White-label theming, mandatory consent modal storing `consent_at`, role routing, profile screen with account deletion, and resolved re-render loop.
+- Configured automated GitHub Actions deployment pipeline ([.github/workflows/deploy.yml](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/.github/workflows/deploy.yml)).
+- Completed Phase 1: White-label theming, mandatory consent modal storing `consent_at`, role routing, profile screen with account deletion.
 - Completed Phase 2:
-  - Drafted [supabase/schema_phase2.sql](file:///c:/Users/annak/sadhana-mandala/supabase/schema_phase2.sql) with tables `courses`, `batches`, `batch_invites`, `enrolments`, RLS policies, and RPC functions (`claim_pending_invites`, `join_batch_by_code`, `add_batch_invites`).
-  - Added timezone-aware date utilities in [src/lib/dateUtils.ts](file:///c:/Users/annak/sadhana-mandala/src/lib/dateUtils.ts) calculating batch day numbers from `start_date` in the organisation timezone.
-  - Built [src/lib/batchService.ts](file:///c:/Users/annak/sadhana-mandala/src/lib/batchService.ts) for courses, batches, invites, enrolments, and auto-mapping.
-  - Updated [src/context/AuthContext.tsx](file:///c:/Users/annak/sadhana-mandala/src/context/AuthContext.tsx) to automatically claim pending invites on sign-in and manage enrolment state.
-  - Enhanced [src/components/StudentHome.tsx](file:///c:/Users/annak/sadhana-mandala/src/components/StudentHome.tsx) with un-enrolled join code panel and active enrolled view (day number, question, and dynamic `duration_days` practice trail).
-  - Built [src/components/TeacherBatchDetail.tsx](file:///c:/Users/annak/sadhana-mandala/src/components/TeacherBatchDetail.tsx) with join code display, live QR code (`qrcode.react`), email pasting with auto-mapping, and student roster.
-  - Enhanced [src/components/TeacherHome.tsx](file:///c:/Users/annak/sadhana-mandala/src/components/TeacherHome.tsx) with "My Batches" dashboard and batch creation modal.
-  - Enhanced [src/components/AdminHome.tsx](file:///c:/Users/annak/sadhana-mandala/src/components/AdminHome.tsx) with Course Catalog management and All Batches overview.
-  - Fixed consent prompt repetition across page reloads by pairing database sync with local persistent storage.
-  - Completed Phase 2 & Seed Data Provisioning:
-  - Created [supabase/seed_dummy_data.sql](file:///c:/Users/annak/sadhana-mandala/supabase/seed_dummy_data.sql) seeding complete dummy data for everything:
-    - Organisation A ("Sadhana Mandala", dark stone + emerald theme, Dubai timezone, Powered by ZYXENAI)
-    - Organisation B ("Prana Flow Academy", slate + amber theme, Dubai timezone, show_powered_by false)
-    - Courses (40-Day Sadhana, 21-Day Mindfulness Starter, Prana Foundation 30)
-    - Teachers & Admins (Ananda Sharma, Priya Patel, Sadhana Admin, Marcus Vance, Prana Admin)
-    - Batches in Org A: Day 40 Finished ("Summer Solstice"), Day 23 Active ("Autumn Awakening"), Day 2 Fresh ("New Moon"), Day 1 ("October Sadhana")
-    - Batches in Org B: Day 10 Active ("Prana Sunrise")
-    - 30 clearly fictional students in Org A and 5 students in Org B with full profiles and consent
-    - Complete check-ins with streaks, rest days, and 5 demonstrable QUIET students (Days 19-23 silent)
-    - Real published meditation and daily wisdom lessons (General, Course, and Batch daily scope)
-  - Created [src/components/LessonsScreen.tsx](file:///c:/Users/annak/sadhana-mandala/src/components/LessonsScreen.tsx) and updated [src/types/database.ts](file:///c:/Users/annak/sadhana-mandala/src/types/database.ts) to display published lessons.
-  - Auto-enrolled logged-in user into the Day 23 cohort with full check-in streak so Student, Teacher, and Admin personas immediately display rich data.
-  - Created [HANDOVER.md](file:///c:/Users/annak/sadhana-mandala/HANDOVER.md) with complete office laptop transition and project handover instructions.
+  - Drafted [supabase/schema_phase2.sql](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/supabase/schema_phase2.sql) with tables `courses`, `batches`, `batch_invites`, `enrolments`, RLS policies, and RPC functions.
+  - Added timezone-aware date utilities in [src/lib/dateUtils.ts](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/src/lib/dateUtils.ts).
+  - Built [src/lib/batchService.ts](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/src/lib/batchService.ts).
+  - Built [src/components/TeacherBatchDetail.tsx](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/src/components/TeacherBatchDetail.tsx) with join code, live QR code, email invite auto-mapping.
+  - Built [src/components/TeacherHome.tsx](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/src/components/TeacherHome.tsx) and [src/components/AdminHome.tsx](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/src/components/AdminHome.tsx).
+- Completed Phase 3:
+  - Fixed [supabase/seed_dummy_data.sql](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/supabase/seed_dummy_data.sql) and [supabase/schema.sql](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/supabase/schema.sql) trigger `protect_profile_fields()` to bypass restrictions when running as migration / SQL editor scripts, eliminating the `Cannot change role directly` error.
+  - Implemented [src/lib/checkinService.ts](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/src/lib/checkinService.ts) with Supabase upsert ensuring tapping twice updates the row and never duplicates it (`onConflict: 'student_id,batch_id,day_number'`).
+  - Implemented exact mathematical streak logic (consecutive "done" days, rest days preserve streak, missed days break streak).
+  - Implemented 4-day quiet detection logic (`isStudentQuiet`).
+  - Enhanced [src/components/StudentHome.tsx](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/src/components/StudentHome.tsx):
+    - Wired *Done / Not yet / Rest day* directly into Supabase with live feedback and optimistic UI updates.
+    - Added past date selection: students can tap any past day in the trail to record or edit their answers.
+    - Future days are visible but locked/greyed out with distinct dashed styling and disabled interaction.
+  - Enhanced [src/components/TeacherBatchDetail.tsx](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/src/components/TeacherBatchDetail.tsx):
+    - Added today's check-in summary cards (Done, Rest, Not Yet, Quiet).
+    - Added student roster with live streak count, today's status, last answer day, and red `Quiet` flag.
+    - Added sortable roster (by Quiet first, Streak, Name, Status).
+  - Configured Vitest and wrote automated unit tests in [src/lib/dateUtils.test.ts](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/src/lib/dateUtils.test.ts) and [src/lib/checkinService.test.ts](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/src/lib/checkinService.test.ts) (20 tests passed, 100% green).
+  - Verified production build (`npm run build`) and generated fresh `sadhana-mandala-build.zip`.
 
 ## Next
-- Run [supabase/seed_dummy_data.sql](file:///c:/Users/annak/sadhana-mandala/supabase/seed_dummy_data.sql) in the Supabase SQL Editor.
-- Verify Student, Teacher, and Admin views with rich dummy data.
-- Await PM approval to start Phase 3 (Student check-in, streak and trail logic, with unit tests).
+- Have the Project Manager run the updated [supabase/seed_dummy_data.sql](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/supabase/seed_dummy_data.sql) in the Supabase SQL Editor.
+- Verify Phase 3 test cases (tapping twice, past day marking, future day lock, streak, quiet flag).
+- Await PM approval to proceed to Phase 4 (Teacher batch dashboard polish & demo cut line).
 
 ## Known Issues
 - None.
