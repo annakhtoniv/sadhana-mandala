@@ -38,7 +38,7 @@ const TOUR_STEPS: TourStep[] = [
     targetId: 'tour-role-switcher',
     title: '4. Persona Switcher (For Demo & PM)',
     description:
-      'Switch between Student, Teacher, and Admin views on the fly using this dropdown to inspect all screens without logging out.',
+      'Switch between Student, Teacher, and Admin views on the fly using this dropdown in the header to inspect all screens without logging out.',
     actionHint: 'Select Teacher to see the batch dashboard and student roster',
     actionKey: 'role',
   },
@@ -50,6 +50,7 @@ interface PositionCoords {
   width: number;
   placement: 'top' | 'bottom';
   arrowLeft: number;
+  isOrphan?: boolean;
 }
 
 interface GuidedTourProps {
@@ -104,42 +105,66 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ isOpen, onClose }) => {
     if (!target && activeStep.targetId === 'tour-checkin-buttons') {
       target = document.getElementById('tour-checkin-card');
     }
-    if (!target) return;
+
+    const tooltipWidth = Math.min(360, window.innerWidth - 32);
+    const estimatedHeight = cardRef.current?.offsetHeight || 230;
+    const gap = 16;
+
+    if (!target) {
+      // Safe fallback position near top-center if element is temporarily unmounted
+      setCoords({
+        top: 80,
+        left: Math.max(16, (window.innerWidth - tooltipWidth) / 2),
+        width: tooltipWidth,
+        placement: 'bottom',
+        arrowLeft: tooltipWidth / 2,
+        isOrphan: true,
+      });
+      return;
+    }
 
     const rect = target.getBoundingClientRect();
-    const tooltipWidth = Math.min(340, window.innerWidth - 32);
-    const gap = 14;
-
-    // Horizontal centering clamped to viewport
     const targetCenterX = rect.left + rect.width / 2;
+
+    // Horizontal positioning centered on target
     let left = targetCenterX - tooltipWidth / 2;
     left = Math.max(16, Math.min(window.innerWidth - tooltipWidth - 16, left));
 
-    // Arrow pointer offset inside tooltip (0 to tooltipWidth)
+    // Pointer arrow offset aligned to target center
     const arrowLeft = Math.max(24, Math.min(tooltipWidth - 24, targetCenterX - left));
 
-    // Vertical placement (determine whether above or below)
+    // Vertical placement logic
     const spaceBelow = window.innerHeight - rect.bottom;
     const spaceAbove = rect.top;
 
     let placement: 'top' | 'bottom' = 'bottom';
     let top = 0;
 
-    // If target is near top of screen (e.g. header dropdown), always place below
-    if (rect.top < 120) {
+    // Elements near top (e.g. Header dropdown at top <= 100px) always place below
+    if (rect.top <= 100) {
       placement = 'bottom';
       top = rect.bottom + gap;
-    } else if (spaceBelow >= 240) {
+    } else if (spaceBelow >= estimatedHeight + gap + 10) {
+      // Ample room below target
       placement = 'bottom';
       top = rect.bottom + gap;
-    } else if (spaceAbove >= 200) {
+    } else if (spaceAbove >= estimatedHeight + gap + 10) {
+      // More room above target
       placement = 'top';
-      // Will be translated up by 100% in CSS
-      top = rect.top - gap;
+      top = rect.top - estimatedHeight - gap;
     } else {
-      placement = 'bottom';
-      top = Math.max(60, rect.bottom + gap);
+      // Constrained viewport: pick whichever side has more room
+      if (spaceBelow >= spaceAbove) {
+        placement = 'bottom';
+        top = rect.bottom + gap;
+      } else {
+        placement = 'top';
+        top = rect.top - estimatedHeight - gap;
+      }
     }
+
+    // Viewport clamping guarantees the tooltip is NEVER pushed offscreen
+    top = Math.max(16, Math.min(window.innerHeight - estimatedHeight - 16, top));
 
     setCoords({
       top,
@@ -147,10 +172,11 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ isOpen, onClose }) => {
       width: tooltipWidth,
       placement,
       arrowLeft,
+      isOrphan: false,
     });
   }, [isOpen, isCompleted, activeStep]);
 
-  // Highlight active element and scroll into view
+  // Highlight active element and scroll into view smoothly
   useEffect(() => {
     if (!isOpen || isCompleted || !activeStep) return;
 
@@ -160,28 +186,35 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ isOpen, onClose }) => {
     }
 
     if (target) {
-      target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
       target.classList.add(
         'ring-4',
         'ring-emerald-500',
-        'ring-offset-2',
-        'ring-offset-white',
-        'dark:ring-offset-stone-900',
+        'ring-offset-4',
+        'ring-offset-stone-50',
+        'dark:ring-offset-stone-950',
+        'animate-pulse',
         'transition-all',
         'duration-300'
       );
     }
 
+    // Measure and position immediately, and again after transition
     updatePosition();
+    const timer = setTimeout(updatePosition, 100);
 
     return () => {
+      clearTimeout(timer);
       if (target) {
         target.classList.remove(
           'ring-4',
           'ring-emerald-500',
-          'ring-offset-2',
-          'ring-offset-white',
-          'dark:ring-offset-stone-900'
+          'ring-offset-4',
+          'ring-offset-stone-50',
+          'dark:ring-offset-stone-950',
+          'animate-pulse',
+          'transition-all',
+          'duration-300'
         );
       }
     };
@@ -222,6 +255,15 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ isOpen, onClose }) => {
       }
     };
 
+    const handleStreakAction = () => {
+      markActionMastered('streak', '🔥 Streak flame understood! You mastered Step 3.');
+      if (currentStepIndex === 2) {
+        setTimeout(() => {
+          setCurrentStepIndex(3);
+        }, 1200);
+      }
+    };
+
     const handleRoleAction = () => {
       markActionMastered('role', '👁️ Role switched! You mastered Step 4.');
       if (currentStepIndex === 3) {
@@ -233,11 +275,13 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ isOpen, onClose }) => {
 
     window.addEventListener('sadhana_action_checkin', handleCheckinAction);
     window.addEventListener('sadhana_action_trailday', handleTrailAction);
+    window.addEventListener('sadhana_action_streak', handleStreakAction);
     window.addEventListener('sadhana_action_roleswitch', handleRoleAction);
 
     return () => {
       window.removeEventListener('sadhana_action_checkin', handleCheckinAction);
       window.removeEventListener('sadhana_action_trailday', handleTrailAction);
+      window.removeEventListener('sadhana_action_streak', handleStreakAction);
       window.removeEventListener('sadhana_action_roleswitch', handleRoleAction);
     };
   }, [isOpen, currentStepIndex, isCompleted, markActionMastered]);
@@ -314,7 +358,7 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ isOpen, onClose }) => {
   return (
     <>
       {/* Non-modal subtle backdrop: clicks pass through so user can interact with highlighted buttons! */}
-      <div className="fixed inset-0 z-30 pointer-events-none bg-stone-950/20 transition-opacity duration-300" />
+      <div className="fixed inset-0 z-30 pointer-events-none bg-stone-950/10 transition-opacity duration-300" />
 
       {/* Pointing Tooltip Popover */}
       {coords && (
@@ -324,24 +368,25 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ isOpen, onClose }) => {
           aria-labelledby="tour-step-title"
           style={{
             position: 'fixed',
-            top: coords.placement === 'top' ? `${coords.top}px` : `${coords.top}px`,
+            top: `${coords.top}px`,
             left: `${coords.left}px`,
             width: `${coords.width}px`,
-            transform: coords.placement === 'top' ? 'translateY(-100%)' : 'none',
           }}
-          className="z-50 pointer-events-auto bg-white dark:bg-stone-900 rounded-2xl border-2 border-emerald-500/80 shadow-2xl p-4 space-y-3.5 transition-all duration-200 animate-in fade-in zoom-in-95"
+          className="z-50 pointer-events-auto bg-white dark:bg-stone-900 rounded-2xl border-2 border-emerald-500 shadow-2xl p-4 space-y-3.5 transition-all duration-200 animate-in fade-in zoom-in-95"
         >
           {/* Callout Arrow Pointer pointing straight at the target element */}
-          {coords.placement === 'bottom' ? (
-            <div
-              style={{ left: `${coords.arrowLeft}px` }}
-              className="absolute -top-2.5 -translate-x-1/2 w-4 h-4 bg-white dark:bg-stone-900 border-t-2 border-l-2 border-emerald-500/80 rotate-45"
-            />
-          ) : (
-            <div
-              style={{ left: `${coords.arrowLeft}px` }}
-              className="absolute -bottom-2.5 -translate-x-1/2 w-4 h-4 bg-white dark:bg-stone-900 border-b-2 border-r-2 border-emerald-500/80 rotate-45"
-            />
+          {!coords.isOrphan && (
+            coords.placement === 'bottom' ? (
+              <div
+                style={{ left: `${coords.arrowLeft}px` }}
+                className="absolute -top-2.5 -translate-x-1/2 w-4 h-4 bg-white dark:bg-stone-900 border-t-2 border-l-2 border-emerald-500 rotate-45 shadow-sm"
+              />
+            ) : (
+              <div
+                style={{ left: `${coords.arrowLeft}px` }}
+                className="absolute -bottom-2.5 -translate-x-1/2 w-4 h-4 bg-white dark:bg-stone-900 border-b-2 border-r-2 border-emerald-500 rotate-45 shadow-sm"
+              />
+            )
           )}
 
           {/* Top Bar: Step Counter, Fluency Gauge & Close */}
@@ -402,7 +447,7 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ isOpen, onClose }) => {
             </div>
           )}
 
-          {/* Controls: Skip / Back / Next */}
+          {/* Controls: Retire Guide / Back / Next */}
           <div className="flex items-center justify-between pt-1">
             <button
               type="button"

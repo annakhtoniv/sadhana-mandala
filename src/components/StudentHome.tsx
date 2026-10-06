@@ -453,7 +453,11 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
       </div>
 
       {/* Streak and Practice Trail (Rows of 7 for duration_days) */}
-      <div id="tour-streak-card" className="bg-white dark:bg-stone-900 p-5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-4">
+      <div
+        id="tour-streak-card"
+        onClick={() => window.dispatchEvent(new CustomEvent('sadhana_action_streak'))}
+        className="bg-white dark:bg-stone-900 p-5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-4 cursor-pointer"
+      >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-500 flex items-center justify-center border border-amber-200/60 dark:border-amber-900/60">

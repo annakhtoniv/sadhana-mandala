@@ -30,14 +30,23 @@
   - Created bulletproof [RUN_THIS_IN_SUPABASE.sql](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/RUN_THIS_IN_SUPABASE.sql) combining all schema definitions, RLS policies, all 6 RPCs, dropping restrictive old triggers (`tr_protect_profile_fields`), dropping foreign key constraints on `profiles.id`, and auto-enrolling any real account (Vinoth Rajaasekaran) into `Autumn Awakening Cohort` (Day 23) with an instant 22-day streak.
 - Updated [src/context/AuthContext.tsx](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/src/context/AuthContext.tsx) to execute `set_my_role` RPC so the header persona switcher smoothly elevates permissions.
 - Added 1-Click Demo Login (`Vinoth Rajaasekaran`) in [src/App.tsx](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/src/App.tsx) and [src/context/AuthContext.tsx](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/src/context/AuthContext.tsx) to allow instant testing inside embedded IDE webviews and sidebar previews where Google OAuth restricts embedded iframes with 403 errors.
-- Redesigned [src/components/GuidedTour.tsx](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/src/components/GuidedTour.tsx) with direct element-anchored callout pointers pointing straight at target UI elements (Check-in buttons, 40-day trail, streak flame counter, and persona switcher) with dynamic above/below positioning and directional arrows.
-- Implemented real-time User Navigation Fluency Gauge (0% to 100%) that tracks core competencies (`checkin`, `trail`, `streak`, `role`), advances automatically upon user actions, celebrates progress, and automatically retires the tooltips once the user demonstrates smooth navigation.
-- Updated [src/components/StudentHome.tsx](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/src/components/StudentHome.tsx) and [src/components/Header.tsx](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/src/components/Header.tsx) with action event dispatches.
-- Verified production build and regenerated `sadhana-mandala-build.zip`.
+- Implemented complete offline/empty-table dummy data fallbacks in [src/lib/mockData.ts](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/src/lib/mockData.ts), [src/lib/batchService.ts](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/src/lib/batchService.ts), [src/lib/checkinService.ts](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/src/lib/checkinService.ts), and [src/context/AuthContext.tsx](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/src/context/AuthContext.tsx):
+  - **Student**: Auto-enrolled in *Autumn Awakening Cohort* (calculated so today is Day 23 of 40), 22-day streak (with rest days on 7, 14, 21), interactive trail for past days (1–22), locked future days (24–40), and local check-in persistence across reloads.
+  - **Teacher**: 4 cohorts displayed, 30 fictional students in the roster with 5 quiet students flagged with warning badges, streak counts, and invite generator.
+  - **Admin**: 31 user profiles, 4 batches, and 2 courses loaded instantly.
+  - **Auto-Login**: First-time launch automatically initializes the demo session for Vinoth Rajaasekaran so the app is immediately populated without requiring manual codes or login clicks.
+- Overhauled [src/components/GuidedTour.tsx](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/src/components/GuidedTour.tsx):
+  - Replaced translateY CSS transforms with exact mathematical coordinate calculations and strict viewport clamping, guaranteeing tooltips never clip off-screen.
+  - Tethered directional callout arrows (`rotate-45`) pointing directly at the center of target elements (Practice check-in buttons, 40-day trail, streak flame counter, persona switcher).
+  - Target elements highlight with an animated emerald pulse ring (`ring-4 ring-emerald-500 animate-pulse`).
+  - Navigation Fluency Gauge tracks real-time interactions (`checkin`, `trail`, `streak`, `role`), automatically advancing steps upon natural user actions and celebrating progress.
+  - Once 100% fluency is achieved, displays a graduation dialog and automatically retires the guide to localStorage (`sadhana_navigation_mastered = 'true'`).
+  - Re-summonable at any time via the `?` icon in the Header.
+- Verified 20/20 Vitest unit tests passing and verified production build with Vite.
 
 ## Next
-- Execute [RUN_THIS_IN_SUPABASE.sql](file:///c:/Users/ven-vinothr/Downloads/Sadhana%20Mandala/RUN_THIS_IN_SUPABASE.sql) in Supabase SQL Editor.
-- Refresh [http://localhost:5173](http://localhost:5173) in your browser or click **1-Click Demo Login** in the sidebar preview.
+- Launch the application at [http://localhost:5173](http://localhost:5173) to review the populated screens and interactive pointing tooltips.
+- Switch between Student, Teacher, and Admin personas in the header to inspect all dashboards.
 - Proceed to Phase 4 (Teacher batch dashboard polish & demo cut line).
 
 ## Known Issues

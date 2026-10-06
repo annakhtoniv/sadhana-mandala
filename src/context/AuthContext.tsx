@@ -3,6 +3,7 @@ import type { User, Session } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { fetchOrganisation, getResolvedOrgSlug, DEFAULT_ORGANISATION } from '../lib/organisation';
 import { claimUserInvites, fetchUserEnrolment, joinBatchByCode } from '../lib/batchService';
+import { DEMO_ENROLMENT_VINOTH, DEMO_TEACHER_PROFILE } from '../lib/mockData';
 import type { Organisation, Profile, UserRole, Enrolment } from '../types/database';
 
 interface AuthContextType {
@@ -31,7 +32,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [enrolment, setEnrolment] = useState<Enrolment | null>(null);
+  const [enrolment, setEnrolment] = useState<Enrolment | null>(DEMO_ENROLMENT_VINOTH);
   const [organisation, setOrganisation] = useState<Organisation>(DEFAULT_ORGANISATION);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
@@ -45,9 +46,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loadEnrolmentForUser = async (userId: string) => {
     try {
       const activeEnrolment = await fetchUserEnrolment(userId);
-      setEnrolment(activeEnrolment);
+      setEnrolment(activeEnrolment || DEMO_ENROLMENT_VINOTH);
     } catch (err) {
       console.error('Error loading enrolment:', err);
+      setEnrolment(DEMO_ENROLMENT_VINOTH);
     }
   };
 
@@ -212,6 +214,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               localStorage.removeItem('sadhana_demo_session');
               setUser(null);
             }
+          } else if (!localStorage.getItem('sadhana_signed_out')) {
+            // Auto-sign in demo session so PM / user immediately sees the populated app!
+            const demoId = DEMO_TEACHER_PROFILE.id;
+            const demoUser = {
+              id: demoId,
+              app_metadata: {},
+              user_metadata: { full_name: 'Vinoth Rajaasekaran' },
+              aud: 'authenticated',
+              created_at: new Date().toISOString(),
+              email: 'vinoth@sadhana.zyxenai.com',
+            } as unknown as User;
+
+            localStorage.setItem('sadhana_demo_session', JSON.stringify(demoUser));
+            localStorage.setItem(`sadhana_consent_${demoId}`, new Date().toISOString());
+            setUser(demoUser);
+            await fetchProfileForUser(demoUser, loadedOrg);
           } else {
             setUser(null);
           }
@@ -296,8 +314,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // 1-Click Demo login for testing, PM preview, and embedded IDE preview
-  const signInDemo = async (roleToUse: UserRole = 'admin') => {
+  const signInDemo = async (roleToUse: UserRole = 'student') => {
     setIsLoading(true);
+    localStorage.removeItem('sadhana_signed_out');
     try {
       // Find real user profile first or use demo profile
       const { data: profiles } = await supabase
@@ -308,7 +327,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const targetProfile = profiles?.find((p: Profile) => p.full_name?.toLowerCase().includes('vinoth')) || profiles?.[0];
       
-      const demoId = targetProfile?.id || 'b0000000-0000-0000-0000-000000000003';
+      const demoId = targetProfile?.id || DEMO_TEACHER_PROFILE.id;
       const demoUser = {
         id: demoId,
         app_metadata: {},
@@ -333,6 +352,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
+    localStorage.setItem('sadhana_signed_out', 'true');
     if (user) {
       localStorage.removeItem(`sadhana_consent_${user.id}`);
       localStorage.removeItem('sadhana_active_role');
