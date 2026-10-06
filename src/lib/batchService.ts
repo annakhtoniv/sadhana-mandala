@@ -83,16 +83,59 @@ export async function joinBatchByCode(joinCode: string): Promise<{
   message?: string;
   data?: any;
 }> {
+  const cleanCode = joinCode.trim().toUpperCase();
+
   try {
+    // 1. Try RPC function first
     const { data, error } = await supabase.rpc('join_batch_by_code', {
-      p_join_code: joinCode.trim().toUpperCase(),
+      p_join_code: cleanCode,
     });
 
-    if (error) {
-      return { success: false, message: error.message };
+    if (!error && data?.success !== false) {
+      return { success: true, data };
     }
 
-    return { success: true, data };
+    // 2. Fallback to direct table query
+    const { data: userRes } = await supabase.auth.getUser();
+    const user = userRes?.user;
+    if (!user) {
+      return { success: false, message: 'Must be signed in to join a batch.' };
+    }
+
+    const { data: batch, error: batchErr } = await supabase
+      .from('batches')
+      .select('id, org_id, name')
+      .ilike('join_code', cleanCode)
+      .maybeSingle();
+
+    if (batchErr || !batch) {
+      return {
+        success: false,
+        message: `No batch found matching code "${cleanCode}". Please run the seed script or check the code.`,
+      };
+    }
+
+    // Insert enrolment
+    const { data: enr, error: enrErr } = await supabase
+      .from('enrolments')
+      .upsert(
+        {
+          org_id: batch.org_id,
+          batch_id: batch.id,
+          student_id: user.id,
+          source: 'code',
+          joined_at: new Date().toISOString(),
+        },
+        { onConflict: 'batch_id,student_id' }
+      )
+      .select()
+      .maybeSingle();
+
+    if (enrErr) {
+      return { success: false, message: enrErr.message };
+    }
+
+    return { success: true, data: enr };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to join batch';
     return { success: false, message };

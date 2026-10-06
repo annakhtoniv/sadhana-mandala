@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Sparkles, User } from 'lucide-react';
+import { Sparkles, User, HelpCircle } from 'lucide-react';
 import type { UserRole } from '../types/database';
 
 interface HeaderProps {
@@ -8,6 +8,7 @@ interface HeaderProps {
   onNavigate: (tab: string) => void;
   activeRoleView?: UserRole;
   onRoleSwitch?: (role: UserRole) => void;
+  onOpenTour?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -15,6 +16,7 @@ export const Header: React.FC<HeaderProps> = ({
   onNavigate,
   activeRoleView,
   onRoleSwitch,
+  onOpenTour,
 }) => {
   const { organisation, user, activeRole } = useAuth();
   const currentRole = activeRoleView || activeRole;
@@ -47,21 +49,34 @@ export const Header: React.FC<HeaderProps> = ({
           </span>
         </button>
 
-        {/* User Role Switcher & Profile button */}
+        {/* User Role Switcher, Guide Tour & Profile button */}
         {user && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {/* Always available Role Switcher for instant testing */}
             {onRoleSwitch && (
               <select
+                id="tour-role-switcher"
                 aria-label="Active Role View"
                 value={currentRole}
                 onChange={(e) => onRoleSwitch(e.target.value as UserRole)}
-                className="text-xs px-2.5 py-1 rounded-full border border-stone-300 dark:border-stone-700 bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 font-semibold cursor-pointer shadow-sm focus:outline-none"
+                className="text-xs px-2.5 py-1 rounded-full border border-stone-300 dark:border-stone-700 bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 font-semibold cursor-pointer shadow-sm focus:outline-none transition-all"
               >
                 <option value="student">Role: Student</option>
                 <option value="teacher">Role: Teacher</option>
                 <option value="admin">Role: Admin</option>
               </select>
+            )}
+
+            {/* Interactive Tour Guide Button */}
+            {onOpenTour && (
+              <button
+                type="button"
+                onClick={onOpenTour}
+                className="p-2 rounded-xl text-stone-500 dark:text-stone-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors cursor-pointer"
+                title="Guided Tour & Tooltips (Where to click & why)"
+              >
+                <HelpCircle className="w-4 h-4" />
+              </button>
             )}
 
             <button

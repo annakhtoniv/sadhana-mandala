@@ -229,6 +229,61 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
             )}
           </form>
 
+          {/* Quick Demo Batch 1-Click Join Section */}
+          <div className="pt-3 border-t border-stone-100 dark:border-stone-800 space-y-2.5">
+            <div className="text-[11px] font-semibold text-stone-500 uppercase tracking-wider flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+              <span>1-Click Demo Cohort Join</span>
+            </div>
+
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setJoinCode('AUTUMN23');
+                  joinBatch('AUTUMN23');
+                }}
+                disabled={joining}
+                className="w-full p-3 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/40 hover:bg-emerald-100/80 dark:hover:bg-emerald-900/60 border border-emerald-200/80 dark:border-emerald-800 text-left transition-all cursor-pointer flex items-center justify-between group"
+              >
+                <div>
+                  <div className="text-xs font-bold text-emerald-900 dark:text-emerald-100">
+                    Autumn Awakening Cohort (Active at Day 23)
+                  </div>
+                  <div className="text-[10px] text-emerald-700 dark:text-emerald-400">
+                    40-day course &bull; 30 students &bull; Rich check-in trail
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 font-mono text-xs font-bold text-emerald-800 dark:text-emerald-300 bg-white dark:bg-stone-900 px-2.5 py-1 rounded-lg border border-emerald-300 dark:border-emerald-700 shadow-sm">
+                  <span>AUTUMN23</span>
+                  <ArrowRight className="w-3 h-3 text-emerald-600" />
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setJoinCode('SADH40');
+                  joinBatch('SADH40');
+                }}
+                disabled={joining}
+                className="w-full p-2.5 rounded-xl bg-stone-50 dark:bg-stone-800/80 hover:bg-stone-100 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-700 text-left transition-all cursor-pointer flex items-center justify-between"
+              >
+                <div>
+                  <div className="text-xs font-medium text-stone-800 dark:text-stone-200">
+                    October Sadhana Cohort (Fresh Day 1)
+                  </div>
+                  <div className="text-[10px] text-stone-400">
+                    Starts today at Day 1
+                  </div>
+                </div>
+                <span className="font-mono text-xs font-bold text-stone-600 dark:text-stone-400 bg-white dark:bg-stone-900 px-2 py-0.5 rounded border border-stone-200 dark:border-stone-700">
+                  SADH40
+                </span>
+              </button>
+            </div>
+          </div>
+
           {onNavigateLessons && (
             <div className="pt-2 border-t border-stone-100 dark:border-stone-800">
               <button
@@ -270,7 +325,7 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
       </div>
 
       {/* Check-in Question Card */}
-      <div className="bg-white dark:bg-stone-900 p-6 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-5">
+      <div id="tour-checkin-card" className="bg-white dark:bg-stone-900 p-6 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-5">
         <div className="space-y-1.5 text-center">
           <div className="flex items-center justify-center gap-2">
             <span className="inline-flex items-center gap-1 text-xs font-semibold tracking-wider uppercase px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
@@ -396,7 +451,7 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
       </div>
 
       {/* Streak and Practice Trail (Rows of 7 for duration_days) */}
-      <div className="bg-white dark:bg-stone-900 p-5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-4">
+      <div id="tour-streak-card" className="bg-white dark:bg-stone-900 p-5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-500 flex items-center justify-center border border-amber-200/60 dark:border-amber-900/60">
@@ -421,7 +476,7 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
         </div>
 
         {/* Trail in rows of seven using duration_days (per SPEC) */}
-        <div className="space-y-2.5 pt-1">
+        <div id="tour-practice-trail" className="space-y-2.5 pt-1">
           <div className="flex items-center justify-between text-[11px] text-stone-500 dark:text-stone-400">
             <span>{durationDays}-Day Practice Trail (rows of 7):</span>
             <span className="text-[10px] text-stone-400">Tap past days to edit</span>

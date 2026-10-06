@@ -8,6 +8,7 @@ import { TeacherHome } from './components/TeacherHome';
 import { AdminHome } from './components/AdminHome';
 import { ProfileScreen } from './components/ProfileScreen';
 import { LessonsScreen } from './components/LessonsScreen';
+import { GuidedTour } from './components/GuidedTour';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { LogIn, Sparkles, AlertCircle, Loader2 } from 'lucide-react';
 
@@ -16,6 +17,9 @@ function MainApp() {
   const [currentTab, setCurrentTab] = useState<'home' | 'lessons' | 'profile'>('home');
   const [authError, setAuthError] = useState<string | null>(null);
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [showTour, setShowTour] = useState(() => {
+    return localStorage.getItem('sadhana_tour_completed') !== 'true';
+  });
 
   const handleGoogleSignIn = async () => {
     if (!isSupabaseConfigured) {
@@ -134,6 +138,16 @@ function MainApp() {
         onNavigate={(tab) => setCurrentTab(tab as 'home' | 'lessons' | 'profile')}
         activeRoleView={activeRole}
         onRoleSwitch={(newRole) => setActiveRole(newRole)}
+        onOpenTour={() => setShowTour(true)}
+      />
+
+      {/* Interactive Guided Tour / Tooltips for First-Time Users */}
+      <GuidedTour
+        isOpen={showTour}
+        onClose={() => {
+          setShowTour(false);
+          localStorage.setItem('sadhana_tour_completed', 'true');
+        }}
       />
 
       {/* Main Container */}
