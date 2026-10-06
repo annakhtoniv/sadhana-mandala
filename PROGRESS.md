@@ -34,6 +34,7 @@
     - Real published meditation and daily wisdom lessons (General, Course, and Batch daily scope)
   - Created [src/components/LessonsScreen.tsx](file:///c:/Users/annak/sadhana-mandala/src/components/LessonsScreen.tsx) and updated [src/types/database.ts](file:///c:/Users/annak/sadhana-mandala/src/types/database.ts) to display published lessons.
   - Auto-enrolled logged-in user into the Day 23 cohort with full check-in streak so Student, Teacher, and Admin personas immediately display rich data.
+  - Created [HANDOVER.md](file:///c:/Users/annak/sadhana-mandala/HANDOVER.md) with complete office laptop transition and project handover instructions.
 
 ## Next
 - Run [supabase/seed_dummy_data.sql](file:///c:/Users/annak/sadhana-mandala/supabase/seed_dummy_data.sql) in the Supabase SQL Editor.
