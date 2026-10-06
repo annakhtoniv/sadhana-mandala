@@ -161,6 +161,8 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
           ? `Recorded for today (Day ${selectedDay}): ${status.replace('_', ' ')}`
           : `Updated Day ${selectedDay} (past date): ${status.replace('_', ' ')}`
       );
+      // Notify guided tour fluency engine
+      window.dispatchEvent(new CustomEvent('sadhana_action_checkin', { detail: { day: selectedDay, status } }));
     } else {
       setSaveFeedback(`Failed to save: ${res.error || 'Please try again'}`);
     }
@@ -375,7 +377,7 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
         ) : (
           /* Active / Past Check-in Buttons */
           <div className="space-y-3">
-            <div className="grid grid-cols-3 gap-2.5">
+            <div id="tour-checkin-buttons" className="grid grid-cols-3 gap-2.5">
               <button
                 type="button"
                 onClick={() => handleCheckin('done')}
@@ -531,7 +533,10 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
                   key={dayNum}
                   type="button"
                   disabled={isFuture}
-                  onClick={() => setSelectedDay(dayNum)}
+                  onClick={() => {
+                    setSelectedDay(dayNum);
+                    window.dispatchEvent(new CustomEvent('sadhana_action_trailday', { detail: { dayNum } }));
+                  }}
                   className={`aspect-square rounded-xl flex flex-col items-center justify-center text-[10px] border transition-all cursor-pointer relative ${bgClass} ${textClass} ${borderClass} ${
                     isSelected ? 'ring-2 ring-stone-900 dark:ring-stone-100 ring-offset-2 dark:ring-offset-stone-950 scale-105 z-10' : ''
                   } ${isFuture ? 'cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}

@@ -18,7 +18,10 @@ function MainApp() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [showTour, setShowTour] = useState(() => {
-    return localStorage.getItem('sadhana_tour_completed') !== 'true';
+    return (
+      localStorage.getItem('sadhana_tour_completed') !== 'true' &&
+      localStorage.getItem('sadhana_navigation_mastered') !== 'true'
+    );
   });
 
   const handleGoogleSignIn = async () => {

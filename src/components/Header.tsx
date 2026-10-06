@@ -58,7 +58,11 @@ export const Header: React.FC<HeaderProps> = ({
                 id="tour-role-switcher"
                 aria-label="Active Role View"
                 value={currentRole}
-                onChange={(e) => onRoleSwitch(e.target.value as UserRole)}
+                onChange={(e) => {
+                  const newRole = e.target.value as UserRole;
+                  onRoleSwitch(newRole);
+                  window.dispatchEvent(new CustomEvent('sadhana_action_roleswitch', { detail: { role: newRole } }));
+                }}
                 className="text-xs px-2.5 py-1 rounded-full border border-stone-300 dark:border-stone-700 bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 font-semibold cursor-pointer shadow-sm focus:outline-none transition-all"
               >
                 <option value="student">Role: Student</option>
