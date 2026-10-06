@@ -9,6 +9,7 @@ create extension if not exists "pgcrypto";
 
 -- 2. DISABLE ANY RESTRICTIVE OLD TRIGGERS (Prevents "Cannot change role directly" errors)
 drop trigger if exists tr_protect_profile_fields on public.profiles;
+drop function if exists public.protect_profile_fields();
 
 -- 3. TABLES (Idempotent creation)
 create table if not exists public.organisations (
@@ -47,11 +48,13 @@ begin
   for r in (
     select tc.constraint_name
     from information_schema.table_constraints tc
-    join information_schema.constraint_column_usage ccu on tc.constraint_name = ccu.constraint_name
+    join information_schema.key_column_usage kcu 
+      on tc.constraint_name = kcu.constraint_name 
+     and tc.table_schema = kcu.table_schema
     where tc.table_schema = 'public'
       and tc.table_name = 'profiles'
       and tc.constraint_type = 'FOREIGN KEY'
-      and ccu.column_name = 'id'
+      and kcu.column_name = 'id'
   ) loop
     execute 'alter table public.profiles drop constraint if exists ' || quote_ident(r.constraint_name);
   end loop;
@@ -136,7 +139,16 @@ create table if not exists public.lessons (
   updated_at timestamptz not null default now()
 );
 
--- 4. HELPER FUNCTIONS & RPCS
+-- 4. HELPER FUNCTIONS & RPCS (Explicitly drop first so return types can change cleanly)
+drop function if exists public.join_batch_by_code(text);
+drop function if exists public.claim_pending_invites();
+drop function if exists public.add_batch_invites(uuid, text[]);
+drop function if exists public.set_my_role(text);
+drop function if exists public.give_user_consent();
+drop function if exists public.delete_user_account();
+drop trigger if exists on_auth_user_created on auth.users;
+drop function if exists public.handle_new_user();
+
 create or replace function public.get_current_user_org_id()
 returns uuid
 language sql
@@ -205,9 +217,9 @@ begin
 end;
 $$;
 
--- Join batch by code RPC
+-- Join batch by code RPC (Compatible with both json and jsonb)
 create or replace function public.join_batch_by_code(p_join_code text)
-returns jsonb
+returns json
 language plpgsql
 security definer
 set search_path = public
@@ -218,7 +230,7 @@ declare
   v_enrolment_id uuid;
 begin
   if v_user_id is null then
-    return jsonb_build_object('success', false, 'message', 'Must be authenticated');
+    return json_build_object('success', false, 'message', 'Must be authenticated');
   end if;
 
   select b.id, b.org_id, b.name
@@ -228,7 +240,7 @@ begin
   limit 1;
 
   if v_batch.id is null then
-    return jsonb_build_object('success', false, 'message', 'Invalid join code. Please check with your teacher.');
+    return json_build_object('success', false, 'message', 'Invalid join code. Please check with your teacher.');
   end if;
 
   insert into public.enrolments (org_id, batch_id, student_id, source)
@@ -236,7 +248,7 @@ begin
   on conflict (batch_id, student_id) do update set joined_at = now()
   returning id into v_enrolment_id;
 
-  return jsonb_build_object('success', true, 'batch_name', v_batch.name, 'enrolment_id', v_enrolment_id);
+  return json_build_object('success', true, 'batch_name', v_batch.name, 'enrolment_id', v_enrolment_id);
 end;
 $$;
 
@@ -400,7 +412,6 @@ begin
 end;
 $$;
 
-drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
@@ -521,6 +532,10 @@ begin
     show_powered_by = true
   returning id into v_org_a_id;
 
+  if v_org_a_id is null then
+    select id into v_org_a_id from public.organisations where slug = 'sadhana-mandala' limit 1;
+  end if;
+
   insert into public.organisations (
     name, slug, app_name, primary_colour, accent_colour,
     support_email, checkin_question, footer_text, timezone, show_powered_by
@@ -538,26 +553,30 @@ begin
     show_powered_by = false
   returning id into v_org_b_id;
 
+  if v_org_b_id is null then
+    select id into v_org_b_id from public.organisations where slug = 'prana-flow' limit 1;
+  end if;
+
   -- 6.2 TEACHERS & ADMINS PROFILES (Demo accounts)
   insert into public.profiles (id, org_id, email, full_name, role, consent_at)
   values (v_teacher_a1_id, v_org_a_id, 'teacher.ananda@example.com', 'Ananda Sharma', 'teacher', now() - interval '60 days')
-  on conflict (id) do update set role = 'teacher', full_name = 'Ananda Sharma';
+  on conflict (id) do update set role = 'teacher', full_name = 'Ananda Sharma', org_id = v_org_a_id;
 
   insert into public.profiles (id, org_id, email, full_name, role, consent_at)
   values (v_teacher_a2_id, v_org_a_id, 'teacher.priya@example.com', 'Priya Patel', 'teacher', now() - interval '60 days')
-  on conflict (id) do update set role = 'teacher', full_name = 'Priya Patel';
+  on conflict (id) do update set role = 'teacher', full_name = 'Priya Patel', org_id = v_org_a_id;
 
   insert into public.profiles (id, org_id, email, full_name, role, consent_at)
   values (v_admin_a_id, v_org_a_id, 'admin@sadhana.zyxenai.com', 'Sadhana Admin', 'admin', now() - interval '60 days')
-  on conflict (id) do update set role = 'admin', full_name = 'Sadhana Admin';
+  on conflict (id) do update set role = 'admin', full_name = 'Sadhana Admin', org_id = v_org_a_id;
 
   insert into public.profiles (id, org_id, email, full_name, role, consent_at)
   values (v_teacher_b_id, v_org_b_id, 'marcus@pranaflow.example.com', 'Marcus Vance', 'teacher', now() - interval '30 days')
-  on conflict (id) do update set role = 'teacher', full_name = 'Marcus Vance';
+  on conflict (id) do update set role = 'teacher', full_name = 'Marcus Vance', org_id = v_org_b_id;
 
   insert into public.profiles (id, org_id, email, full_name, role, consent_at)
   values (v_admin_b_id, v_org_b_id, 'admin@pranaflow.example.com', 'Prana Admin', 'admin', now() - interval '30 days')
-  on conflict (id) do update set role = 'admin', full_name = 'Prana Admin';
+  on conflict (id) do update set role = 'admin', full_name = 'Prana Admin', org_id = v_org_b_id;
 
   -- 6.3 COURSES
   insert into public.courses (org_id, name, description, duration_days)
@@ -592,7 +611,11 @@ begin
 
   select id into v_course_b1_id from public.courses where org_id = v_org_b_id limit 1;
 
-  -- 6.4 BATCHES
+  -- 6.4 BATCHES (Safely clean up any duplicate join code before inserting)
+  delete from public.batches 
+  where join_code in ('AUTUMN23', 'SUMMER40', 'MOON2', 'SADH40', 'PRANA10') 
+    and id not in (v_batch_day23_id, v_batch_day40_id, v_batch_day2_id, v_batch_day1_id, v_batch_b_id);
+
   -- Batch 1: Autumn Awakening (Active Day 23)
   insert into public.batches (id, org_id, course_id, teacher_id, name, start_date, join_code)
   values (
@@ -605,6 +628,7 @@ begin
     'AUTUMN23'
   )
   on conflict (id) do update set
+    course_id = v_course_a1_id,
     start_date = current_date - 22,
     join_code = 'AUTUMN23';
 
@@ -620,6 +644,7 @@ begin
     'SUMMER40'
   )
   on conflict (id) do update set
+    course_id = v_course_a1_id,
     start_date = current_date - 40,
     join_code = 'SUMMER40';
 
@@ -635,6 +660,7 @@ begin
     'MOON2'
   )
   on conflict (id) do update set
+    course_id = v_course_a1_id,
     start_date = current_date - 1,
     join_code = 'MOON2';
 
@@ -650,6 +676,7 @@ begin
     'SADH40'
   )
   on conflict (id) do update set
+    course_id = v_course_a1_id,
     start_date = current_date,
     join_code = 'SADH40';
 
@@ -665,6 +692,7 @@ begin
     'PRANA10'
   )
   on conflict (id) do update set
+    course_id = v_course_b1_id,
     start_date = current_date - 9,
     join_code = 'PRANA10';
 
