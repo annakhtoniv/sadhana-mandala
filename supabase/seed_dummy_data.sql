@@ -14,6 +14,29 @@
 create extension if not exists "pgcrypto";
 alter table public.profiles drop constraint if exists profiles_id_fkey;
 
+-- Temporarily drop the profile field protection trigger so the seed script can assign admin/org
+drop trigger if exists tr_protect_profile_fields on public.profiles;
+
+-- Update protect_profile_fields to only restrict client sessions (where auth.uid() is not null)
+create or replace function public.protect_profile_fields()
+returns trigger
+language plpgsql
+security definer
+as $$
+begin
+  if auth.uid() is not null then
+    if new.role <> old.role and coalesce((select public.get_current_user_role()), '') <> 'admin' then
+      raise exception 'Cannot change role directly';
+    end if;
+    if new.org_id <> old.org_id and coalesce((select public.get_current_user_role()), '') <> 'admin' then
+      raise exception 'Cannot change organisation';
+    end if;
+  end if;
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
 -- 2. Ensure tables checkins and lessons exist (per SPEC.md data model)
 create table if not exists public.checkins (
   id uuid primary key default gen_random_uuid(),
@@ -774,3 +797,10 @@ In ancient contemplative traditions and modern neuroscience alike, 40 consecutiv
 
 end;
 $$;
+
+-- 4. Re-enable the profile protection trigger after seeding completes
+drop trigger if exists tr_protect_profile_fields on public.profiles;
+create trigger tr_protect_profile_fields
+before update on public.profiles
+for each row execute function public.protect_profile_fields();
+

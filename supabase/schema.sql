@@ -74,13 +74,16 @@ $$;
 create or replace function public.protect_profile_fields()
 returns trigger
 language plpgsql
+security definer
 as $$
 begin
-  if new.role <> old.role and coalesce((select public.get_current_user_role()), '') <> 'admin' then
-    raise exception 'Cannot change role directly';
-  end if;
-  if new.org_id <> old.org_id then
-    raise exception 'Cannot change organisation';
+  if auth.uid() is not null then
+    if new.role <> old.role and coalesce((select public.get_current_user_role()), '') <> 'admin' then
+      raise exception 'Cannot change role directly';
+    end if;
+    if new.org_id <> old.org_id and coalesce((select public.get_current_user_role()), '') <> 'admin' then
+      raise exception 'Cannot change organisation';
+    end if;
   end if;
   new.updated_at = now();
   return new;

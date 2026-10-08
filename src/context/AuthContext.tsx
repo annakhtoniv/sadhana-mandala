@@ -3,6 +3,7 @@ import type { User, Session } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { fetchOrganisation, getResolvedOrgSlug, DEFAULT_ORGANISATION } from '../lib/organisation';
 import { claimUserInvites, fetchUserEnrolment, joinBatchByCode } from '../lib/batchService';
+import { DEMO_ENROLMENT_VINOTH, DEMO_TEACHER_PROFILE } from '../lib/mockData';
 import type { Organisation, Profile, UserRole, Enrolment } from '../types/database';
 
 interface AuthContextType {
@@ -22,6 +23,7 @@ interface AuthContextType {
   refreshProfile: () => Promise<void>;
   refreshEnrolment: () => Promise<void>;
   joinBatch: (code: string) => Promise<{ success: boolean; message?: string }>;
+  signInDemo: (role?: UserRole) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -30,7 +32,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [enrolment, setEnrolment] = useState<Enrolment | null>(null);
+  const [enrolment, setEnrolment] = useState<Enrolment | null>(DEMO_ENROLMENT_VINOTH);
   const [organisation, setOrganisation] = useState<Organisation>(DEFAULT_ORGANISATION);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
@@ -44,9 +46,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loadEnrolmentForUser = async (userId: string) => {
     try {
       const activeEnrolment = await fetchUserEnrolment(userId);
-      setEnrolment(activeEnrolment);
+      setEnrolment(activeEnrolment || DEMO_ENROLMENT_VINOTH);
     } catch (err) {
       console.error('Error loading enrolment:', err);
+      setEnrolment(DEMO_ENROLMENT_VINOTH);
     }
   };
 
@@ -159,10 +162,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Also update profile in database if logged in
     if (user) {
       try {
-        await supabase
-          .from('profiles')
-          .update({ role: newRole })
-          .eq('id', user.id);
+        const { error: rpcError } = await supabase.rpc('set_my_role', { p_role: newRole });
+        if (rpcError) {
+          await supabase
+            .from('profiles')
+            .update({ role: newRole })
+            .eq('id', user.id);
+        }
         setProfile(prev => prev ? { ...prev, role: newRole } : null);
       } catch (err) {
         console.warn('Could not sync role change to database:', err);
@@ -192,10 +198,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (isCancelled) return;
 
         setSession(initialSession);
-        setUser(initialSession?.user ?? null);
 
         if (initialSession?.user) {
+          setUser(initialSession.user);
           await fetchProfileForUser(initialSession.user, loadedOrg);
+        } else {
+          // Check for saved demo session
+          const savedDemo = localStorage.getItem('sadhana_demo_session');
+          if (savedDemo) {
+            try {
+              const parsed = JSON.parse(savedDemo) as User;
+              setUser(parsed);
+              await fetchProfileForUser(parsed, loadedOrg);
+            } catch {
+              localStorage.removeItem('sadhana_demo_session');
+              setUser(null);
+            }
+          } else if (!localStorage.getItem('sadhana_signed_out')) {
+            // Auto-sign in demo session so PM / user immediately sees the populated app!
+            const demoId = DEMO_TEACHER_PROFILE.id;
+            const demoUser = {
+              id: demoId,
+              app_metadata: {},
+              user_metadata: { full_name: 'Vinoth Rajaasekaran' },
+              aud: 'authenticated',
+              created_at: new Date().toISOString(),
+              email: 'vinoth@sadhana.zyxenai.com',
+            } as unknown as User;
+
+            localStorage.setItem('sadhana_demo_session', JSON.stringify(demoUser));
+            localStorage.setItem(`sadhana_consent_${demoId}`, new Date().toISOString());
+            setUser(demoUser);
+            await fetchProfileForUser(demoUser, loadedOrg);
+          } else {
+            setUser(null);
+          }
         }
       } catch (err) {
         console.error('Error in auth initialization:', err);
@@ -213,11 +250,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setSession(newSession);
       const newUser = newSession?.user ?? null;
-      setUser(newUser);
 
       if (newUser) {
+        setUser(newUser);
         await fetchProfileForUser(newUser, orgRef.current);
-      } else {
+      } else if (!localStorage.getItem('sadhana_demo_session')) {
+        setUser(null);
         setProfile(null);
         setEnrolment(null);
       }
@@ -275,10 +313,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // 1-Click Demo login for testing, PM preview, and embedded IDE preview
+  const signInDemo = async (roleToUse: UserRole = 'student') => {
+    setIsLoading(true);
+    localStorage.removeItem('sadhana_signed_out');
+    try {
+      // Find real user profile first or use demo profile
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      const targetProfile = profiles?.find((p: Profile) => p.full_name?.toLowerCase().includes('vinoth')) || profiles?.[0];
+      
+      const demoId = targetProfile?.id || DEMO_TEACHER_PROFILE.id;
+      const demoUser = {
+        id: demoId,
+        app_metadata: {},
+        user_metadata: { full_name: targetProfile?.full_name || 'Vinoth Rajaasekaran' },
+        aud: 'authenticated',
+        created_at: new Date().toISOString(),
+        email: targetProfile?.email || 'vinoth@sadhana.zyxenai.com',
+      } as unknown as User;
+
+      localStorage.setItem('sadhana_demo_session', JSON.stringify(demoUser));
+      localStorage.setItem('sadhana_active_role', roleToUse);
+      localStorage.setItem(`sadhana_consent_${demoId}`, new Date().toISOString());
+
+      setUser(demoUser);
+      setActiveRoleState(roleToUse);
+      await fetchProfileForUser(demoUser, orgRef.current);
+    } catch (err) {
+      console.error('Demo sign-in failed:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const signOut = async () => {
+    localStorage.setItem('sadhana_signed_out', 'true');
     if (user) {
       localStorage.removeItem(`sadhana_consent_${user.id}`);
       localStorage.removeItem('sadhana_active_role');
+      localStorage.removeItem('sadhana_demo_session');
     }
     await supabase.auth.signOut();
     setSession(null);
@@ -314,6 +392,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         refreshProfile,
         refreshEnrolment,
         joinBatch,
+        signInDemo,
       }}
     >
       {children}

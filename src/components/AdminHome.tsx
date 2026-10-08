@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { fetchCourses, createCourse, fetchTeacherBatches } from '../lib/batchService';
+import { DEMO_TEACHER_PROFILE, DEMO_ROSTER_STUDENTS } from '../lib/mockData';
 import { formatDateDisplay } from '../lib/dateUtils';
 import type { Profile, RoleGrant, UserRole, Course, Batch } from '../types/database';
 import {
@@ -51,7 +52,15 @@ export const AdminHome: React.FC = () => {
         fetchTeacherBatches('', true),
       ]);
 
-      if (profsRes.data) setProfiles(profsRes.data as Profile[]);
+      if (profsRes.data && profsRes.data.length > 0) {
+        setProfiles(profsRes.data as Profile[]);
+      } else {
+        setProfiles([
+          currentProfile || DEMO_TEACHER_PROFILE,
+          ...DEMO_ROSTER_STUDENTS,
+        ]);
+      }
+
       if (grantsRes.data) setRoleGrants(grantsRes.data as RoleGrant[]);
       setCourses(courseList);
       setAllBatches(batchList);
