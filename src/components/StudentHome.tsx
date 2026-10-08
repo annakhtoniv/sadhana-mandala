@@ -1,7 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { calculateDayNumber, formatDateDisplay } from '../lib/dateUtils';
-import { Check, X, Moon, Flame, Users, ArrowRight, BookOpen, AlertCircle, Loader2 } from 'lucide-react';
+import { calculateStreak, getTrailDayStatus, upsertCheckinInMemory } from '../lib/practiceUtils';
+import { fetchStudentBatchCheckins, saveDailyCheckin } from '../lib/checkinService';
+import type { Checkin, CheckinStatus } from '../types/database';
+import {
+  Check,
+  X,
+  Moon,
+  Flame,
+  Users,
+  ArrowRight,
+  BookOpen,
+  AlertCircle,
+  Loader2,
+  Calendar,
+  Sparkles,
+  Minus,
+  CheckCircle2,
+} from 'lucide-react';
 
 interface StudentHomeProps {
   onNavigateLessons?: () => void;
@@ -12,7 +29,12 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
   const [joinCode, setJoinCode] = useState('');
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
-  const [activeCheckin, setActiveCheckin] = useState<'done' | 'not_yet' | 'rest' | null>(null);
+
+  // Check-in database state
+  const [checkins, setCheckins] = useState<Checkin[]>([]);
+  const [loadingCheckins, setLoadingCheckins] = useState(false);
+  const [isSavingCheckin, setIsSavingCheckin] = useState(false);
+  const [checkinFeedback, setCheckinFeedback] = useState<string | null>(null);
 
   const batch = enrolment?.batch;
   const course = batch?.course;
@@ -22,6 +44,34 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
   const currentDay = batch?.start_date
     ? calculateDayNumber(batch.start_date, organisation.timezone)
     : 1;
+
+  // Fetch check-in history from Supabase when enrolment loads
+  useEffect(() => {
+    if (!enrolment?.batch_id || !profile?.id) return;
+    let isCancelled = false;
+
+    const loadCheckins = async () => {
+      setLoadingCheckins(true);
+      const data = await fetchStudentBatchCheckins(enrolment.batch_id, profile.id);
+      if (!isCancelled) {
+        setCheckins(data);
+        setLoadingCheckins(false);
+      }
+    };
+
+    loadCheckins();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [enrolment?.batch_id, profile?.id]);
+
+  // Derive today's checkin from database records
+  const todayCheckin = checkins.find((c) => c.day_number === currentDay);
+  const activeCheckin = todayCheckin?.status || null;
+
+  // Calculate live streak
+  const currentStreak = calculateStreak(checkins, currentDay);
 
   const handleJoinByCode = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,11 +89,67 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
     setJoining(false);
   };
 
-  const handleCheckin = (status: 'done' | 'not_yet' | 'rest') => {
-    setActiveCheckin(status);
+  /**
+   * Records or updates daily checkin.
+   * Per SPEC:
+   * - Students can check in for today only.
+   * - Tapping twice or changing answer updates the row for today, never duplicates it.
+   */
+  const handleCheckin = async (status: CheckinStatus) => {
+    if (!enrolment?.batch_id || !profile?.id) return;
+
+    // Students can check in for today only, during active batch window
+    if (currentDay < 1) {
+      setCheckinFeedback('This batch has not started yet. Check-ins open on Day 1.');
+      return;
+    }
+    if (currentDay > durationDays) {
+      setCheckinFeedback('This course has concluded. Thank you for your practice!');
+      return;
+    }
+
+    setIsSavingCheckin(true);
+    setCheckinFeedback(null);
+
+    // Optimistic UI update
+    const optimisticRecord: Checkin = {
+      id: todayCheckin?.id || 'temp-' + Date.now(),
+      org_id: organisation.id,
+      batch_id: enrolment.batch_id,
+      student_id: profile.id,
+      day_number: currentDay,
+      status,
+      created_at: todayCheckin?.created_at || new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    setCheckins((prev) => upsertCheckinInMemory(prev, optimisticRecord));
+
+    // Save to Supabase checkins table
+    const result = await saveDailyCheckin({
+      orgId: organisation.id,
+      batchId: enrolment.batch_id,
+      studentId: profile.id,
+      dayNumber: currentDay,
+      status,
+    });
+
+    if (result.success && result.data) {
+      setCheckins((prev) => upsertCheckinInMemory(prev, result.data!));
+      const statusLabel =
+        status === 'done' ? 'Practice Done' : status === 'rest' ? 'Rest Day' : 'Not Yet';
+      setCheckinFeedback(`Recorded for today (Day ${currentDay}): ${statusLabel}. You can change your answer anytime today.`);
+    } else {
+      // Revert / re-fetch on failure
+      const reverted = await fetchStudentBatchCheckins(enrolment.batch_id, profile.id);
+      setCheckins(reverted);
+      setCheckinFeedback(result.error || 'Could not save check-in. Please try again.');
+    }
+
+    setIsSavingCheckin(false);
   };
 
-  // If student has NO batch enrolment yet (Per SPEC.md: "A user with no batch can still sign in. They see general lessons and a 'You are not in a batch yet' panel with a join code field. Nothing else.")
+  // If student has NO batch enrolment yet (Per SPEC.md)
   if (!enrolment) {
     return (
       <div className="w-full space-y-6 animate-in fade-in duration-150">
@@ -120,6 +226,10 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
   }
 
   // Active Batch View
+  const isFutureBatch = currentDay < 1;
+  const isFinishedBatch = currentDay > durationDays;
+  const canCheckinToday = !isFutureBatch && !isFinishedBatch;
+
   return (
     <div className="w-full space-y-6 animate-in fade-in duration-150">
       {/* Batch Header */}
@@ -146,9 +256,9 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
       <div className="bg-white dark:bg-stone-900 p-6 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-5">
         <div className="space-y-1.5 text-center">
           <span className="text-xs font-semibold tracking-wider uppercase text-emerald-600 dark:text-emerald-400">
-            {currentDay < 1
+            {isFutureBatch
               ? `Starts in ${Math.abs(currentDay - 1)} days`
-              : currentDay <= durationDays
+              : !isFinishedBatch
               ? `Day ${currentDay} of ${durationDays}`
               : `Course Finished (Day ${durationDays} of ${durationDays})`}
           </span>
@@ -157,12 +267,28 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
           </h2>
         </div>
 
+        {/* Status notice when batch is before start or finished */}
+        {isFutureBatch && (
+          <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 text-xs text-amber-700 dark:text-amber-300 text-center flex items-center justify-center gap-2">
+            <Calendar className="w-4 h-4" />
+            <span>Check-in opens on Day 1 ({formatDateDisplay(batch?.start_date || '', organisation.timezone)}).</span>
+          </div>
+        )}
+
+        {isFinishedBatch && (
+          <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 text-xs text-emerald-700 dark:text-emerald-300 text-center flex items-center justify-center gap-2">
+            <CheckCircle2 className="w-4 h-4" />
+            <span>Congratulations! All {durationDays} days of practice have finished.</span>
+          </div>
+        )}
+
         {/* 3 Option Buttons (Done, Not yet, Rest day) */}
         <div className="grid grid-cols-3 gap-2.5">
           <button
             type="button"
+            disabled={!canCheckinToday || isSavingCheckin}
             onClick={() => handleCheckin('done')}
-            className={`p-3.5 rounded-2xl flex flex-col items-center justify-center gap-1.5 border transition-all cursor-pointer ${
+            className={`p-3.5 rounded-2xl flex flex-col items-center justify-center gap-1.5 border transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
               activeCheckin === 'done'
                 ? 'bg-emerald-600 text-white border-emerald-600 shadow-md scale-[1.02]'
                 : 'bg-stone-50 dark:bg-stone-800/60 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-stone-700/80'
@@ -174,8 +300,9 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
 
           <button
             type="button"
+            disabled={!canCheckinToday || isSavingCheckin}
             onClick={() => handleCheckin('not_yet')}
-            className={`p-3.5 rounded-2xl flex flex-col items-center justify-center gap-1.5 border transition-all cursor-pointer ${
+            className={`p-3.5 rounded-2xl flex flex-col items-center justify-center gap-1.5 border transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
               activeCheckin === 'not_yet'
                 ? 'bg-amber-600 text-white border-amber-600 shadow-md scale-[1.02]'
                 : 'bg-stone-50 dark:bg-stone-800/60 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-stone-700/80'
@@ -187,8 +314,9 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
 
           <button
             type="button"
+            disabled={!canCheckinToday || isSavingCheckin}
             onClick={() => handleCheckin('rest')}
-            className={`p-3.5 rounded-2xl flex flex-col items-center justify-center gap-1.5 border transition-all cursor-pointer ${
+            className={`p-3.5 rounded-2xl flex flex-col items-center justify-center gap-1.5 border transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
               activeCheckin === 'rest'
                 ? 'bg-indigo-600 text-white border-indigo-600 shadow-md scale-[1.02]'
                 : 'bg-stone-50 dark:bg-stone-800/60 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-stone-700/80'
@@ -199,14 +327,23 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
           </button>
         </div>
 
-        {activeCheckin && (
+        {/* Feedback text */}
+        {checkinFeedback ? (
+          <p className="text-[11px] text-center text-stone-500 dark:text-stone-400 animate-in fade-in">
+            {checkinFeedback}
+          </p>
+        ) : activeCheckin ? (
           <p className="text-[11px] text-center text-stone-500 dark:text-stone-400">
             Recorded for today: <strong className="capitalize">{activeCheckin.replace('_', ' ')}</strong>. You can change your answer anytime today.
           </p>
-        )}
+        ) : canCheckinToday ? (
+          <p className="text-[11px] text-center text-stone-400">
+            Tap an option above to log your practice for today.
+          </p>
+        ) : null}
       </div>
 
-      {/* Streak and Practice Trail (Rows of 7 for duration_days) */}
+      {/* Streak and Practice Trail (Rows of 7 for duration_days per SPEC) */}
       <div className="bg-white dark:bg-stone-900 p-5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -215,40 +352,100 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
               Practice Streak
             </span>
           </div>
-          <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
-            {activeCheckin === 'done' ? '1 Day' : '0 Days'}
+          <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800 flex items-center gap-1">
+            <span>{currentStreak} {currentStreak === 1 ? 'Day' : 'Days'}</span>
+            {currentStreak > 0 && <Sparkles className="w-3 h-3 text-amber-500" />}
           </span>
         </div>
 
         {/* Trail in rows of seven using duration_days (per SPEC) */}
-        <div className="space-y-2">
-          <div className="text-[11px] text-stone-500 dark:text-stone-400">
-            {durationDays}-Day Practice Trail (rows of 7):
+        <div className="space-y-3">
+          <div className="flex items-center justify-between text-[11px] text-stone-500 dark:text-stone-400">
+            <span>{durationDays}-Day Practice Trail (rows of 7):</span>
+            {loadingCheckins && (
+              <span className="text-[10px] text-stone-400 flex items-center gap-1">
+                <Loader2 className="w-3 h-3 animate-spin" /> Loading...
+              </span>
+            )}
           </div>
+
           <div className="grid grid-cols-7 gap-2">
             {Array.from({ length: durationDays }).map((_, idx) => {
               const dayNum = idx + 1;
-              const isToday = dayNum === currentDay;
-              const isPast = dayNum < currentDay;
+              const checkinRecord = checkins.find((c) => c.day_number === dayNum);
+              const status = getTrailDayStatus(dayNum, currentDay, checkinRecord?.status);
+
+              let cellStyle = '';
+              let icon = null;
+              let tooltip = `Day ${dayNum}`;
+
+              switch (status) {
+                case 'done':
+                  cellStyle = 'bg-emerald-600 text-white border-emerald-600 shadow-sm';
+                  icon = <Check className="w-2.5 h-2.5 stroke-[3]" />;
+                  tooltip = `Day ${dayNum}: Practice Completed`;
+                  break;
+                case 'rest':
+                  cellStyle = 'bg-indigo-600 text-white border-indigo-600 shadow-sm';
+                  icon = <Moon className="w-2.5 h-2.5" />;
+                  tooltip = `Day ${dayNum}: Rest Day`;
+                  break;
+                case 'not_yet':
+                  cellStyle = 'bg-amber-600 text-white border-amber-600 shadow-sm';
+                  icon = <X className="w-2.5 h-2.5 stroke-[3]" />;
+                  tooltip = `Day ${dayNum}: Not Yet`;
+                  break;
+                case 'missed':
+                  cellStyle = 'bg-stone-100 dark:bg-stone-800/60 text-stone-400 dark:text-stone-500 border-dashed border-stone-300 dark:border-stone-700';
+                  icon = <Minus className="w-2 h-2" />;
+                  tooltip = `Day ${dayNum}: Missed / No Check-in`;
+                  break;
+                case 'today':
+                  cellStyle = 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-2 border-emerald-500 font-bold ring-2 ring-emerald-500/20';
+                  tooltip = `Day ${dayNum}: Today (Pending Check-in)`;
+                  break;
+                case 'future':
+                default:
+                  cellStyle = 'bg-stone-50/70 dark:bg-stone-900/40 text-stone-400 dark:text-stone-600 border border-stone-200/50 dark:border-stone-800/50';
+                  tooltip = `Day ${dayNum}: Upcoming`;
+                  break;
+              }
 
               return (
                 <div
                   key={dayNum}
-                  className={`aspect-square rounded-xl flex flex-col items-center justify-center text-[10px] font-medium border transition-colors ${
-                    isToday
-                      ? activeCheckin === 'done'
-                        ? 'bg-emerald-500 text-white border-emerald-600 font-bold shadow-sm'
-                        : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-400 dark:border-emerald-600 font-bold ring-2 ring-emerald-500/20'
-                      : isPast
-                      ? 'bg-stone-100 dark:bg-stone-800/80 text-stone-600 dark:text-stone-300 border-stone-300 dark:border-stone-700'
-                      : 'bg-stone-50/70 dark:bg-stone-800/30 text-stone-400 border-stone-200/50 dark:border-stone-800/50'
-                  }`}
-                  title={`Day ${dayNum}`}
+                  className={`aspect-square rounded-xl flex flex-col items-center justify-center text-[10px] font-medium border transition-all ${cellStyle}`}
+                  title={tooltip}
                 >
-                  <span>{dayNum}</span>
+                  <span className="leading-none">{dayNum}</span>
+                  {icon && <span className="mt-0.5">{icon}</span>}
                 </div>
               );
             })}
+          </div>
+
+          {/* Visual Legend */}
+          <div className="pt-2 flex flex-wrap items-center justify-center gap-3 text-[10px] text-stone-500 dark:text-stone-400 border-t border-stone-100 dark:border-stone-800/80">
+            <div className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded-md bg-emerald-600 inline-block shrink-0" />
+              <span>Done</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded-md bg-indigo-600 inline-block shrink-0" />
+              <span>Rest day</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded-md bg-amber-600 inline-block shrink-0" />
+              <span>Not yet</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded-md bg-stone-100 dark:bg-stone-800 border border-dashed border-stone-300 dark:border-stone-700 inline-block shrink-0" />
+              <span>Missed</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded-md border-2 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/60 inline-block shrink-0" />
+              <span>Today</span>
+            </div>
           </div>
         </div>
       </div>

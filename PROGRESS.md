@@ -35,11 +35,30 @@
   - Created [src/components/LessonsScreen.tsx](file:///c:/Users/annak/sadhana-mandala/src/components/LessonsScreen.tsx) and updated [src/types/database.ts](file:///c:/Users/annak/sadhana-mandala/src/types/database.ts) to display published lessons.
   - Auto-enrolled logged-in user into the Day 23 cohort with full check-in streak so Student, Teacher, and Admin personas immediately display rich data.
   - Created [HANDOVER.md](file:///c:/Users/annak/sadhana-mandala/HANDOVER.md) with complete office laptop transition and project handover instructions.
+- Completed Phase 3 (Student Daily Check-in, Streaks, Practice Trail, and Quiet Student Logic):
+  - Drafted [supabase/schema_phase3.sql](file:///c:/Users/annak/sadhana-mandala/supabase/schema_phase3.sql) containing `checkins` table definition (`student_id`, `batch_id`, `day_number`, `status`, `updated_at`), indexes, automatic `updated_at` trigger, and RLS policies for students, teachers, and admins.
+  - Built pure utility module [src/lib/practiceUtils.ts](file:///c:/Users/annak/sadhana-mandala/src/lib/practiceUtils.ts) exporting:
+    - Timezone-aware day number calculation (`Asia/Dubai` default, start_date = Day 1).
+    - Consecutive streak calculation (consecutive 'done' days, 'rest' preserving streak without adding, 'not_yet' breaking streak, gap days breaking streak, today in-progress preserving prior streak).
+    - Quiet student detection logic (no check-in of any kind for 4 consecutive days up to current day).
+    - Practice trail status mapping (`done`, `rest`, `not_yet`, `missed`, `today`, `future`).
+    - In-memory idempotent upsert (`upsertCheckinInMemory`) guaranteeing single row per (student, batch, day).
+  - Built Supabase persistence service [src/lib/checkinService.ts](file:///c:/Users/annak/sadhana-mandala/src/lib/checkinService.ts) supporting idempotent upsert targeting `unique(student_id, batch_id, day_number)`.
+  - Enhanced [src/components/StudentHome.tsx](file:///c:/Users/annak/sadhana-mandala/src/components/StudentHome.tsx) with:
+    - Daily check-in options ('done', 'not_yet', 'rest') saving to and loading from Supabase `checkins` table.
+    - Idempotent updates (tapping twice or changing answer updates today's row, never duplicates it).
+    - Restricted check-in to today only within active batch duration.
+    - Live streak calculation with flame icon badge.
+    - Dynamic 7-column practice trail rendering for `duration_days` visually representing 'done', 'rest', 'not_yet', and 'missed' statuses with a comprehensive visual legend.
+  - Enhanced [src/components/TeacherBatchDetail.tsx](file:///c:/Users/annak/sadhana-mandala/src/components/TeacherBatchDetail.tsx) with today's metrics summary (Done, Rest, Not yet, Quiet) and enriched student roster displaying today's status, live streak, and Quiet student badge.
+  - Installed Vitest test runner and authored 34 unit tests in [src/lib/__tests__/practiceUtils.test.ts](file:///c:/Users/annak/sadhana-mandala/src/lib/__tests__/practiceUtils.test.ts) and [src/lib/__tests__/checkinService.test.ts](file:///c:/Users/annak/sadhana-mandala/src/lib/__tests__/checkinService.test.ts). Verified all 34 tests passing with zero failures.
+  - Verified `npm.cmd run build` with zero TypeScript errors.
+  - Updated `sadhana-mandala-build.zip` archive for deployment.
 
 ## Next
-- Run [supabase/seed_dummy_data.sql](file:///c:/Users/annak/sadhana-mandala/supabase/seed_dummy_data.sql) in the Supabase SQL Editor.
-- Verify Student, Teacher, and Admin views with rich dummy data.
-- Await PM approval to start Phase 3 (Student check-in, streak and trail logic, with unit tests).
+- Phase 4: Teacher batch dashboard refinements & seed script verification.
+- Await PM review and approval to proceed to Phase 4.
 
 ## Known Issues
 - None.
+
