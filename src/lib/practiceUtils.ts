@@ -4,12 +4,14 @@ import { calculateDayNumber as calcDayNumberFromDate } from './dateUtils';
 /**
  * Re-export day number calculation using organization timezone.
  * Batch start_date is Day 1.
+ * Allows passing an optional reference Date for deterministic testing.
  */
 export function calculateDayNumber(
   startDateStr: string,
-  timeZone: string = 'Asia/Dubai'
+  timeZone: string = 'Asia/Dubai',
+  refDate?: Date
 ): number {
-  return calcDayNumberFromDate(startDateStr, timeZone);
+  return calcDayNumberFromDate(startDateStr, timeZone, refDate);
 }
 
 /**
@@ -59,14 +61,17 @@ export function getTrailDayStatus(
  * - An answered "not_yet" today breaks the streak (streak is 0).
  * - An answered "rest" today preserves yesterday's streak without incrementing.
  * - An answered "done" today increments the streak.
+ * - For finished cohorts (currentDay > durationDays), evaluates up to durationDays.
  *
  * @param checkins Array of check-in records containing day_number and status
  * @param currentDay The current day number of the batch. Defaults to highest day_number in checkins or 1.
+ * @param durationDays Optional maximum duration of the course (e.g. 40).
  * @returns The consecutive 'done' streak count
  */
 export function calculateStreak(
   checkins: Array<{ day_number: number; status: CheckinStatus }>,
-  currentDay?: number
+  currentDay?: number,
+  durationDays?: number
 ): number {
   if (!checkins || checkins.length === 0) {
     return 0;
@@ -80,7 +85,12 @@ export function calculateStreak(
 
   // Determine effective currentDay
   const maxRecordedDay = Math.max(...checkins.map((c) => c.day_number));
-  const effectiveCurrentDay = currentDay !== undefined ? currentDay : Math.max(maxRecordedDay, 1);
+  let effectiveCurrentDay = currentDay !== undefined ? currentDay : Math.max(maxRecordedDay, 1);
+
+  // If course has finished, bound evaluation day to durationDays
+  if (durationDays !== undefined && durationDays > 0 && effectiveCurrentDay > durationDays) {
+    effectiveCurrentDay = durationDays;
+  }
 
   if (effectiveCurrentDay < 1) {
     return 0;
@@ -131,30 +141,37 @@ export function calculateStreak(
  * @param checkins Array of check-in records
  * @param currentDay The current day number of the batch
  * @param thresholdDays Number of consecutive silent days to trigger quiet flag (default 4)
+ * @param durationDays Optional duration of the batch
  * @returns boolean true if student has no check-in of any kind for `thresholdDays` consecutive days up to currentDay
  */
 export function isQuietStudent(
   checkins: Array<{ day_number: number }>,
   currentDay: number,
-  thresholdDays: number = 4
+  thresholdDays: number = 4,
+  durationDays?: number
 ): boolean {
+  let effectiveCurrentDay = currentDay;
+  if (durationDays !== undefined && durationDays > 0 && effectiveCurrentDay > durationDays) {
+    effectiveCurrentDay = durationDays;
+  }
+
   // If the batch hasn't run for at least thresholdDays, cannot be quiet yet
-  if (currentDay < thresholdDays) {
+  if (effectiveCurrentDay < thresholdDays) {
     return false;
   }
 
   const checkinDays = new Set(checkins.map((c) => c.day_number));
 
-  // Count consecutive days without check-in starting from currentDay going backwards
+  // Count consecutive days without check-in starting from effectiveCurrentDay going backwards
   let consecutiveQuietDays = 0;
-  for (let d = currentDay; d >= 1; d--) {
+  for (let d = effectiveCurrentDay; d >= 1; d--) {
     if (!checkinDays.has(d)) {
       consecutiveQuietDays++;
       if (consecutiveQuietDays >= thresholdDays) {
         return true;
       }
     } else {
-      // Encountered any check-in; the consecutive quiet streak ending at currentDay is terminated
+      // Encountered any check-in; the consecutive quiet streak ending at effectiveCurrentDay is terminated
       break;
     }
   }
@@ -165,13 +182,14 @@ export function isQuietStudent(
 /**
  * Idempotently updates or appends a check-in in an in-memory list.
  * Guarantees that updating or tapping twice updates today's record and never duplicates it.
+ * Preserves the database ID and created_at timestamp when updating an existing day.
  *
  * @param existingCheckins Current list of check-ins
  * @param newCheckin The check-in to upsert
  * @returns Updated array of check-ins with exactly one record for this day
  */
 export function upsertCheckinInMemory<
-  T extends { day_number: number; status: CheckinStatus; updated_at?: string; [key: string]: any }
+  T extends { day_number: number; status: CheckinStatus; id?: string; created_at?: string; updated_at?: string; [key: string]: any }
 >(
   existingCheckins: T[],
   newCheckin: T
@@ -180,9 +198,12 @@ export function upsertCheckinInMemory<
 
   if (index >= 0) {
     const updated = [...existingCheckins];
+    const existing = updated[index];
     updated[index] = {
-      ...updated[index],
+      ...existing,
       ...newCheckin,
+      id: existing.id || newCheckin.id,
+      created_at: existing.created_at || newCheckin.created_at || new Date().toISOString(),
       updated_at: newCheckin.updated_at || new Date().toISOString(),
     };
     return updated;

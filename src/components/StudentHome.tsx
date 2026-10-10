@@ -5,6 +5,8 @@ import {
   fetchStudentCheckins,
   recordCheckin,
   calculateStreak,
+  getTrailDayStatus,
+  upsertCheckinInMemory,
 } from '../lib/checkinService';
 import type { Checkin, CheckinStatus } from '../types/database';
 import {
@@ -46,18 +48,8 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
     ? calculateDayNumber(batch.start_date, organisation.timezone)
     : 1;
 
-  // Selected day for viewing / marking check-in.
-  // Defaults to today (bounded between 1 and durationDays).
-  const [selectedDay, setSelectedDay] = useState<number>(() => {
-    return Math.min(Math.max(todayDayNumber, 1), durationDays);
-  });
-
-  // Keep selectedDay updated when todayDayNumber initializes
-  useEffect(() => {
-    if (todayDayNumber >= 1 && todayDayNumber <= durationDays) {
-      setSelectedDay(todayDayNumber);
-    }
-  }, [todayDayNumber, durationDays]);
+  // Inspected day in the practice trail (for read-only viewing of past/future days)
+  const [inspectedDay, setInspectedDay] = useState<number | null>(null);
 
   // Load student check-ins when enrolment or profile changes
   useEffect(() => {
@@ -87,8 +79,8 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
 
   // Streak calculated using official business rules
   const currentStreak = React.useMemo(() => {
-    return calculateStreak(checkins, todayDayNumber);
-  }, [checkins, todayDayNumber]);
+    return calculateStreak(checkins, todayDayNumber, durationDays);
+  }, [checkins, todayDayNumber, durationDays]);
 
   // Handle joining batch with code
   const handleJoinByCode = async (e: React.FormEvent) => {
@@ -107,13 +99,17 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
     setJoining(false);
   };
 
-  // Handle recording check-in for the selected day
+  // Handle recording check-in for TODAY only (per SPEC.md: "A student can check in for today only and can change today's answer")
   const handleCheckin = async (status: CheckinStatus) => {
     if (!batch?.id || !profile?.id || savingCheckin) return;
 
-    // Enforce business rule: only allow marking today or past dates! Future days cannot be marked.
-    if (selectedDay > todayDayNumber) {
-      setSaveFeedback('Future days cannot be marked in advance.');
+    if (todayDayNumber < 1) {
+      setSaveFeedback('Cohort has not started yet. Daily check-in opens on Day 1.');
+      return;
+    }
+
+    if (todayDayNumber > durationDays) {
+      setSaveFeedback('This course has completed. Daily check-ins are closed.');
       return;
     }
 
@@ -121,58 +117,46 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
     setSaveFeedback(null);
 
     // Optimistically update local check-in state
-    const existingIndex = checkins.findIndex((c) => c.day_number === selectedDay);
+    const prevCheckins = [...checkins];
+    const existingIndex = checkins.findIndex((c) => c.day_number === todayDayNumber);
     const optimisticCheckin: Checkin = {
-      id: existingIndex >= 0 ? checkins[existingIndex].id : 'temp-id',
+      id: existingIndex >= 0 ? checkins[existingIndex].id : `temp-${Date.now()}`,
       org_id: organisation.id,
       batch_id: batch.id,
       student_id: profile.id,
-      day_number: selectedDay,
+      day_number: todayDayNumber,
       status,
-      created_at: new Date().toISOString(),
+      created_at: existingIndex >= 0 ? checkins[existingIndex].created_at : new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
 
-    const nextCheckins = [...checkins];
-    if (existingIndex >= 0) {
-      nextCheckins[existingIndex] = optimisticCheckin;
-    } else {
-      nextCheckins.push(optimisticCheckin);
-    }
-    setCheckins(nextCheckins);
+    setCheckins(upsertCheckinInMemory(checkins, optimisticCheckin));
 
-    // Persist to Supabase with upsert
+    // Persist to Supabase with upsert matching unique(student_id, batch_id, day_number)
     const res = await recordCheckin(
       organisation.id,
       batch.id,
       profile.id,
-      selectedDay,
+      todayDayNumber,
       status
     );
 
     if (res.success && res.checkin) {
-      // Replace with confirmed database record
-      setCheckins((prev) => {
-        const filtered = prev.filter((c) => c.day_number !== selectedDay);
-        return [...filtered, res.checkin!].sort((a, b) => a.day_number - b.day_number);
-      });
+      setCheckins((prev) => upsertCheckinInMemory(prev, res.checkin!));
       setSaveFeedback(
-        selectedDay === todayDayNumber
-          ? `Recorded for today (Day ${selectedDay}): ${status.replace('_', ' ')}`
-          : `Updated Day ${selectedDay} (past date): ${status.replace('_', ' ')}`
+        `Recorded for today (Day ${todayDayNumber}): ${status.replace('_', ' ')}`
       );
-      // Notify guided tour fluency engine
-      window.dispatchEvent(new CustomEvent('sadhana_action_checkin', { detail: { day: selectedDay, status } }));
     } else {
+      setCheckins(prevCheckins);
       setSaveFeedback(`Failed to save: ${res.error || 'Please try again'}`);
     }
 
     setSavingCheckin(false);
   };
 
-  // Selected day's recorded checkin
-  const selectedDayCheckin = checkinsByDay.get(selectedDay);
-  const selectedDayStatus = selectedDayCheckin?.status || null;
+  // Today's recorded checkin
+  const todayCheckin = checkinsByDay.get(todayDayNumber);
+  const todayStatus = todayCheckin?.status || null;
 
   // Un-enrolled View
   if (!enrolment) {
@@ -333,49 +317,47 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
             <span className="inline-flex items-center gap-1 text-xs font-semibold tracking-wider uppercase px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
               <Calendar className="w-3 h-3" />
               <span>
-                {selectedDay === todayDayNumber
-                  ? `Day ${selectedDay} of ${durationDays} (Today)`
-                  : selectedDay < todayDayNumber
-                  ? `Day ${selectedDay} of ${durationDays} (Past Date)`
-                  : `Day ${selectedDay} of ${durationDays} (Future Day)`}
+                {todayDayNumber < 1
+                  ? `Cohort Starts in ${Math.abs(todayDayNumber - 1)} Days`
+                  : todayDayNumber <= durationDays
+                  ? `Day ${todayDayNumber} of ${durationDays} (Today)`
+                  : `Course Completed (${durationDays} Days)`}
               </span>
             </span>
           </div>
 
           <h2 className="text-base font-medium text-stone-900 dark:text-stone-100 leading-snug pt-1">
-            {selectedDay === todayDayNumber
-              ? organisation.checkin_question
-              : `Did you complete your practice on Day ${selectedDay}?`}
+            {todayDayNumber < 1
+              ? `Your course will begin on Day 1. Prepare your daily intention.`
+              : todayDayNumber > durationDays
+              ? `You have reached the end of this journey. Well done!`
+              : organisation.checkin_question}
           </h2>
-
-          {selectedDay !== todayDayNumber && (
-            <div className="pt-1">
-              <button
-                type="button"
-                onClick={() => setSelectedDay(todayDayNumber)}
-                className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-medium cursor-pointer inline-flex items-center gap-1"
-              >
-                <span>Jump back to Today (Day {todayDayNumber})</span>
-                <ArrowRight className="w-3 h-3" />
-              </button>
-            </div>
-          )}
         </div>
 
-        {/* 3 Option Buttons (Done, Not yet, Rest day) */}
-        {selectedDay > todayDayNumber ? (
-          /* Future Day Notice */
+        {/* 3 Option Buttons (Done, Not yet, Rest day) for Today */}
+        {todayDayNumber < 1 ? (
           <div className="p-4 rounded-2xl bg-stone-50 dark:bg-stone-800/40 border border-stone-200 dark:border-stone-800 text-center space-y-1">
             <div className="flex items-center justify-center gap-1.5 text-xs font-medium text-stone-500 dark:text-stone-400">
               <Lock className="w-3.5 h-3.5" />
-              <span>Future Day Locked</span>
+              <span>Check-in Not Started</span>
             </div>
             <p className="text-[11px] text-stone-400">
-              This day has not arrived yet. You can check in once Day {selectedDay} begins.
+              Your batch starts on {batch?.start_date ? formatDateDisplay(batch.start_date, organisation.timezone) : 'soon'}. Daily check-ins will unlock on Day 1.
+            </p>
+          </div>
+        ) : todayDayNumber > durationDays ? (
+          <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-center space-y-1">
+            <div className="flex items-center justify-center gap-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Practice Completed</span>
+            </div>
+            <p className="text-[11px] text-emerald-600 dark:text-emerald-400">
+              Congratulations on reaching Day {durationDays}! Your practice trail reflects your dedication.
             </p>
           </div>
         ) : (
-          /* Active / Past Check-in Buttons */
+          /* Active Check-in Buttons for Today */
           <div className="space-y-3">
             <div id="tour-checkin-buttons" className="grid grid-cols-3 gap-2.5">
               <button
@@ -383,7 +365,7 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
                 onClick={() => handleCheckin('done')}
                 disabled={savingCheckin}
                 className={`p-3.5 rounded-2xl flex flex-col items-center justify-center gap-1.5 border transition-all cursor-pointer disabled:opacity-50 ${
-                  selectedDayStatus === 'done'
+                  todayStatus === 'done'
                     ? 'bg-emerald-600 text-white border-emerald-600 shadow-md scale-[1.02]'
                     : 'bg-stone-50 dark:bg-stone-800/60 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-stone-700/80 active:scale-95'
                 }`}
@@ -397,7 +379,7 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
                 onClick={() => handleCheckin('not_yet')}
                 disabled={savingCheckin}
                 className={`p-3.5 rounded-2xl flex flex-col items-center justify-center gap-1.5 border transition-all cursor-pointer disabled:opacity-50 ${
-                  selectedDayStatus === 'not_yet'
+                  todayStatus === 'not_yet'
                     ? 'bg-amber-600 text-white border-amber-600 shadow-md scale-[1.02]'
                     : 'bg-stone-50 dark:bg-stone-800/60 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-stone-700/80 active:scale-95'
                 }`}
@@ -411,7 +393,7 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
                 onClick={() => handleCheckin('rest')}
                 disabled={savingCheckin}
                 className={`p-3.5 rounded-2xl flex flex-col items-center justify-center gap-1.5 border transition-all cursor-pointer disabled:opacity-50 ${
-                  selectedDayStatus === 'rest'
+                  todayStatus === 'rest'
                     ? 'bg-indigo-600 text-white border-indigo-600 shadow-md scale-[1.02]'
                     : 'bg-stone-50 dark:bg-stone-800/60 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-stone-700/80 active:scale-95'
                 }`}
@@ -428,17 +410,17 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   <span>Saving to database...</span>
                 </div>
-              ) : selectedDayStatus ? (
+              ) : todayStatus ? (
                 <p className="text-[11px] text-stone-500 dark:text-stone-400">
-                  Recorded for Day {selectedDay}:{' '}
+                  Recorded for today (Day {todayDayNumber}):{' '}
                   <strong className="capitalize text-stone-800 dark:text-stone-200">
-                    {selectedDayStatus.replace('_', ' ')}
+                    {todayStatus.replace('_', ' ')}
                   </strong>
-                  . Tapping again updates the answer.
+                  . Tapping again updates your answer.
                 </p>
               ) : (
                 <p className="text-[11px] text-stone-400 italic">
-                  No answer recorded yet for Day {selectedDay}. Tap an option above.
+                  No answer recorded yet for today (Day {todayDayNumber}). Tap an option above.
                 </p>
               )}
             </div>
@@ -453,11 +435,8 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
       </div>
 
       {/* Streak and Practice Trail (Rows of 7 for duration_days) */}
-      <div
-        id="tour-streak-card"
-        onClick={() => window.dispatchEvent(new CustomEvent('sadhana_action_streak'))}
-        className="bg-white dark:bg-stone-900 p-5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-4 cursor-pointer"
-      >
+      <div className="bg-white dark:bg-stone-900 p-5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-4">
+
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-500 flex items-center justify-center border border-amber-200/60 dark:border-amber-900/60">
@@ -485,42 +464,70 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
         <div id="tour-practice-trail" className="space-y-2.5 pt-1">
           <div className="flex items-center justify-between text-[11px] text-stone-500 dark:text-stone-400">
             <span>{durationDays}-Day Practice Trail (rows of 7):</span>
-            <span className="text-[10px] text-stone-400">Tap past days to edit</span>
+            <span className="text-[10px] text-stone-400">Tap day to inspect</span>
           </div>
+
+          {/* Inspected Day Detail Card (Read-only status banner) */}
+          {inspectedDay !== null && (
+            <div className="p-3 bg-stone-50 dark:bg-stone-800/80 border border-stone-200 dark:border-stone-700 rounded-xl flex items-center justify-between text-xs animate-in fade-in">
+              <div className="space-y-0.5">
+                <span className="font-semibold text-stone-900 dark:text-stone-100">
+                  Day {inspectedDay}{inspectedDay === todayDayNumber ? ' (Today)' : ''}
+                </span>
+                <p className="text-[11px] text-stone-500 dark:text-stone-400">
+                  {inspectedDay > todayDayNumber
+                    ? 'Future day — locked until this day arrives.'
+                    : inspectedDay === todayDayNumber
+                    ? `Today — answer above: ${todayStatus ? todayStatus.replace('_', ' ') : 'Pending'}`
+                    : `Past day — status: ${getTrailDayStatus(inspectedDay, todayDayNumber, checkinsByDay.get(inspectedDay)?.status).replace('_', ' ')}. Past check-ins cannot be edited.`}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setInspectedDay(null);
+                }}
+                className="text-[10px] text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 px-2 py-1 rounded"
+              >
+                Close
+              </button>
+            </div>
+          )}
 
           <div className="grid grid-cols-7 gap-2">
             {Array.from({ length: durationDays }).map((_, idx) => {
               const dayNum = idx + 1;
               const isToday = dayNum === todayDayNumber;
               const isFuture = dayNum > todayDayNumber;
-              const isSelected = dayNum === selectedDay;
+              const isInspected = dayNum === inspectedDay;
 
               const checkinRecord = checkinsByDay.get(dayNum);
-              const status = checkinRecord?.status;
+              const trailStatus = getTrailDayStatus(dayNum, todayDayNumber, checkinRecord?.status);
 
               // Tile Styling
               let bgClass = '';
               let textClass = '';
               let borderClass = '';
 
-              if (isFuture) {
+              if (trailStatus === 'future') {
                 // Future days: visible but greyed out / locked
                 bgClass = 'bg-stone-100/50 dark:bg-stone-900/40 opacity-40';
                 textClass = 'text-stone-400 dark:text-stone-600';
                 borderClass = 'border-stone-200/40 dark:border-stone-800/40 border-dashed';
-              } else if (status === 'done') {
+              } else if (trailStatus === 'done') {
                 bgClass = 'bg-emerald-600 dark:bg-emerald-600';
                 textClass = 'text-white font-bold';
                 borderClass = 'border-emerald-700';
-              } else if (status === 'rest') {
+              } else if (trailStatus === 'rest') {
                 bgClass = 'bg-indigo-600 dark:bg-indigo-600';
                 textClass = 'text-white font-bold';
                 borderClass = 'border-indigo-700';
-              } else if (status === 'not_yet') {
+              } else if (trailStatus === 'not_yet') {
                 bgClass = 'bg-amber-500 dark:bg-amber-600';
                 textClass = 'text-white font-bold';
                 borderClass = 'border-amber-600';
-              } else if (isToday) {
+              } else if (trailStatus === 'today') {
                 // Today with no answer yet
                 bgClass = 'bg-emerald-50 dark:bg-emerald-950/60';
                 textClass = 'text-emerald-700 dark:text-emerald-300 font-bold';
@@ -536,20 +543,19 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
                 <button
                   key={dayNum}
                   type="button"
-                  disabled={isFuture}
-                  onClick={() => {
-                    setSelectedDay(dayNum);
-                    window.dispatchEvent(new CustomEvent('sadhana_action_trailday', { detail: { dayNum } }));
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setInspectedDay(dayNum === inspectedDay ? null : dayNum);
                   }}
                   className={`aspect-square rounded-xl flex flex-col items-center justify-center text-[10px] border transition-all cursor-pointer relative ${bgClass} ${textClass} ${borderClass} ${
-                    isSelected ? 'ring-2 ring-stone-900 dark:ring-stone-100 ring-offset-2 dark:ring-offset-stone-950 scale-105 z-10' : ''
-                  } ${isFuture ? 'cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}
+                    isInspected ? 'ring-2 ring-stone-900 dark:ring-stone-100 ring-offset-2 dark:ring-offset-stone-950 scale-105 z-10' : ''
+                  } ${isFuture ? 'cursor-default' : 'hover:scale-105 active:scale-95'}`}
                   title={
                     isFuture
                       ? `Day ${dayNum} (Future - locked)`
                       : isToday
                       ? `Day ${dayNum} (Today)`
-                      : `Day ${dayNum} (Past - click to edit)`
+                      : `Day ${dayNum} (Past - ${trailStatus})`
                   }
                 >
                   {isFuture ? (
@@ -557,17 +563,17 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
                       <Lock className="w-2.5 h-2.5 mb-0.5 text-stone-400" />
                       <span className="text-[9px]">{dayNum}</span>
                     </div>
-                  ) : status === 'done' ? (
+                  ) : trailStatus === 'done' ? (
                     <div className="flex flex-col items-center justify-center">
                       <Check className="w-3 h-3 stroke-[3]" />
                       <span className="text-[9px] leading-none">{dayNum}</span>
                     </div>
-                  ) : status === 'rest' ? (
+                  ) : trailStatus === 'rest' ? (
                     <div className="flex flex-col items-center justify-center">
                       <Moon className="w-3 h-3" />
                       <span className="text-[9px] leading-none">{dayNum}</span>
                     </div>
-                  ) : status === 'not_yet' ? (
+                  ) : trailStatus === 'not_yet' ? (
                     <div className="flex flex-col items-center justify-center">
                       <X className="w-3 h-3 stroke-[3]" />
                       <span className="text-[9px] leading-none">{dayNum}</span>

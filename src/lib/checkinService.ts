@@ -112,9 +112,8 @@ export async function recordCheckin(
   status: CheckinStatus
 ): Promise<{ success: boolean; checkin?: Checkin; data?: Checkin; error?: string }> {
   const nowIso = new Date().toISOString();
-
-  // 1. Immediately update localStorage for 100% reliable preview/offline feedback
   const storageKey = `sadhana_checkins_${studentId}_${batchId}`;
+
   let currentList: Checkin[] = [];
   if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
     try {
@@ -143,21 +142,24 @@ export async function recordCheckin(
     updated_at: nowIso,
   };
 
-  if (existingIdx >= 0) {
-    currentList[existingIdx] = updatedCheckin;
-  } else {
-    currentList.push(updatedCheckin);
-  }
-
-  if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(currentList));
-    } catch {
-      // ignore
+  const persistToLocal = (item: Checkin) => {
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+      try {
+        const nextList = [...currentList];
+        const idx = nextList.findIndex((c) => c.day_number === dayNumber);
+        if (idx >= 0) {
+          nextList[idx] = item;
+        } else {
+          nextList.push(item);
+        }
+        localStorage.setItem(storageKey, JSON.stringify(nextList));
+      } catch {
+        // ignore
+      }
     }
-  }
+  };
 
-  // 2. Persist to Supabase checkins table with onConflict
+  // Persist to Supabase checkins table with onConflict
   try {
     const { data, error } = await supabase
       .from('checkins')
@@ -176,6 +178,7 @@ export async function recordCheckin(
       .single();
 
     if (!error && data) {
+      persistToLocal(data as Checkin);
       return { success: true, checkin: data as Checkin, data: data as Checkin };
     }
     if (error) {
@@ -184,9 +187,11 @@ export async function recordCheckin(
     }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Database checkin error';
-    console.warn('Note: Check-in saved locally, Supabase note:', msg);
+    console.warn('Note: Offline/local checkin mode:', msg);
   }
 
+  // Offline fallback
+  persistToLocal(updatedCheckin);
   return { success: true, checkin: updatedCheckin, data: updatedCheckin };
 }
 
