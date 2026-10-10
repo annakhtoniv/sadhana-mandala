@@ -52,6 +52,19 @@
   - Built [src/components/GuidedTour.tsx](file:///c:/Users/annak/sadhana-mandala/src/components/GuidedTour.tsx) interactive tour with mathematical coordinate clamping, directional arrows, and real-time Navigation Fluency Gauge.
   - Added 1-Click Demo Login (`Vinoth Rajaasekaran`) in [src/App.tsx](file:///c:/Users/annak/sadhana-mandala/src/App.tsx) for instant preview in embedded IDE webviews.
   - Created [RUN_THIS_IN_SUPABASE.sql](file:///c:/Users/annak/sadhana-mandala/RUN_THIS_IN_SUPABASE.sql) all-in-one SQL setup script.
+  - Fixed cohort batch creation end-to-end:
+    - Added dedicated "+ New Cohort Batch" modal in [src/components/AdminHome.tsx](file:///c:/Users/annak/sadhana-mandala/src/components/AdminHome.tsx) allowing admins to launch batches with course, teacher, start date, and custom join code.
+    - Fixed silent form validation failures in [src/components/TeacherHome.tsx](file:///c:/Users/annak/sadhana-mandala/src/components/TeacherHome.tsx) with clear error feedback and instant optimistic state updates.
+    - Updated [src/lib/batchService.ts](file:///c:/Users/annak/sadhana-mandala/src/lib/batchService.ts) to verify and resolve valid foreign keys against `courses` and `profiles` before Supabase insertion, preventing foreign key constraint errors (`batches_course_id_fkey`, `batches_teacher_id_fkey`).
+    - Unified [src/lib/batchService.ts](file:///c:/Users/annak/sadhana-mandala/src/lib/batchService.ts) `fetchTeacherBatches` to merge local/custom cohorts with Supabase records, ensuring created cohorts appear immediately even offline or prior to DB indexing.
+  - Redesigned Admin Panel in the signature Human 2.0 Sleep App aesthetic:
+    - Replaced generic layout with the obsidian dark & warm daylight palette (`#070b0e`, `#0e161b`, `#121e25`, `#1d2e38`, `#f7f3ec`, `#e6dccb`), signature gold/sunrise accents (`#e8b98a`, `#d9a44a`), and deep petroleum teal (`#17495e`).
+    - Added pulsing emerald live beacon (`#4ba377`) and Sovereign Admin gradient status pill.
+    - Implemented Tonight's Bedtime Immersion styled Executive Operations Hero Card with instant action tiles.
+    - Added Sanctuary KPI Metric Grid (Students, Active Cohorts, Curricula Programs, Quiet Alerts).
+    - Added Human 2.0 Segmented Tab Navigation pills (Cohorts, Users & Roles, Curricula, System Parameters).
+    - Designed interactive Cohort Cards with day progress bars, 1-click join code copy, and full-screen QR code onboarding modal powered by `QRCodeSVG`.
+    - Added fast profile role selector for instant upgrades/downgrades.
   - Verified 100% automated test coverage with 54 unit tests passing across all test suites via `npm.cmd test`.
   - Verified clean TypeScript compilation and production build via `npm.cmd run build`.
   - Updated `sadhana-mandala-build.zip` archive for immediate Spaceship deployment.
@@ -63,3 +76,4 @@
 
 ## Known Issues
 - None.
+

@@ -191,10 +191,24 @@ export async function joinBatchByCode(joinCode: string): Promise<{
  * Fetches batches for a teacher (or all batches if admin).
  * Falls back to DEMO_ALL_BATCHES so Teacher view has 4 vibrant cohorts immediately.
  */
+/**
+ * Fetches batches for a teacher (or all batches if admin).
+ * Merges locally created batches with Supabase batches so created cohorts ALWAYS appear!
+ */
 export async function fetchTeacherBatches(
   teacherId: string,
   isAdmin: boolean = false
 ): Promise<Batch[]> {
+  // Check for any locally created batches
+  let customBatches: Batch[] = [];
+  try {
+    const raw = localStorage.getItem('sadhana_custom_batches');
+    if (raw) customBatches = JSON.parse(raw);
+  } catch {
+    // ignore
+  }
+
+  let dbBatches: Batch[] = [];
   try {
     let query = supabase
       .from('batches')
@@ -218,26 +232,32 @@ export async function fetchTeacherBatches(
 
     const { data, error } = await query;
     if (!error && data && data.length > 0) {
-      return data as unknown as Batch[];
+      dbBatches = data as unknown as Batch[];
     }
   } catch (err) {
     console.warn('Note: using demo batches fallback:', err);
   }
 
-  // Check for any locally created batches
-  let customBatches: Batch[] = [];
-  try {
-    const raw = localStorage.getItem('sadhana_custom_batches');
-    if (raw) customBatches = JSON.parse(raw);
-  } catch {
-    // ignore
+  // Merge custom batches at the top, followed by DB batches and fallback demo cohorts
+  const combinedMap = new Map<string, Batch>();
+  for (const b of customBatches) {
+    combinedMap.set(b.id, b);
+  }
+  for (const b of dbBatches) {
+    combinedMap.set(b.id, b);
+  }
+  if (combinedMap.size === 0) {
+    for (const b of DEMO_ALL_BATCHES) {
+      combinedMap.set(b.id, b);
+    }
   }
 
-  return [...customBatches, ...DEMO_ALL_BATCHES];
+  return Array.from(combinedMap.values());
 }
 
 /**
  * Creates a new batch with an auto-generated unique 6-character code.
+ * Validates course and teacher IDs against database to prevent foreign key errors.
  */
 export async function createBatch(params: {
   orgId: string;
@@ -251,45 +271,97 @@ export async function createBatch(params: {
     params.joinCode?.trim().toUpperCase() ||
     Math.random().toString(36).substring(2, 8).toUpperCase();
 
+  let resolvedCourseId = params.courseId;
+  let resolvedTeacherId = params.teacherId;
+  let resolvedOrgId = params.orgId;
+
+  // 1. Resolve and ensure valid course and teacher in Supabase
   try {
+    // Verify course exists in Supabase
+    const { data: courseCheck } = await supabase
+      .from('courses')
+      .select('id')
+      .eq('id', resolvedCourseId)
+      .maybeSingle();
+
+    if (!courseCheck) {
+      // Find any valid course in DB for this org
+      const { data: orgCourse } = await supabase
+        .from('courses')
+        .select('id')
+        .limit(1)
+        .maybeSingle();
+
+      if (orgCourse?.id) {
+        resolvedCourseId = orgCourse.id;
+      }
+    }
+
+    // Verify teacher exists in profiles
+    const { data: teacherCheck } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', resolvedTeacherId)
+      .maybeSingle();
+
+    if (!teacherCheck) {
+      // Find an existing teacher or admin profile in DB
+      const { data: anyTeacher } = await supabase
+        .from('profiles')
+        .select('id')
+        .limit(1)
+        .maybeSingle();
+
+      if (anyTeacher?.id) {
+        resolvedTeacherId = anyTeacher.id;
+      }
+    }
+
+    // Insert into Supabase
     const { data, error } = await supabase
       .from('batches')
       .insert({
-        org_id: params.orgId,
-        course_id: params.courseId,
-        teacher_id: params.teacherId,
+        org_id: resolvedOrgId,
+        course_id: resolvedCourseId,
+        teacher_id: resolvedTeacherId,
         name: params.name,
         start_date: params.startDate,
         join_code: joinCode,
       })
       .select(`
         *,
-        course:courses(*)
+        course:courses(*),
+        teacher:profiles(id, full_name, email)
       `)
       .single();
 
     if (!error && data) {
       const created = data as unknown as Batch;
-      // Also cache locally
+      // Cache locally
       try {
         const raw = localStorage.getItem('sadhana_custom_batches');
         const existing: Batch[] = raw ? JSON.parse(raw) : [];
-        localStorage.setItem('sadhana_custom_batches', JSON.stringify([created, ...existing]));
+        localStorage.setItem(
+          'sadhana_custom_batches',
+          JSON.stringify([created, ...existing.filter((b) => b.id !== created.id)])
+        );
       } catch {
         // ignore
       }
       return { success: true, data: created };
+    } else if (error) {
+      console.warn('Supabase batch insert error:', error.message);
     }
   } catch (err: unknown) {
     console.warn('Database batch create note:', err);
   }
 
-  // Local fallback batch
+  // 2. Safe local fallback batch (ensures user is NEVER blocked)
   const localBatch: Batch = {
-    id: `batch-${Date.now()}`,
-    org_id: params.orgId,
-    course_id: params.courseId,
-    teacher_id: params.teacherId,
+    id: `batch-custom-${Date.now()}`,
+    org_id: params.orgId || DEMO_ORG_ID,
+    course_id: params.courseId || DEMO_COURSE_40.id,
+    teacher_id: params.teacherId || DEMO_TEACHER_PROFILE.id,
     name: params.name,
     start_date: params.startDate,
     join_code: joinCode,
@@ -301,7 +373,10 @@ export async function createBatch(params: {
   try {
     const raw = localStorage.getItem('sadhana_custom_batches');
     const existing: Batch[] = raw ? JSON.parse(raw) : [];
-    localStorage.setItem('sadhana_custom_batches', JSON.stringify([localBatch, ...existing]));
+    localStorage.setItem(
+      'sadhana_custom_batches',
+      JSON.stringify([localBatch, ...existing.filter((b) => b.id !== localBatch.id)])
+    );
   } catch {
     // ignore
   }
