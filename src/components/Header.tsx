@@ -1,5 +1,6 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
+import { allowedRoleViews } from '../lib/roles';
 import { Sparkles, User, HelpCircle } from 'lucide-react';
 import type { UserRole } from '../types/database';
 
@@ -18,7 +19,8 @@ export const Header: React.FC<HeaderProps> = ({
   onRoleSwitch,
   onOpenTour,
 }) => {
-  const { organisation, user, activeRole } = useAuth();
+  const { organisation, user, activeRole, profile } = useAuth();
+  const roleViews = allowedRoleViews(profile?.role ?? 'student');
   const currentRole = activeRoleView || activeRole;
 
   return (
@@ -52,7 +54,7 @@ export const Header: React.FC<HeaderProps> = ({
         {/* User Role Switcher, Guide Tour & Profile button */}
         {user && (
           <div className="flex items-center gap-1.5">
-            {/* Always available Role Switcher for instant testing */}
+            {/* View switcher: only the user's own role and the roles below it */}
             {onRoleSwitch && (
               <select
                 id="tour-role-switcher"
@@ -65,9 +67,11 @@ export const Header: React.FC<HeaderProps> = ({
                 }}
                 className="text-xs px-2.5 py-1 rounded-full border border-stone-300 dark:border-stone-700 bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 font-semibold cursor-pointer shadow-sm focus:outline-none transition-all"
               >
-                <option value="student">Role: Student</option>
-                <option value="teacher">Role: Teacher</option>
-                <option value="admin">Role: Admin</option>
+                {roleViews.map((r) => (
+                  <option key={r} value={r}>
+                    View: {r.charAt(0).toUpperCase() + r.slice(1)}
+                  </option>
+                ))}
               </select>
             )}
 

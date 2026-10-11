@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { supabase, isSupabaseConfigured, isDemoMode, DEMO_SESSION_KEY } from '../lib/supabase';
 import { fetchOrganisation, getResolvedOrgSlug, DEFAULT_ORGANISATION } from '../lib/organisation';
 import { claimUserInvites, fetchUserEnrolment, joinBatchByCode } from '../lib/batchService';
-import { DEMO_ENROLMENT_VINOTH, DEMO_TEACHER_PROFILE } from '../lib/mockData';
+import { DEMO_TEACHER_PROFILE } from '../lib/mockData';
+import { allowedRoleViews } from '../lib/roles';
 import type { Organisation, Profile, UserRole, Enrolment } from '../types/database';
 
 interface AuthContextType {
@@ -28,11 +29,24 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// A batch QR code opens the app with ?code=JOINCODE. Keep the code across the
+// Google sign-in redirect and join the batch once the user is signed in.
+const PENDING_JOIN_KEY = 'sadhana_pending_join_code';
+try {
+  const codeFromUrl = new URLSearchParams(window.location.search).get('code');
+  if (codeFromUrl) {
+    sessionStorage.setItem(PENDING_JOIN_KEY, codeFromUrl.trim().toUpperCase());
+    window.history.replaceState(null, '', window.location.pathname);
+  }
+} catch {
+  // ignore (non-browser environment)
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [enrolment, setEnrolment] = useState<Enrolment | null>(DEMO_ENROLMENT_VINOTH);
+  const [enrolment, setEnrolment] = useState<Enrolment | null>(null);
   const [organisation, setOrganisation] = useState<Organisation>(DEFAULT_ORGANISATION);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
@@ -45,100 +59,73 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loadEnrolmentForUser = async (userId: string) => {
     try {
-      const activeEnrolment = await fetchUserEnrolment(userId);
-      setEnrolment(activeEnrolment || DEMO_ENROLMENT_VINOTH);
+      setEnrolment(await fetchUserEnrolment(userId));
     } catch (err) {
       console.error('Error loading enrolment:', err);
-      setEnrolment(DEMO_ENROLMENT_VINOTH);
+      setEnrolment(null);
     }
   };
 
+  const applyRole = (actualRole: UserRole) => {
+    const savedView = localStorage.getItem('sadhana_active_role') as UserRole | null;
+    const view = savedView && allowedRoleViews(actualRole).includes(savedView) ? savedView : actualRole;
+    setActiveRoleState(view);
+    localStorage.setItem('sadhana_active_role', view);
+  };
+
   const fetchProfileForUser = async (currentUser: User, activeOrg: Organisation) => {
+    // 1-click demo: sample data only, no database calls
+    if (isDemoMode()) {
+      setProfile({ ...DEMO_TEACHER_PROFILE, consent_at: localStorage.getItem(`sadhana_consent_${currentUser.id}`) });
+      applyRole(DEMO_TEACHER_PROFILE.role);
+      await loadEnrolmentForUser(currentUser.id);
+      return;
+    }
+
     try {
       await claimUserInvites();
-      await loadEnrolmentForUser(currentUser.id);
 
-      const isOwnerAdmin =
-        currentUser.email?.toLowerCase().includes('annakhtoniv') ||
-        currentUser.email?.toLowerCase().includes('vinoth');
-
-      // Check existing profile
+      // The profile row is created by the database on first sign-in (handle_new_user),
+      // with the role from role_grants. The client never chooses its own role.
       const { data: existingProfile, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', currentUser.id)
         .maybeSingle();
 
-      if (existingProfile) {
-        const prof = existingProfile as Profile;
-        if (isOwnerAdmin && prof.role !== 'admin') {
-          prof.role = 'admin';
-          supabase.from('profiles').update({ role: 'admin' }).eq('id', currentUser.id).then();
-        }
-        setProfile(prof);
-
-        // Check if user has a stored role preference or use profile role
-        const savedRole = localStorage.getItem('sadhana_active_role') as UserRole | null;
-        const roleToSet = isOwnerAdmin ? 'admin' : (savedRole || prof.role);
-        setActiveRoleState(roleToSet);
-        localStorage.setItem('sadhana_active_role', roleToSet);
-        return;
-      }
-
-      if (error && error.code !== 'PGRST116') {
+      if (error) {
         console.warn('Profiles query note:', error.message);
       }
 
-      // Check if user has an invite or pre-granted role
-      let assignedRole: UserRole = isOwnerAdmin ? 'admin' : ((localStorage.getItem('sadhana_active_role') as UserRole) || 'student');
-      if (activeOrg.id) {
-        const { data: grant } = await supabase
-          .from('role_grants')
-          .select('role')
-          .eq('org_id', activeOrg.id)
-          .ilike('email', currentUser.email || '')
-          .maybeSingle();
-
-        if (grant?.role && !isOwnerAdmin) {
-          assignedRole = grant.role as UserRole;
-        }
-
-        const newProfileData = {
+      if (existingProfile) {
+        const prof = existingProfile as Profile;
+        setProfile(prof);
+        applyRole(prof.role);
+      } else {
+        // Profile not readable yet: treat as a student until it is
+        setProfile({
           id: currentUser.id,
           org_id: activeOrg.id,
           email: currentUser.email || '',
-          full_name: currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || 'Vinoth Rajaasekaran',
-          role: assignedRole,
-        };
+          full_name: currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || '',
+          role: 'student',
+          consent_at: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+        applyRole('student');
+      }
 
-        const { data: insertedProfile } = await supabase
-          .from('profiles')
-          .insert(newProfileData)
-          .select('*')
-          .maybeSingle();
-
-        if (insertedProfile) {
-          const prof = insertedProfile as Profile;
-          setProfile(prof);
-          setActiveRoleState(prof.role);
-          localStorage.setItem('sadhana_active_role', prof.role);
-          return;
+      const pendingCode = sessionStorage.getItem(PENDING_JOIN_KEY);
+      if (pendingCode) {
+        sessionStorage.removeItem(PENDING_JOIN_KEY);
+        const res = await joinBatchByCode(pendingCode);
+        if (!res.success) {
+          console.warn('Join from QR code failed:', res.message);
         }
       }
 
-      // In-memory fallback
-      setProfile({
-        id: currentUser.id,
-        org_id: activeOrg.id,
-        email: currentUser.email || 'annakhtoniv@gmail.com',
-        full_name: currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || 'Vinoth Rajaasekaran',
-        role: assignedRole,
-        consent_at: localStorage.getItem(`sadhana_consent_${currentUser.id}`) || new Date().toISOString(),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      });
-      setActiveRoleState(assignedRole);
-      localStorage.setItem('sadhana_active_role', assignedRole);
+      await loadEnrolmentForUser(currentUser.id);
     } catch (err) {
       console.error('Error fetching profile:', err);
     }
@@ -164,26 +151,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return res;
   };
 
-  // Change active role (switches between Student, Teacher, Admin on the fly)
+  // Switch which home screen is shown. This is a view only: it never changes
+  // the user's role in the database (SPEC: a user can never change their own role).
   const setActiveRole = async (newRole: UserRole) => {
+    const actualRole = profile?.role ?? 'student';
+    if (!allowedRoleViews(actualRole).includes(newRole)) return;
     setActiveRoleState(newRole);
     localStorage.setItem('sadhana_active_role', newRole);
-
-    // Also update profile in database if logged in
-    if (user) {
-      try {
-        const { error: rpcError } = await supabase.rpc('set_my_role', { p_role: newRole });
-        if (rpcError) {
-          await supabase
-            .from('profiles')
-            .update({ role: newRole })
-            .eq('id', user.id);
-        }
-        setProfile(prev => prev ? { ...prev, role: newRole } : null);
-      } catch (err) {
-        console.warn('Could not sync role change to database:', err);
-      }
-    }
   };
 
   // Initialise Auth & Organization ONCE on mount
@@ -210,37 +184,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSession(initialSession);
 
         if (initialSession?.user) {
+          localStorage.removeItem(DEMO_SESSION_KEY);
+          localStorage.removeItem('sadhana_demo_enrolment');
           setUser(initialSession.user);
           await fetchProfileForUser(initialSession.user, loadedOrg);
         } else {
-          // Check for saved demo session
-          const savedDemo = localStorage.getItem('sadhana_demo_session');
+          // Resume an explicit 1-click demo session, if one was started
+          const savedDemo = localStorage.getItem(DEMO_SESSION_KEY);
           if (savedDemo) {
             try {
               const parsed = JSON.parse(savedDemo) as User;
               setUser(parsed);
               await fetchProfileForUser(parsed, loadedOrg);
             } catch {
-              localStorage.removeItem('sadhana_demo_session');
+              localStorage.removeItem(DEMO_SESSION_KEY);
               setUser(null);
             }
-          } else if (!localStorage.getItem('sadhana_signed_out')) {
-            // Auto-sign in demo session so PM / user immediately sees the populated app!
-            const demoId = DEMO_TEACHER_PROFILE.id;
-            const demoUser = {
-              id: demoId,
-              app_metadata: {},
-              user_metadata: { full_name: 'Vinoth Rajaasekaran' },
-              aud: 'authenticated',
-              created_at: new Date().toISOString(),
-              email: 'annakhtoniv@gmail.com',
-            } as unknown as User;
-
-            localStorage.setItem('sadhana_demo_session', JSON.stringify(demoUser));
-            localStorage.setItem(`sadhana_consent_${demoId}`, new Date().toISOString());
-            localStorage.setItem('sadhana_active_role', 'admin');
-            setUser(demoUser);
-            await fetchProfileForUser(demoUser, loadedOrg);
           } else {
             setUser(null);
           }
@@ -263,9 +222,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const newUser = newSession?.user ?? null;
 
       if (newUser) {
+        localStorage.removeItem(DEMO_SESSION_KEY);
+        localStorage.removeItem('sadhana_demo_enrolment');
         setUser(newUser);
         await fetchProfileForUser(newUser, orgRef.current);
-      } else if (!localStorage.getItem('sadhana_demo_session')) {
+      } else if (!isDemoMode()) {
         setUser(null);
         setProfile(null);
         setEnrolment(null);
@@ -291,15 +252,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setProfile(prev => (prev ? { ...prev, consent_at: nowIso } : null));
 
     // 3. Persist to database
+    if (isDemoMode()) return;
     try {
-      // First try calling RPC if available
       const { error: rpcErr } = await supabase.rpc('give_user_consent');
       if (rpcErr) {
-        // Fallback to direct update
-        await supabase
-          .from('profiles')
-          .update({ consent_at: nowIso })
-          .eq('id', user.id);
+        console.warn('Consent was not saved to the database:', rpcErr.message);
       }
     } catch (err) {
       console.warn('Database consent update note:', err);
@@ -339,7 +296,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email: 'annakhtoniv@gmail.com',
       } as unknown as User;
 
-      localStorage.setItem('sadhana_demo_session', JSON.stringify(demoUser));
+      localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify(demoUser));
       localStorage.setItem('sadhana_active_role', roleToUse);
       localStorage.setItem(`sadhana_consent_${demoId}`, new Date().toISOString());
 
@@ -359,7 +316,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (user) {
       localStorage.removeItem(`sadhana_consent_${user.id}`);
       localStorage.removeItem('sadhana_active_role');
-      localStorage.removeItem('sadhana_demo_session');
+      localStorage.removeItem(DEMO_SESSION_KEY);
+      localStorage.removeItem('sadhana_demo_enrolment');
     }
     await supabase.auth.signOut();
     setSession(null);

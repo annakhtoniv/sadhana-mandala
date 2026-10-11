@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase, isDemoMode } from './supabase';
 import type { Checkin, CheckinStatus } from '../types/database';
 import { getDemoCheckinsForStudent, getDemoBatchCheckins } from './mockData';
 import {
@@ -19,28 +19,27 @@ export const upsertCheckinInMemory = upsertUtil;
 
 /**
  * Fetches all checkins for a specific student in a batch.
- * Queries Supabase first, falling back to local demo data if unseeded.
+ * Sample data is used only in the 1-click demo mode.
  */
 export async function fetchStudentCheckins(
   batchId: string,
   studentId: string
 ): Promise<Checkin[]> {
-  try {
-    const { data, error } = await supabase
-      .from('checkins')
-      .select('*')
-      .eq('batch_id', batchId)
-      .eq('student_id', studentId)
-      .order('day_number', { ascending: true });
-
-    if (!error && data && data.length > 0) {
-      return data as Checkin[];
-    }
-  } catch (err) {
-    console.warn('Note: using student check-in fallback:', err);
+  if (isDemoMode()) {
+    return getDemoCheckinsForStudent(studentId, batchId);
   }
 
-  return getDemoCheckinsForStudent(studentId, batchId);
+  const { data, error } = await supabase
+    .from('checkins')
+    .select('*')
+    .eq('batch_id', batchId)
+    .eq('student_id', studentId)
+    .order('day_number', { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+  return (data as Checkin[]) || [];
 }
 
 // Alias for fetchStudentCheckins
@@ -48,24 +47,23 @@ export const fetchStudentBatchCheckins = fetchStudentCheckins;
 
 /**
  * Fetches all checkins for an entire batch (used by teacher roster).
- * Queries Supabase first, falling back to full cohort demo checkins.
+ * Sample data is used only in the 1-click demo mode.
  */
 export async function fetchBatchCheckins(batchId: string): Promise<Checkin[]> {
-  try {
-    const { data, error } = await supabase
-      .from('checkins')
-      .select('*')
-      .eq('batch_id', batchId)
-      .order('day_number', { ascending: true });
-
-    if (!error && data && data.length > 0) {
-      return data as Checkin[];
-    }
-  } catch (err) {
-    console.warn('Note: using batch check-ins fallback:', err);
+  if (isDemoMode()) {
+    return getDemoBatchCheckins();
   }
 
-  return getDemoBatchCheckins();
+  const { data, error } = await supabase
+    .from('checkins')
+    .select('*')
+    .eq('batch_id', batchId)
+    .order('day_number', { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+  return (data as Checkin[]) || [];
 }
 
 // Alias for fetchBatchCheckins
@@ -79,24 +77,23 @@ export async function fetchTodayCheckin(
   studentId: string,
   dayNumber: number
 ): Promise<Checkin | null> {
-  try {
-    const { data, error } = await supabase
-      .from('checkins')
-      .select('*')
-      .eq('batch_id', batchId)
-      .eq('student_id', studentId)
-      .eq('day_number', dayNumber)
-      .maybeSingle();
-
-    if (!error && data) {
-      return data as Checkin;
-    }
-  } catch (err) {
-    console.warn('fetchTodayCheckin note:', err);
+  if (isDemoMode()) {
+    const all = await fetchStudentCheckins(batchId, studentId);
+    return all.find((c) => c.day_number === dayNumber) || null;
   }
 
-  const all = await fetchStudentCheckins(batchId, studentId);
-  return all.find((c) => c.day_number === dayNumber) || null;
+  const { data, error } = await supabase
+    .from('checkins')
+    .select('*')
+    .eq('batch_id', batchId)
+    .eq('student_id', studentId)
+    .eq('day_number', dayNumber)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+  return (data as Checkin) || null;
 }
 
 /**
@@ -159,6 +156,12 @@ export async function recordCheckin(
     }
   };
 
+  // Demo mode has no database session: keep the answer on this device only
+  if (isDemoMode()) {
+    persistToLocal(updatedCheckin);
+    return { success: true, checkin: updatedCheckin, data: updatedCheckin };
+  }
+
   // Persist to Supabase checkins table with onConflict
   try {
     const { data, error } = await supabase
@@ -187,12 +190,10 @@ export async function recordCheckin(
     }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Database checkin error';
-    console.warn('Note: Offline/local checkin mode:', msg);
+    return { success: false, error: msg };
   }
 
-  // Offline fallback
-  persistToLocal(updatedCheckin);
-  return { success: true, checkin: updatedCheckin, data: updatedCheckin };
+  return { success: false, error: 'Check-in was not saved' };
 }
 
 // Alias matching saveDailyCheckin

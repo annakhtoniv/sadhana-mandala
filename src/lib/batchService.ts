@@ -1,11 +1,10 @@
-import { supabase } from './supabase';
-import type { Batch, Course, Enrolment, BatchInvite, Profile } from '../types/database';
+import { supabase, isDemoMode } from './supabase';
+import type { Batch, Course, Enrolment, BatchInvite } from '../types/database';
 import {
   DEMO_ORG_ID,
   DEMO_TEACHER_PROFILE,
   DEMO_COURSE_40,
   DEMO_COURSE_21,
-  DEMO_BATCH_DAY23,
   DEMO_ENROLMENT_VINOTH,
   DEMO_ALL_BATCHES,
   DEMO_ROSTER_STUDENTS,
@@ -29,79 +28,73 @@ export async function claimUserInvites(): Promise<number> {
   }
 }
 
+const BATCH_SELECT = `
+  id,
+  org_id,
+  course_id,
+  teacher_id,
+  name,
+  start_date,
+  join_code,
+  created_at,
+  course:courses(*),
+  teacher:profiles(id, full_name, email)
+`;
+
+function generateJoinCode(): string {
+  return Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+
+function parseEmailList(rawEmailsText: string): string[] {
+  return rawEmailsText
+    .split(/[\n,;\s]+/)
+    .map((e) => e.trim().toLowerCase())
+    .filter((e) => e && e.includes('@'));
+}
+
 /**
- * Fetches the user's active enrolment in their organisation.
- * Seamless fallback to DEMO_ENROLMENT_VINOTH (Autumn Awakening Cohort at Day 23 of 40)
- * ensures the user is NEVER blocked by empty database tables or join codes.
+ * Fetches the user's most recent enrolment, or null when they are not in a batch
+ * (SPEC: such a user sees the "You are not in a batch yet" panel).
+ * Sample data is used only in the 1-click demo mode.
  */
 export async function fetchUserEnrolment(userId: string): Promise<Enrolment | null> {
-  // 1. Check local session enrolment first (if user joined a specific batch)
-  const savedDemo = localStorage.getItem('sadhana_demo_enrolment');
-  if (savedDemo) {
-    try {
-      return JSON.parse(savedDemo);
-    } catch {
-      // ignore parse error
+  if (isDemoMode()) {
+    const savedDemo = localStorage.getItem('sadhana_demo_enrolment');
+    if (savedDemo) {
+      try {
+        return JSON.parse(savedDemo);
+      } catch {
+        // ignore parse error
+      }
     }
+    return { ...DEMO_ENROLMENT_VINOTH, student_id: userId || DEMO_ENROLMENT_VINOTH.student_id };
   }
 
-  // 2. Query Supabase
-  try {
-    const { data, error } = await supabase
-      .from('enrolments')
-      .select(`
-        id,
-        org_id,
-        batch_id,
-        student_id,
-        source,
-        joined_at,
-        batch:batches(
-          id,
-          org_id,
-          course_id,
-          teacher_id,
-          name,
-          start_date,
-          join_code,
-          created_at,
-          course:courses(
-            id,
-            org_id,
-            name,
-            description,
-            duration_days,
-            created_at
-          ),
-          teacher:profiles(
-            id,
-            full_name,
-            email
-          )
-        )
-      `)
-      .eq('student_id', userId)
-      .order('joined_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+  const { data, error } = await supabase
+    .from('enrolments')
+    .select(`
+      id,
+      org_id,
+      batch_id,
+      student_id,
+      source,
+      joined_at,
+      batch:batches(${BATCH_SELECT})
+    `)
+    .eq('student_id', userId)
+    .order('joined_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
-    if (!error && data) {
-      return data as unknown as Enrolment;
-    }
-  } catch (err) {
-    console.warn('Note: using demo enrolment fallback for user:', err);
+  if (error) {
+    throw new Error(error.message);
   }
-
-  // 3. Fallback: Autumn Awakening Cohort (Active Day 23 of 40)
-  return {
-    ...DEMO_ENROLMENT_VINOTH,
-    student_id: userId || DEMO_ENROLMENT_VINOTH.student_id,
-  };
+  return (data as unknown as Enrolment) || null;
 }
 
 /**
  * Joins a batch via join code.
- * As per SPEC: "Fallback: the student enters the batch join code or scans its QR. A join code works only inside its own organisation."
+ * As per SPEC: "A join code works only inside its own organisation." (enforced by the RPC)
  */
 export async function joinBatchByCode(joinCode: string): Promise<{
   success: boolean;
@@ -110,68 +103,11 @@ export async function joinBatchByCode(joinCode: string): Promise<{
 }> {
   const cleanCode = joinCode.trim().toUpperCase();
 
-  try {
-    // 1. Try RPC function first
-    const { data, error } = await supabase.rpc('join_batch_by_code', {
-      p_join_code: cleanCode,
-    });
-
-    if (!error && data?.success !== false && data) {
-      return { success: true, data };
+  if (isDemoMode()) {
+    const foundDemoBatch = DEMO_ALL_BATCHES.find((b) => b.join_code.toUpperCase() === cleanCode);
+    if (!foundDemoBatch) {
+      return { success: false, message: 'Invalid join code. Please check with your teacher.' };
     }
-
-    // 2. Try direct table query
-    const { data: userRes } = await supabase.auth.getUser();
-    const user = userRes?.user;
-
-    const { data: batch, error: batchErr } = await supabase
-      .from('batches')
-      .select('id, org_id, name')
-      .ilike('join_code', cleanCode)
-      .maybeSingle();
-
-    if (!batchErr && batch && user) {
-      const { data: enr, error: enrErr } = await supabase
-        .from('enrolments')
-        .upsert(
-          {
-            org_id: batch.org_id,
-            batch_id: batch.id,
-            student_id: user.id,
-            source: 'code',
-            joined_at: new Date().toISOString(),
-          },
-          { onConflict: 'batch_id,student_id' }
-        )
-        .select()
-        .maybeSingle();
-
-      if (!enrErr && enr) {
-        return { success: true, data: enr };
-      }
-    }
-
-    // 3. Demo fallback matching
-    const foundDemoBatch =
-      DEMO_ALL_BATCHES.find((b) => b.join_code.toUpperCase() === cleanCode) || DEMO_BATCH_DAY23;
-
-    const demoEnr: Enrolment = {
-      id: `enr-demo-${Date.now()}`,
-      org_id: foundDemoBatch.org_id,
-      batch_id: foundDemoBatch.id,
-      student_id: user?.id || DEMO_TEACHER_PROFILE.id,
-      source: 'code',
-      joined_at: new Date().toISOString(),
-      batch: foundDemoBatch,
-    };
-
-    localStorage.setItem('sadhana_demo_enrolment', JSON.stringify(demoEnr));
-    return { success: true, data: demoEnr };
-  } catch (err: unknown) {
-    // Safe graceful demo fallback
-    const foundDemoBatch =
-      DEMO_ALL_BATCHES.find((b) => b.join_code.toUpperCase() === cleanCode) || DEMO_BATCH_DAY23;
-
     const demoEnr: Enrolment = {
       id: `enr-demo-${Date.now()}`,
       org_id: foundDemoBatch.org_id,
@@ -181,84 +117,57 @@ export async function joinBatchByCode(joinCode: string): Promise<{
       joined_at: new Date().toISOString(),
       batch: foundDemoBatch,
     };
-
     localStorage.setItem('sadhana_demo_enrolment', JSON.stringify(demoEnr));
     return { success: true, data: demoEnr };
   }
+
+  const { data, error } = await supabase.rpc('join_batch_by_code', { p_join_code: cleanCode });
+  if (error) {
+    return { success: false, message: error.message };
+  }
+  if (data?.success === false) {
+    return { success: false, message: data.message || 'Invalid join code. Please check with your teacher.' };
+  }
+  return { success: true, data };
 }
 
 /**
- * Fetches batches for a teacher (or all batches if admin).
- * Falls back to DEMO_ALL_BATCHES so Teacher view has 4 vibrant cohorts immediately.
- */
-/**
- * Fetches batches for a teacher (or all batches if admin).
- * Merges locally created batches with Supabase batches so created cohorts ALWAYS appear!
+ * Fetches batches for a teacher (own batches), or every batch in the organisation for an admin.
+ * Row level security limits the result to the user's organisation.
  */
 export async function fetchTeacherBatches(
   teacherId: string,
   isAdmin: boolean = false
 ): Promise<Batch[]> {
-  // Check for any locally created batches
-  let customBatches: Batch[] = [];
-  try {
-    const raw = localStorage.getItem('sadhana_custom_batches');
-    if (raw) customBatches = JSON.parse(raw);
-  } catch {
-    // ignore
-  }
-
-  let dbBatches: Batch[] = [];
-  try {
-    let query = supabase
-      .from('batches')
-      .select(`
-        id,
-        org_id,
-        course_id,
-        teacher_id,
-        name,
-        start_date,
-        join_code,
-        created_at,
-        course:courses(*),
-        teacher:profiles(id, full_name, email)
-      `)
-      .order('created_at', { ascending: false });
-
-    if (!isAdmin) {
-      query = query.or(`teacher_id.eq.${teacherId},teacher_id.eq.b0000000-0000-0000-0000-000000000001`);
+  if (isDemoMode()) {
+    let customBatches: Batch[] = [];
+    try {
+      const raw = localStorage.getItem('sadhana_custom_batches');
+      if (raw) customBatches = JSON.parse(raw);
+    } catch {
+      // ignore
     }
-
-    const { data, error } = await query;
-    if (!error && data && data.length > 0) {
-      dbBatches = data as unknown as Batch[];
+    const combined = new Map<string, Batch>();
+    for (const b of [...customBatches, ...DEMO_ALL_BATCHES]) {
+      if (!combined.has(b.id)) combined.set(b.id, b);
     }
-  } catch (err) {
-    console.warn('Note: using demo batches fallback:', err);
+    return Array.from(combined.values());
   }
 
-  // Merge custom batches at the top, followed by DB batches and fallback demo cohorts
-  const combinedMap = new Map<string, Batch>();
-  for (const b of customBatches) {
-    combinedMap.set(b.id, b);
-  }
-  for (const b of dbBatches) {
-    combinedMap.set(b.id, b);
-  }
-  // ALWAYS keep all 4 baseline demo cohorts present alongside any custom created cohorts!
-  for (const b of DEMO_ALL_BATCHES) {
-    if (!combinedMap.has(b.id)) {
-      combinedMap.set(b.id, b);
-    }
+  let query = supabase.from('batches').select(BATCH_SELECT).order('start_date', { ascending: false });
+  if (!isAdmin) {
+    query = query.eq('teacher_id', teacherId);
   }
 
-  return Array.from(combinedMap.values());
+  const { data, error } = await query;
+  if (error) {
+    throw new Error(error.message);
+  }
+  return (data as unknown as Batch[]) || [];
 }
 
 /**
- * Creates a new batch with an auto-generated unique 6-character code.
- * Guaranteed to succeed without blocking the user.
+ * Creates a new batch. Uses the given join code or generates a 6-character one.
  */
 export async function createBatch(params: {
   orgId: string;
@@ -268,123 +177,55 @@ export async function createBatch(params: {
   startDate: string;
   joinCode?: string;
 }): Promise<{ success: boolean; data?: Batch; error?: string }> {
-  const joinCode =
-    params.joinCode?.trim().toUpperCase() ||
-    Math.random().toString(36).substring(2, 8).toUpperCase();
+  const joinCode = params.joinCode?.trim().toUpperCase() || generateJoinCode();
+  const startDate = params.startDate || new Date().toISOString().split('T')[0];
 
-  const orgIdToUse = params.orgId || DEMO_ORG_ID;
-  const courseIdToUse = params.courseId || DEMO_COURSE_40.id;
-  const teacherIdToUse = params.teacherId || DEMO_TEACHER_PROFILE.id;
-  const startDateToUse = params.startDate || new Date().toISOString().split('T')[0];
-
-  // Resolve course object
-  const courseObj =
-    courseIdToUse === DEMO_COURSE_21.id ? DEMO_COURSE_21 : DEMO_COURSE_40;
-
-  // Resolve teacher object (Vinoth Rajaasekaran as admin)
-  const teacherObj: Profile = {
-    ...DEMO_TEACHER_PROFILE,
-    id: teacherIdToUse,
-  };
-
-  const newBatchItem: Batch = {
-    id: `batch-${Date.now()}`,
-    org_id: orgIdToUse,
-    course_id: courseIdToUse,
-    teacher_id: teacherIdToUse,
-    name: params.name,
-    start_date: startDateToUse,
-    join_code: joinCode,
-    created_at: new Date().toISOString(),
-    course: courseObj,
-    teacher: teacherObj,
-  };
-
-  // 1. Immediately cache locally in sadhana_custom_batches so UI never drops it
-  try {
-    const raw = localStorage.getItem('sadhana_custom_batches');
-    const existing: Batch[] = raw ? JSON.parse(raw) : [];
-    localStorage.setItem(
-      'sadhana_custom_batches',
-      JSON.stringify([newBatchItem, ...existing.filter((b) => b.id !== newBatchItem.id)])
-    );
-  } catch {
-    // ignore
-  }
-
-  // 2. Proactively sync to Supabase with dependency preparation
-  try {
-    // Ensure organisation exists
-    await supabase.from('organisations').upsert({
-      id: orgIdToUse,
-      name: 'Sadhana Mandala',
-      slug: 'sadhana-mandala',
-      app_name: 'Sadhana Mandala',
-      timezone: 'Asia/Dubai',
-      primary_colour: '#1c1917',
-      accent_colour: '#059669',
-      checkin_question: 'Have you completed your Sadhana today?',
-    }, { onConflict: 'id' });
-
-    // Ensure course exists in Supabase so foreign key never fails
-    await supabase.from('courses').upsert({
-      id: courseIdToUse,
-      org_id: orgIdToUse,
-      name: courseObj.name,
-      description: courseObj.description,
-      duration_days: courseObj.duration_days,
-    }, { onConflict: 'id' });
-
-    // Ensure teacher profile exists in Supabase
-    await supabase.from('profiles').upsert({
-      id: teacherIdToUse,
-      org_id: orgIdToUse,
-      email: 'annakhtoniv@gmail.com',
-      full_name: 'Vinoth Rajaasekaran',
-      role: 'admin',
-    }, { onConflict: 'id' });
-
-    // Insert the batch into Supabase
-    const { data: dbData, error: dbError } = await supabase
-      .from('batches')
-      .insert({
-        org_id: orgIdToUse,
-        course_id: courseIdToUse,
-        teacher_id: teacherIdToUse,
-        name: params.name,
-        start_date: startDateToUse,
-        join_code: joinCode,
-      })
-      .select('*')
-      .maybeSingle();
-
-    if (!dbError && dbData) {
-      const dbCreated: Batch = {
-        ...(dbData as unknown as Batch),
-        course: courseObj,
-        teacher: teacherObj,
-      };
-
-      try {
-        const raw = localStorage.getItem('sadhana_custom_batches');
-        const existing: Batch[] = raw ? JSON.parse(raw) : [];
-        localStorage.setItem(
-          'sadhana_custom_batches',
-          JSON.stringify([dbCreated, ...existing.filter((b) => b.id !== newBatchItem.id && b.id !== dbCreated.id)])
-        );
-      } catch {
-        // ignore
-      }
-      return { success: true, data: dbCreated };
-    } else if (dbError) {
-      console.warn('Database batch insert note (using offline-safe batch):', dbError.message);
+  if (isDemoMode()) {
+    const courseObj = params.courseId === DEMO_COURSE_21.id ? DEMO_COURSE_21 : DEMO_COURSE_40;
+    const newBatchItem: Batch = {
+      id: `batch-${Date.now()}`,
+      org_id: params.orgId || DEMO_ORG_ID,
+      course_id: courseObj.id,
+      teacher_id: params.teacherId || DEMO_TEACHER_PROFILE.id,
+      name: params.name,
+      start_date: startDate,
+      join_code: joinCode,
+      created_at: new Date().toISOString(),
+      course: courseObj,
+      teacher: { ...DEMO_TEACHER_PROFILE, id: params.teacherId || DEMO_TEACHER_PROFILE.id },
+    };
+    try {
+      const raw = localStorage.getItem('sadhana_custom_batches');
+      const existing: Batch[] = raw ? JSON.parse(raw) : [];
+      localStorage.setItem('sadhana_custom_batches', JSON.stringify([newBatchItem, ...existing]));
+    } catch {
+      // ignore
     }
-  } catch (err: unknown) {
-    console.warn('Database batch create note:', err);
+    return { success: true, data: newBatchItem };
   }
 
-  // Guaranteed safe return
-  return { success: true, data: newBatchItem };
+  if (!params.orgId || !params.courseId || !params.teacherId) {
+    return { success: false, error: 'Please choose a course before creating a batch.' };
+  }
+
+  const { data, error } = await supabase
+    .from('batches')
+    .insert({
+      org_id: params.orgId,
+      course_id: params.courseId,
+      teacher_id: params.teacherId,
+      name: params.name,
+      start_date: startDate,
+      join_code: joinCode,
+    })
+    .select(BATCH_SELECT)
+    .single();
+
+  if (error) {
+    const msg = error.code === '23505' ? `The join code ${joinCode} is already taken. Try another.` : error.message;
+    return { success: false, error: msg };
+  }
+  return { success: true, data: data as unknown as Batch };
 }
 
 /**
@@ -400,148 +241,116 @@ export async function addBatchInvites(
   totalAutoEnrolled?: number;
   error?: string;
 }> {
-  try {
-    // Parse emails from comma, newline, or space separated string
-    const emailList = rawEmailsText
-      .split(/[\n,;\s]+/)
-      .map((e) => e.trim().toLowerCase())
-      .filter((e) => e && e.includes('@'));
-
-    if (emailList.length === 0) {
-      return { success: false, error: 'No valid email addresses found' };
-    }
-
-    const { data, error } = await supabase.rpc('add_batch_invites', {
-      p_batch_id: batchId,
-      p_emails: emailList,
-    });
-
-    if (!error && data) {
-      return {
-        success: true,
-        totalInvites: data?.total_invites ?? emailList.length,
-        totalAutoEnrolled: data?.total_auto_enrolled ?? 0,
-      };
-    }
-  } catch (err: unknown) {
-    console.warn('Note: using mock invite feedback:', err);
+  const emailList = parseEmailList(rawEmailsText);
+  if (emailList.length === 0) {
+    return { success: false, error: 'No valid email addresses found' };
   }
 
-  // Graceful fallback for mock mode
-  const emailList = rawEmailsText
-    .split(/[\n,;\s]+/)
-    .map((e) => e.trim().toLowerCase())
-    .filter((e) => e && e.includes('@'));
+  if (isDemoMode()) {
+    return { success: true, totalInvites: emailList.length, totalAutoEnrolled: 0 };
+  }
 
+  const { data, error } = await supabase.rpc('add_batch_invites', {
+    p_batch_id: batchId,
+    p_emails: emailList,
+  });
+  if (error) {
+    return { success: false, error: error.message };
+  }
   return {
     success: true,
-    totalInvites: emailList.length,
-    totalAutoEnrolled: 1,
+    totalInvites: data?.total_invites ?? emailList.length,
+    totalAutoEnrolled: data?.total_auto_enrolled ?? 0,
   };
 }
 
 /**
- * Fetches enrolled students in a batch.
- * Falls back to 30 fictional demo students so the teacher roster and quiet alerts are fully visible!
+ * Fetches enrolled students in a batch, with their profiles.
+ * Sample data is used only in the 1-click demo mode.
  */
 export async function fetchBatchEnrolments(batchId: string): Promise<Enrolment[]> {
-  try {
-    const { data, error } = await supabase
-      .from('enrolments')
-      .select(`
-        id,
-        org_id,
-        batch_id,
-        student_id,
-        source,
-        joined_at,
-        student:profiles(id, email, full_name)
-      `)
-      .eq('batch_id', batchId)
-      .order('joined_at', { ascending: true });
-
-    if (!error && data && data.length > 0) {
-      return data as unknown as Enrolment[];
-    }
-  } catch (err) {
-    console.warn('Note: using demo enrolments fallback:', err);
+  if (isDemoMode()) {
+    return [
+      { ...DEMO_ENROLMENT_VINOTH, batch_id: batchId },
+      ...DEMO_ROSTER_STUDENTS.map((student, idx) => ({
+        id: `enr-demo-${student.id}-${batchId}`,
+        org_id: DEMO_ORG_ID,
+        batch_id: batchId,
+        student_id: student.id,
+        source: 'invite' as const,
+        joined_at: new Date(Date.now() - (24 - (idx % 6)) * 86400000).toISOString(),
+        student,
+      })),
+    ];
   }
 
-  // Demo Roster: Vinoth + 30 diverse students
-  return [
-    {
-      ...DEMO_ENROLMENT_VINOTH,
-      batch_id: batchId,
-    },
-    ...DEMO_ROSTER_STUDENTS.map((student, idx) => ({
-      id: `enr-demo-${student.id}-${batchId}`,
-      org_id: DEMO_ORG_ID,
-      batch_id: batchId,
-      student_id: student.id,
-      source: 'invite' as const,
-      joined_at: new Date(Date.now() - (24 - (idx % 6)) * 86400000).toISOString(),
-      student,
-    })),
-  ];
+  const { data, error } = await supabase
+    .from('enrolments')
+    .select(`
+      id,
+      org_id,
+      batch_id,
+      student_id,
+      source,
+      joined_at,
+      student:profiles(id, email, full_name)
+    `)
+    .eq('batch_id', batchId)
+    .order('joined_at', { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+  return (data as unknown as Enrolment[]) || [];
 }
 
 /**
  * Fetches invites for a batch.
  */
 export async function fetchBatchInvites(batchId: string): Promise<BatchInvite[]> {
-  try {
-    const { data, error } = await supabase
-      .from('batch_invites')
-      .select('*')
-      .eq('batch_id', batchId)
-      .order('created_at', { ascending: false });
-
-    if (!error && data && data.length > 0) {
-      return (data as BatchInvite[]) || [];
-    }
-  } catch (err) {
-    console.warn('Note: using demo batch invites fallback:', err);
+  if (isDemoMode()) {
+    return [
+      {
+        id: 'inv-demo-1',
+        org_id: DEMO_ORG_ID,
+        batch_id: batchId,
+        email: 'aarti.sharma@example.com',
+        claimed_by: null,
+        created_at: new Date(Date.now() - 3 * 86400000).toISOString(),
+      },
+    ];
   }
 
-  return [
-    {
-      id: 'inv-demo-1',
-      org_id: DEMO_ORG_ID,
-      batch_id: batchId,
-      email: 'aarti.sharma@example.com',
-      claimed_by: null,
-      created_at: new Date(Date.now() - 3 * 86400000).toISOString(),
-    },
-    {
-      id: 'inv-demo-2',
-      org_id: DEMO_ORG_ID,
-      batch_id: batchId,
-      email: 'priya.nair@example.com',
-      claimed_by: null,
-      created_at: new Date(Date.now() - 1 * 86400000).toISOString(),
-    },
-  ];
+  const { data, error } = await supabase
+    .from('batch_invites')
+    .select('*')
+    .eq('batch_id', batchId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+  return (data as BatchInvite[]) || [];
 }
 
 /**
  * Fetches available courses for an organisation.
  */
 export async function fetchCourses(orgId: string): Promise<Course[]> {
-  try {
-    const { data, error } = await supabase
-      .from('courses')
-      .select('*')
-      .eq('org_id', orgId)
-      .order('created_at', { ascending: true });
-
-    if (!error && data && data.length > 0) {
-      return (data as Course[]) || [];
-    }
-  } catch (err) {
-    console.warn('Note: using demo courses fallback:', err);
+  if (isDemoMode()) {
+    return [DEMO_COURSE_40, DEMO_COURSE_21];
   }
 
-  return [DEMO_COURSE_40, DEMO_COURSE_21];
+  const { data, error } = await supabase
+    .from('courses')
+    .select('*')
+    .eq('org_id', orgId)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+  return (data as Course[]) || [];
 }
 
 /**

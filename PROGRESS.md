@@ -74,11 +74,23 @@
     - Added Console Quick Switch buttons to `ProfileScreen.tsx` for 1-tap switching between Admin Console and Teacher Dashboard.
     - Synchronized dependency provisioning in `batchService.ts` to ensure batches are saved locally and synced to Supabase without blocking UI.
 
+- Phase 4 review (2026-10-11) found that the teacher dashboard had never shown real database data, and that data isolation did not hold. Fixed in code; the database part needs the PM to run three SQL files (see Next).
+  - Live database: every signed-in query on batches, enrolments, profiles, lessons and check-ins failed with "infinite recursion detected in policy". The app hid this by showing mock data (`mockData.ts`), so the dashboard looked like it matched the seed.
+  - Live database: any signed-in user could make themselves admin (`set_my_role`, or by editing their own profile) or move into another organisation by changing `profiles.org_id`. Inside an organisation, any student could read and change every check-in, batch, invite and role grant. Join codes worked across organisations.
+  - Added [supabase/phase4_security.sql](supabase/phase4_security.sql): replaces every policy with one non-recursive set following the SPEC access rules, adds the profile protection trigger (no self role/org change), removes `set_my_role`, makes join codes organisation-only, enforces "check in for today only", makes "Delete my account" remove the profile, check-ins and enrolments, and blocks anonymous visitors from all functions.
+  - Rewrote [supabase/seed_dummy_data.sql](supabase/seed_dummy_data.sql) to match the SPEC exactly and be re-runnable: Org A 1 course, 3 batches (finished, day 23, day 2), 30 students, 5 quiet; Org B 1 batch, 5 students, show_powered_by false. It resets earlier dummy data first and never touches real accounts or policies.
+  - Added [supabase/phase4_verify.sql](supabase/phase4_verify.sql): 24 checks that sign in as the fictional teachers, student and admin and confirm the dashboard numbers and that nothing crosses organisations. Nothing is saved. Tested on a local copy of the live setup: 12 checks fail before the fix, 24/24 pass after.
+  - App: sample data now appears only after pressing the 1-click demo button. A real Google session always shows what the database returns, or an error message. Removed the silent auto-login as the demo admin on first visit, the "email contains annakhtoniv/vinoth = admin" rule, and the role switcher's database write (it is now a view switcher limited to your own role and below). Students with no batch now see the "not in a batch yet" panel instead of a fake batch. Scanning a batch QR code now joins that batch after sign-in (the `?code=` link was never read before).
+  - Teacher dashboard: added the "No answer" count, fixed finished batches flagging every student as Quiet, fixed sort by today's status, shows last check-in day and date, shows load errors.
+  - 59 unit tests passing (`npx vitest run`), clean build (`npm run build`).
+
 ## Next
-- Present to teacher and inspect live cohorts.
-- Proceed to Phase 4 (Teacher batch dashboard polish & demo cut line).
-- Await PM review and approval.
+- PM: in the Supabase SQL editor run, in this order: `supabase/phase4_security.sql`, `supabase/seed_dummy_data.sql`, `supabase/phase4_verify.sql`. Every row of the last one must say PASS.
+- PM: decide which real accounts should stay admin (see Known Issues), then test Phase 4: sign in with Google, open Teacher view, open "Autumn Awakening Cohort". Expected: Done 6, Rest 2, Not yet 2, No answer 20, Quiet 5, 30 students.
+- Re-run `supabase/seed_dummy_data.sql` on the morning of a demo so the batches sit on day 23 / day 2 / finished.
+- Then Phase 4 sign-off (demo cut line).
 
 ## Known Issues
-- None.
-
+- Real accounts currently holding admin in the live database (they got it through the old self-service role switch): the PM's own account plus 2 other real Google accounts (check with `select email, role from profiles where email not like '%example.com'`). There are also 4 leftover annakhtoniv@gmail.com profiles with no sign-in account behind them. PM to decide who stays admin.
+- Admin screens (`AdminHome.tsx`, phase 6) still mix in sample data and a hardcoded admin name; left for phase 6.
+- `RUN_THIS_IN_SUPABASE.sql` still contains the old unsafe policies; never run it without the three phase 4 files after it.

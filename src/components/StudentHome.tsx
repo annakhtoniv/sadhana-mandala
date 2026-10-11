@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { isDemoMode } from '../lib/supabase';
 import { calculateDayNumber, formatDateDisplay } from '../lib/dateUtils';
 import {
   fetchStudentCheckins,
@@ -57,11 +58,18 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
 
     let isMounted = true;
 
-    fetchStudentCheckins(batch.id, profile.id).then((data) => {
-      if (isMounted) {
-        setCheckins(data);
-      }
-    });
+    fetchStudentCheckins(batch.id, profile.id)
+      .then((data) => {
+        if (isMounted) {
+          setCheckins(data);
+        }
+      })
+      .catch((err) => {
+        console.error('Could not load check-ins:', err);
+        if (isMounted) {
+          setCheckins([]);
+        }
+      });
 
     return () => {
       isMounted = false;
@@ -215,7 +223,8 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
             )}
           </form>
 
-          {/* Quick Demo Batch 1-Click Join Section */}
+          {/* Quick Demo Batch 1-Click Join Section (demo mode only) */}
+          {isDemoMode() && (
           <div className="pt-3 border-t border-stone-100 dark:border-stone-800 space-y-2.5">
             <div className="text-[11px] font-semibold text-stone-500 uppercase tracking-wider flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
@@ -269,6 +278,7 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
               </button>
             </div>
           </div>
+          )}
 
           {onNavigateLessons && (
             <div className="pt-2 border-t border-stone-100 dark:border-stone-800">
