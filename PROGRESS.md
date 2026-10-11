@@ -85,12 +85,18 @@
   - 59 unit tests passing (`npx vitest run`), clean build (`npm run build`).
 
 ## Next
-- PM: in the Supabase SQL editor run, in this order: `supabase/phase4_security.sql`, `supabase/seed_dummy_data.sql`, `supabase/phase4_verify.sql`. Every row of the last one must say PASS.
-- PM: decide which real accounts should stay admin (see Known Issues), then test Phase 4: sign in with Google, open Teacher view, open "Autumn Awakening Cohort". Expected: Done 6, Rest 2, Not yet 2, No answer 20, Quiet 5, 30 students.
+- Already applied to the live database on 2026-10-11 by Claude: the profile protection trigger (no one can change their own role or organisation any more), the 8 helper functions, the organisation-only join code, and the two other real accounts set from admin to student (profiles and role_grants).
+- Still to apply. The Supabase connector timed out on statements that drop or delete, so run these in the Supabase SQL editor (Dashboard > SQL Editor > New query > paste the file > Run), in this order:
+  1. `supabase/phase4_security.sql` (safe to re-run; replaces every policy and fixes the "infinite recursion" errors)
+  2. `supabase/seed_dummy_data.sql`
+  3. Remove the 4 leftover profiles with no sign-in account: `delete from public.profiles where email = 'annakhtoniv@gmail.com' and id not in (select id from auth.users);`
+  4. `supabase/phase4_verify.sql`: every row must say PASS.
+- Merge the pull request so the app stops showing sample data to signed-in users. Merge it only after step 1, because before it, real sessions show errors instead of mock data.
+- Then test Phase 4: sign in with Google, open Teacher view, open "Autumn Awakening Cohort". Expected: Done 6, Rest 2, Not yet 2, No answer 20, Quiet 5, 30 students.
 - Re-run `supabase/seed_dummy_data.sql` on the morning of a demo so the batches sit on day 23 / day 2 / finished.
 - Then Phase 4 sign-off (demo cut line).
 
 ## Known Issues
-- Real accounts currently holding admin in the live database (they got it through the old self-service role switch): the PM's own account plus 2 other real Google accounts (check with `select email, role from profiles where email not like '%example.com'`). There are also 4 leftover annakhtoniv@gmail.com profiles with no sign-in account behind them. PM to decide who stays admin.
+- 4 leftover annakhtoniv@gmail.com profiles with no sign-in account behind them (removed by step 3 above).
 - Admin screens (`AdminHome.tsx`, phase 6) still mix in sample data and a hardcoded admin name; left for phase 6.
 - `RUN_THIS_IN_SUPABASE.sql` still contains the old unsafe policies; never run it without the three phase 4 files after it.
