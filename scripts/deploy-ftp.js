@@ -2,132 +2,164 @@ const ftp = require('basic-ftp');
 const path = require('path');
 const fs = require('fs');
 
+function logSummary(msg) {
+  console.log(msg);
+  if (process.env.GITHUB_STEP_SUMMARY) {
+    try {
+      fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, msg + '\n');
+    } catch {
+      // ignore
+    }
+  }
+}
+
 async function deploy() {
-  const host = process.env.FTP_SERVER || 'server60-1.shared.spaceship.host';
+  const envHost = process.env.FTP_SERVER;
   const user = process.env.FTP_USERNAME;
   const password = process.env.FTP_PASSWORD;
   const configuredDir = process.env.FTP_SERVER_DIR || '';
 
+  logSummary('## 🚀 Spaceship FTP Deployment Report');
+
   if (!user || !password) {
-    console.log(`::error::FTP credentials missing! user=${user ? 'present' : 'MISSING'}, password=${password ? 'present' : 'MISSING'}`);
+    logSummary(`❌ **Error**: FTP credentials missing! \`FTP_USERNAME\`: ${user ? '✅ Present' : '❌ MISSING'}, \`FTP_PASSWORD\`: ${password ? '✅ Present' : '❌ MISSING'}`);
     process.exit(1);
   }
 
   const distDir = path.resolve(__dirname, '../dist');
   if (!fs.existsSync(distDir) || !fs.existsSync(path.join(distDir, 'index.html'))) {
-    console.error('❌ Error: dist/ directory does not exist or has no index.html. Run npm run build first.');
+    logSummary('❌ **Error**: dist/ directory does not exist or has no index.html. Run npm run build first.');
     process.exit(1);
   }
 
-  console.log(`🚀 Starting FTP Deployment to ${host}...`);
-  console.log(`📁 Local directory: ${distDir}`);
-  console.log(`👤 Username: ${user}`);
-  if (configuredDir) console.log(`📂 Configured target dir: ${configuredDir}`);
+  const hostsToTry = [
+    envHost,
+    'server60-1.shared.spaceship.host',
+    '66.29.148.114',
+    'sadhana.zyxenai.com',
+  ].filter(Boolean);
 
-  const client = new ftp.Client(60000); // 60s timeout
-  client.ftp.verbose = true;
+  // Remove duplicates
+  const uniqueHosts = [...new Set(hostsToTry)];
 
-  let connected = false;
+  let connectedClient = null;
+  let connectedHost = null;
 
-  // Try 1: FTPS with self-signed certificate acceptance
-  try {
-    console.log('📡 Attempting FTPS connection (secure with relaxed SSL validation)...');
-    await client.access({
-      host,
-      user,
-      password,
-      port: 21,
-      secure: 'implicit' ? false : true, // explicit TLS on port 21
-      secureOptions: {
-        rejectUnauthorized: false,
-      },
-    });
-    console.log('✅ Connected via FTPS successfully!');
-    connected = true;
-  } catch (err) {
-    console.warn(`⚠️ FTPS connection note: ${err.message}. Trying plain FTP...`);
-    client.close();
-  }
+  for (const host of uniqueHosts) {
+    logSummary(`### Connecting to host: \`${host}\`...`);
 
-  // Try 2: Plain FTP fallback if FTPS refused
-  if (!connected) {
+    // Strategy 1: Explicit FTPS on Port 21 (Spaceship default)
     try {
-      console.log('📡 Attempting plain FTP connection on port 21...');
-      const plainClient = new ftp.Client(60000);
-      plainClient.ftp.verbose = true;
-      await plainClient.access({
+      console.log(`📡 Strategy 1: Explicit FTPS (AUTH TLS) on ${host}:21...`);
+      const client = new ftp.Client(45000);
+      client.ftp.verbose = true;
+      await client.access({
+        host,
+        user,
+        password,
+        port: 21,
+        secure: true,
+        secureOptions: { rejectUnauthorized: false },
+      });
+      logSummary(`✅ Connected to \`${host}\` via **Explicit FTPS (TLS)** successfully!`);
+      connectedClient = client;
+      connectedHost = host;
+      break;
+    } catch (err) {
+      console.warn(`⚠️ Strategy 1 (FTPS:21) on ${host} failed: ${err.message}`);
+    }
+
+    // Strategy 2: Standard Plain FTP on Port 21
+    try {
+      console.log(`📡 Strategy 2: Plain standard FTP on ${host}:21...`);
+      const client = new ftp.Client(45000);
+      client.ftp.verbose = true;
+      await client.access({
         host,
         user,
         password,
         port: 21,
         secure: false,
       });
-      console.log('✅ Connected via standard FTP successfully!');
-      // replace client reference
-      Object.assign(client, plainClient);
-      connected = true;
+      logSummary(`✅ Connected to \`${host}\` via **Standard FTP** successfully!`);
+      connectedClient = client;
+      connectedHost = host;
+      break;
     } catch (err) {
-      console.log(`::error::Standard FTP connection failed: ${err.message}`);
-      process.exit(1);
+      console.warn(`⚠️ Strategy 2 (FTP:21) on ${host} failed: ${err.message}`);
+    }
+
+    // Strategy 3: Implicit FTPS on Port 990
+    try {
+      console.log(`📡 Strategy 3: Implicit FTPS on ${host}:990...`);
+      const client = new ftp.Client(45000);
+      client.ftp.verbose = true;
+      await client.access({
+        host,
+        user,
+        password,
+        port: 990,
+        secure: 'implicit',
+        secureOptions: { rejectUnauthorized: false },
+      });
+      logSummary(`✅ Connected to \`${host}\` via **Implicit FTPS (Port 990)** successfully!`);
+      connectedClient = client;
+      connectedHost = host;
+      break;
+    } catch (err) {
+      console.warn(`⚠️ Strategy 3 (FTPS:990) on ${host} failed: ${err.message}`);
     }
   }
 
+  if (!connectedClient) {
+    logSummary('❌ **Failed**: Could not connect to any Spaceship FTP endpoint with the provided credentials.');
+    process.exit(1);
+  }
+
+  const client = connectedClient;
+
   try {
-    // Current remote working directory
     const pwd = await client.pwd();
-    console.log(`📍 Initial remote working directory: ${pwd}`);
+    logSummary(`📍 **Initial remote directory**: \`${pwd}\``);
 
-    // List contents to inspect remote directory layout
     const list = await client.list();
-    console.log(`📋 Remote directory listing (${list.length} items):`);
-    list.forEach(item => console.log(`   - [${item.isDirectory ? 'DIR' : 'FILE'}] ${item.name}`));
+    console.log(`📋 Directory items (${list.length}):`, list.map(i => i.name));
 
-    // Determine target directory
     let targetDir = configuredDir.trim();
 
     if (targetDir && targetDir !== '/') {
       console.log(`Navigating to configured target directory: "${targetDir}"...`);
       await client.ensureDir(targetDir);
     } else {
-      // Auto-detect web root if not explicitly pinned
       const names = list.map(i => i.name.toLowerCase());
       if (names.includes('public_html')) {
-        console.log('Detected "public_html" directory. Checking subfolders...');
         await client.cd('public_html');
         const pubList = await client.list();
         const pubNames = pubList.map(i => i.name.toLowerCase());
         if (pubNames.includes('sadhana.zyxenai.com')) {
-          console.log('Entering "public_html/sadhana.zyxenai.com"...');
           await client.cd('sadhana.zyxenai.com');
-        } else {
-          console.log('Deploying directly into "public_html"...');
         }
       } else if (names.includes('sadhana.zyxenai.com')) {
-        console.log('Entering "sadhana.zyxenai.com"...');
         await client.cd('sadhana.zyxenai.com');
-      } else {
-        console.log('Deploying into current root directory...');
       }
     }
 
     const finalPwd = await client.pwd();
-    console.log(`🎯 Destination upload directory: ${finalPwd}`);
+    logSummary(`🎯 **Deploying into destination directory**: \`${finalPwd}\``);
 
-    // Upload dist directory
-    console.log('📦 Uploading built files to remote server...');
+    console.log('📦 Uploading built files from dist/ ...');
     await client.uploadFromDir(distDir);
 
-    console.log('🎉 Upload completed successfully!');
-
-    // Verify index.html on remote server
     const remoteCheck = await client.list();
     const remoteIndex = remoteCheck.find(f => f.name === 'index.html');
     if (remoteIndex) {
-      console.log(`::notice::Deployment verified! remote index.html exists (${remoteIndex.size} bytes, modified: ${remoteIndex.rawModifiedAt})`);
+      logSummary(`🎉 **Deployment Success!** \`index.html\` verified live on Spaceship (${remoteIndex.size} bytes).`);
+    } else {
+      logSummary('🎉 Files uploaded successfully!');
     }
 
   } catch (err) {
-    console.log(`::error::Upload error: ${err.message}`);
+    logSummary(`❌ **Error during file upload**: ${err.message}`);
     process.exit(1);
   } finally {
     client.close();
