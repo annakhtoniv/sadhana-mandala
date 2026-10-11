@@ -13,16 +13,21 @@ function logSummary(msg) {
   }
 }
 
+function cleanHost(h) {
+  if (!h) return '';
+  return h.trim().replace(/^https?:\/\/|^ftp:\/\//i, '').replace(/:[0-9]+$/, '').split('/')[0].trim();
+}
+
 async function deploy() {
-  const envHost = process.env.FTP_SERVER;
-  const user = process.env.FTP_USERNAME;
-  const password = process.env.FTP_PASSWORD;
+  const rawHost = process.env.FTP_SERVER || '';
+  const rawUser = process.env.FTP_USERNAME || '';
+  const rawPass = process.env.FTP_PASSWORD || '';
   const configuredDir = process.env.FTP_SERVER_DIR || '';
 
   logSummary('## 🚀 Spaceship FTP Deployment Report');
 
-  if (!user || !password) {
-    logSummary(`❌ **Error**: FTP credentials missing! \`FTP_USERNAME\`: ${user ? '✅ Present' : '❌ MISSING'}, \`FTP_PASSWORD\`: ${password ? '✅ Present' : '❌ MISSING'}`);
+  if (!rawUser || !rawPass) {
+    logSummary(`❌ **Error**: FTP credentials missing! \`FTP_USERNAME\`: ${rawUser ? '✅ Present' : '❌ MISSING'}, \`FTP_PASSWORD\`: ${rawPass ? '✅ Present' : '❌ MISSING'}`);
     process.exit(1);
   }
 
@@ -32,86 +37,97 @@ async function deploy() {
     process.exit(1);
   }
 
-  const hostsToTry = [
-    envHost,
+  // Generate cleaned hosts
+  const hostCandidates = [
+    cleanHost(rawHost),
     'server60-1.shared.spaceship.host',
-    '66.29.148.114',
     'sadhana.zyxenai.com',
+    '66.29.148.114',
   ].filter(Boolean);
+  const uniqueHosts = [...new Set(hostCandidates)];
 
-  const uniqueHosts = [...new Set(hostsToTry)];
+  // Generate cleaned passwords
+  const passwordCandidates = [rawPass, rawPass.trim()].filter((p, idx, arr) => arr.indexOf(p) === idx);
+
+  // Generate username candidates (handles cPanel user vs user@domain format)
+  const trimmedUser = rawUser.trim();
+  const userCandidates = [];
+  if (trimmedUser.includes('@')) {
+    const [uName, uDomain] = trimmedUser.split('@');
+    userCandidates.push(trimmedUser);
+    userCandidates.push(uName);
+    userCandidates.push(`${uName}@zyxenai.com`);
+    userCandidates.push(`${uName}@sadhana.zyxenai.com`);
+  } else {
+    userCandidates.push(trimmedUser);
+    userCandidates.push(`${trimmedUser}@zyxenai.com`);
+    userCandidates.push(`${trimmedUser}@sadhana.zyxenai.com`);
+  }
+  const uniqueUsers = [...new Set(userCandidates)];
+
+  logSummary(`📋 Diagnostics: Hosts: [${uniqueHosts.join(', ')}], Users to try: ${uniqueUsers.length}, Pass length: ${rawPass.length}`);
 
   let connectedClient = null;
   let connectedHost = null;
+  let successfulUser = null;
 
-  for (const host of uniqueHosts) {
-    logSummary(`### Connecting to host: \`${host}\`...`);
+  hostLoop: for (const host of uniqueHosts) {
+    for (const user of uniqueUsers) {
+      for (const password of passwordCandidates) {
+        logSummary(`\n🔍 Trying host: \`${host}\` with user pattern: \`${user.includes('@') ? user.split('@')[0] + '@' + user.split('@')[1] : user}\`...`);
 
-    // Strategy 1: Explicit FTPS on Port 21 (Spaceship default)
-    try {
-      console.log(`📡 Strategy 1: Explicit FTPS (AUTH TLS) on ${host}:21...`);
-      const client = new ftp.Client(60000);
-      client.ftp.verbose = true;
-      await client.access({
-        host,
-        user,
-        password,
-        port: 21,
-        secure: true,
-        secureOptions: { rejectUnauthorized: false },
-      });
-      logSummary(`✅ Connected to \`${host}\` via **Explicit FTPS (TLS)** successfully!`);
-      connectedClient = client;
-      connectedHost = host;
-      break;
-    } catch (err) {
-      console.warn(`⚠️ Strategy 1 (FTPS:21) on ${host} failed: ${err.message}`);
-    }
+        // Strategy 1: Explicit FTPS on Port 21 (Spaceship standard)
+        try {
+          console.log(`📡 Strategy 1: Explicit FTPS on ${host}:21...`);
+          const client = new ftp.Client(30000);
+          client.ftp.verbose = true;
+          await client.access({
+            host,
+            user,
+            password,
+            port: 21,
+            secure: true,
+            secureOptions: { rejectUnauthorized: false },
+          });
+          logSummary(`✅ Successfully authenticated on \`${host}\` via **Explicit FTPS**!`);
+          connectedClient = client;
+          connectedHost = host;
+          successfulUser = user;
+          break hostLoop;
+        } catch (err) {
+          console.warn(`⚠️ Strategy 1 (FTPS) failed on ${host}: ${err.message}`);
+          if (err.message && err.message.includes('530')) {
+            // Authentication failed with this user/pass combination, continue to next
+            continue;
+          }
+        }
 
-    // Strategy 2: Standard Plain FTP on Port 21
-    try {
-      console.log(`📡 Strategy 2: Plain standard FTP on ${host}:21...`);
-      const client = new ftp.Client(60000);
-      client.ftp.verbose = true;
-      await client.access({
-        host,
-        user,
-        password,
-        port: 21,
-        secure: false,
-      });
-      logSummary(`✅ Connected to \`${host}\` via **Standard FTP** successfully!`);
-      connectedClient = client;
-      connectedHost = host;
-      break;
-    } catch (err) {
-      console.warn(`⚠️ Strategy 2 (FTP:21) on ${host} failed: ${err.message}`);
-    }
-
-    // Strategy 3: Implicit FTPS on Port 990
-    try {
-      console.log(`📡 Strategy 3: Implicit FTPS on ${host}:990...`);
-      const client = new ftp.Client(60000);
-      client.ftp.verbose = true;
-      await client.access({
-        host,
-        user,
-        password,
-        port: 990,
-        secure: 'implicit',
-        secureOptions: { rejectUnauthorized: false },
-      });
-      logSummary(`✅ Connected to \`${host}\` via **Implicit FTPS (Port 990)** successfully!`);
-      connectedClient = client;
-      connectedHost = host;
-      break;
-    } catch (err) {
-      console.warn(`⚠️ Strategy 3 (FTPS:990) on ${host} failed: ${err.message}`);
+        // Strategy 2: Plain FTP on Port 21
+        try {
+          console.log(`📡 Strategy 2: Plain FTP on ${host}:21...`);
+          const client = new ftp.Client(30000);
+          client.ftp.verbose = true;
+          await client.access({
+            host,
+            user,
+            password,
+            port: 21,
+            secure: false,
+          });
+          logSummary(`✅ Successfully authenticated on \`${host}\` via **Standard FTP**!`);
+          connectedClient = client;
+          connectedHost = host;
+          successfulUser = user;
+          break hostLoop;
+        } catch (err) {
+          console.warn(`⚠️ Strategy 2 (FTP) failed on ${host}: ${err.message}`);
+        }
+      }
     }
   }
 
   if (!connectedClient) {
-    logSummary('❌ **Failed**: Could not connect to any Spaceship FTP endpoint with the provided credentials.');
+    logSummary('❌ **Failed**: Could not authenticate to Spaceship with any host/user/security combination.');
     process.exit(1);
   }
 
@@ -130,7 +146,6 @@ async function deploy() {
       console.log(`Navigating to configured target directory: "${targetDir}"...`);
       await client.ensureDir(targetDir);
     } else {
-      // Smart discovery
       const names = list.map(i => i.name.toLowerCase());
       if (names.includes('sadhana.zyxenai.com')) {
         await client.cd('sadhana.zyxenai.com');
