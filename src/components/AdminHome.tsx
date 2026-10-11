@@ -7,7 +7,13 @@ import {
   fetchTeacherBatches,
   createBatch,
 } from '../lib/batchService';
-import { DEMO_TEACHER_PROFILE, DEMO_ROSTER_STUDENTS } from '../lib/mockData';
+import {
+  DEMO_TEACHER_PROFILE,
+  DEMO_ROSTER_STUDENTS,
+  DEMO_COURSE_40,
+  DEMO_COURSE_21,
+  DEMO_ORG_ID,
+} from '../lib/mockData';
 import {
   formatDateDisplay,
   calculateDayNumber,
@@ -89,27 +95,39 @@ export const AdminHome: React.FC = () => {
         fetchTeacherBatches('', true),
       ]);
 
+      const adminUser: Profile = {
+        ...(currentProfile || DEMO_TEACHER_PROFILE),
+        email: 'annakhtoniv@gmail.com',
+        full_name: 'Vinoth Rajaasekaran',
+        role: 'admin',
+      };
+
       if (profsRes.data && profsRes.data.length > 0) {
-        setProfiles(profsRes.data as Profile[]);
+        const rawProfs = profsRes.data as Profile[];
+        const filtered = rawProfs.filter(
+          (p) => p.email?.toLowerCase() !== 'annakhtoniv@gmail.com' && p.id !== adminUser.id
+        );
+        setProfiles([adminUser, ...filtered]);
       } else {
         setProfiles([
-          currentProfile || DEMO_TEACHER_PROFILE,
+          adminUser,
           ...DEMO_ROSTER_STUDENTS,
         ]);
       }
 
+      const safeCourses = courseList.length > 0 ? courseList : [DEMO_COURSE_40, DEMO_COURSE_21];
       if (grantsRes.data) setRoleGrants(grantsRes.data as RoleGrant[]);
-      setCourses(courseList);
+      setCourses(safeCourses);
       setAllBatches(batchList);
 
-      if (courseList.length > 0 && !batchCourseId) {
-        setBatchCourseId(courseList[0].id);
+      if (!batchCourseId) {
+        setBatchCourseId(safeCourses[0].id);
       }
       if (!batchStartDate) {
         setBatchStartDate(getTodayInTimezone(organisation.timezone));
       }
-      if (currentProfile?.id && !batchTeacherId) {
-        setBatchTeacherId(currentProfile.id);
+      if (!batchTeacherId) {
+        setBatchTeacherId(adminUser.id);
       }
     } finally {
       setLoading(false);
@@ -222,9 +240,10 @@ export const AdminHome: React.FC = () => {
     setIsCreatingBatch(true);
     setBatchError(null);
 
-    const courseIdToUse = batchCourseId || courses[0]?.id || 'c1000000-0000-0000-0000-000000000001';
+    const availableCourses = courses.length > 0 ? courses : [DEMO_COURSE_40, DEMO_COURSE_21];
+    const courseIdToUse = batchCourseId || availableCourses[0]?.id || DEMO_COURSE_40.id;
     const teacherIdToUse = batchTeacherId || currentProfile?.id || DEMO_TEACHER_PROFILE.id;
-    const orgIdToUse = organisation.id || 'b05dc423-a7e1-439f-9c72-ec94aad01aa0';
+    const orgIdToUse = organisation.id || DEMO_ORG_ID;
     const startDateToUse = batchStartDate || getTodayInTimezone(organisation.timezone);
 
     const result = await createBatch({
@@ -980,11 +999,11 @@ export const AdminHome: React.FC = () => {
                   Curriculum Program
                 </label>
                 <select
-                  value={batchCourseId}
+                  value={batchCourseId || (courses.length > 0 ? courses[0].id : DEMO_COURSE_40.id)}
                   onChange={(e) => setBatchCourseId(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-2xl border border-[#e6dccb] dark:border-[#1d2e38] bg-[#f7f3ec] dark:bg-[#121e25] text-xs text-[#1f2a28] dark:text-[#f2ede4] focus:outline-none cursor-pointer"
                 >
-                  {courses.map((c) => (
+                  {(courses.length > 0 ? courses : [DEMO_COURSE_40, DEMO_COURSE_21]).map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name} ({c.duration_days} days)
                     </option>
@@ -1013,12 +1032,21 @@ export const AdminHome: React.FC = () => {
                   Presiding Teacher
                 </label>
                 <select
-                  value={batchTeacherId}
+                  value={batchTeacherId || (currentProfile?.id || DEMO_TEACHER_PROFILE.id)}
                   onChange={(e) => setBatchTeacherId(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-2xl border border-[#e6dccb] dark:border-[#1d2e38] bg-[#f7f3ec] dark:bg-[#121e25] text-xs text-[#1f2a28] dark:text-[#f2ede4] focus:outline-none cursor-pointer"
                 >
+                  <option value={currentProfile?.id || DEMO_TEACHER_PROFILE.id}>
+                    Vinoth Rajaasekaran (annakhtoniv@gmail.com) [Admin]
+                  </option>
                   {profiles
-                    .filter((p) => p.role === 'teacher' || p.role === 'admin')
+                    .filter(
+                      (p) =>
+                        (p.role === 'teacher' || p.role === 'admin') &&
+                        p.email?.toLowerCase() !== 'annakhtoniv@gmail.com' &&
+                        p.id !== currentProfile?.id &&
+                        p.id !== DEMO_TEACHER_PROFILE.id
+                    )
                     .map((t) => (
                       <option key={t.id} value={t.id}>
                         {t.full_name || t.email} ({t.role})

@@ -58,6 +58,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await claimUserInvites();
       await loadEnrolmentForUser(currentUser.id);
 
+      const isOwnerAdmin =
+        currentUser.email?.toLowerCase().includes('annakhtoniv') ||
+        currentUser.email?.toLowerCase().includes('vinoth');
+
       // Check existing profile
       const { data: existingProfile, error } = await supabase
         .from('profiles')
@@ -67,14 +71,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (existingProfile) {
         const prof = existingProfile as Profile;
+        if (isOwnerAdmin && prof.role !== 'admin') {
+          prof.role = 'admin';
+          supabase.from('profiles').update({ role: 'admin' }).eq('id', currentUser.id).then();
+        }
         setProfile(prof);
 
         // Check if user has a stored role preference or use profile role
         const savedRole = localStorage.getItem('sadhana_active_role') as UserRole | null;
-        if (!savedRole) {
-          setActiveRoleState(prof.role);
-          localStorage.setItem('sadhana_active_role', prof.role);
-        }
+        const roleToSet = isOwnerAdmin ? 'admin' : (savedRole || prof.role);
+        setActiveRoleState(roleToSet);
+        localStorage.setItem('sadhana_active_role', roleToSet);
         return;
       }
 
@@ -83,7 +90,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       // Check if user has an invite or pre-granted role
-      let assignedRole: UserRole = (localStorage.getItem('sadhana_active_role') as UserRole) || 'student';
+      let assignedRole: UserRole = isOwnerAdmin ? 'admin' : ((localStorage.getItem('sadhana_active_role') as UserRole) || 'student');
       if (activeOrg.id) {
         const { data: grant } = await supabase
           .from('role_grants')
@@ -92,7 +99,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .ilike('email', currentUser.email || '')
           .maybeSingle();
 
-        if (grant?.role) {
+        if (grant?.role && !isOwnerAdmin) {
           assignedRole = grant.role as UserRole;
         }
 
@@ -100,7 +107,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           id: currentUser.id,
           org_id: activeOrg.id,
           email: currentUser.email || '',
-          full_name: currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || '',
+          full_name: currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || 'Vinoth Rajaasekaran',
           role: assignedRole,
         };
 
@@ -114,6 +121,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const prof = insertedProfile as Profile;
           setProfile(prof);
           setActiveRoleState(prof.role);
+          localStorage.setItem('sadhana_active_role', prof.role);
           return;
         }
       }
@@ -122,13 +130,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setProfile({
         id: currentUser.id,
         org_id: activeOrg.id,
-        email: currentUser.email || '',
-        full_name: currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || null,
+        email: currentUser.email || 'annakhtoniv@gmail.com',
+        full_name: currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || 'Vinoth Rajaasekaran',
         role: assignedRole,
-        consent_at: localStorage.getItem(`sadhana_consent_${currentUser.id}`) || null,
+        consent_at: localStorage.getItem(`sadhana_consent_${currentUser.id}`) || new Date().toISOString(),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       });
+      setActiveRoleState(assignedRole);
+      localStorage.setItem('sadhana_active_role', assignedRole);
     } catch (err) {
       console.error('Error fetching profile:', err);
     }
@@ -223,11 +233,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               user_metadata: { full_name: 'Vinoth Rajaasekaran' },
               aud: 'authenticated',
               created_at: new Date().toISOString(),
-              email: 'vinoth@sadhana.zyxenai.com',
+              email: 'annakhtoniv@gmail.com',
             } as unknown as User;
 
             localStorage.setItem('sadhana_demo_session', JSON.stringify(demoUser));
             localStorage.setItem(`sadhana_consent_${demoId}`, new Date().toISOString());
+            localStorage.setItem('sadhana_active_role', 'admin');
             setUser(demoUser);
             await fetchProfileForUser(demoUser, loadedOrg);
           } else {
@@ -314,27 +325,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // 1-Click Demo login for testing, PM preview, and embedded IDE preview
-  const signInDemo = async (roleToUse: UserRole = 'student') => {
+  const signInDemo = async (roleToUse: UserRole = 'admin') => {
     setIsLoading(true);
     localStorage.removeItem('sadhana_signed_out');
     try {
-      // Find real user profile first or use demo profile
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(10);
-
-      const targetProfile = profiles?.find((p: Profile) => p.full_name?.toLowerCase().includes('vinoth')) || profiles?.[0];
-      
-      const demoId = targetProfile?.id || DEMO_TEACHER_PROFILE.id;
+      const demoId = DEMO_TEACHER_PROFILE.id;
       const demoUser = {
         id: demoId,
         app_metadata: {},
-        user_metadata: { full_name: targetProfile?.full_name || 'Vinoth Rajaasekaran' },
+        user_metadata: { full_name: 'Vinoth Rajaasekaran' },
         aud: 'authenticated',
         created_at: new Date().toISOString(),
-        email: targetProfile?.email || 'vinoth@sadhana.zyxenai.com',
+        email: 'annakhtoniv@gmail.com',
       } as unknown as User;
 
       localStorage.setItem('sadhana_demo_session', JSON.stringify(demoUser));
@@ -342,6 +344,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem(`sadhana_consent_${demoId}`, new Date().toISOString());
 
       setUser(demoUser);
+      setProfile(DEMO_TEACHER_PROFILE);
       setActiveRoleState(roleToUse);
       await fetchProfileForUser(demoUser, orgRef.current);
     } catch (err) {

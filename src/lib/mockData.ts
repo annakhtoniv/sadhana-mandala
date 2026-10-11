@@ -11,7 +11,7 @@ export const DEMO_ORG_ID = 'b05dc423-a7e1-439f-9c72-ec94aad01aa0';
 export const DEMO_TEACHER_PROFILE: Profile = {
   id: 'b0000000-0000-0000-0000-000000000001',
   org_id: DEMO_ORG_ID,
-  email: 'vinoth@sadhana.zyxenai.com',
+  email: 'annakhtoniv@gmail.com',
   full_name: 'Vinoth Rajaasekaran',
   role: 'admin',
   consent_at: new Date().toISOString(),

@@ -117,12 +117,12 @@ function MainApp() {
 
               <button
                 type="button"
-                onClick={() => signInDemo('student')}
+                onClick={() => signInDemo('admin')}
                 className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
                 title="1-Click Login for PM Demo and IDE Preview"
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>1-Click Demo Login (Vinoth Rajaasekaran)</span>
+                <span>1-Click Demo Login as Admin (Vinoth Rajaasekaran)</span>
               </button>
 
               {authError && (

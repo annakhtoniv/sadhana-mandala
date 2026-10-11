@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { User, Shield, CheckCircle2, AlertOctagon, LogOut, Trash2, ArrowLeft } from 'lucide-react';
+import { User, Shield, CheckCircle2, AlertOctagon, LogOut, Trash2, ArrowLeft, Crown, GraduationCap } from 'lucide-react';
 
 interface ProfileScreenProps {
   onBack: () => void;
 }
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
-  const { profile, user, organisation, role, signOut, deleteAccount } = useAuth();
+  const { profile, user, organisation, role, setActiveRole, signOut, deleteAccount } = useAuth();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -72,6 +72,37 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
             <span className="text-xs font-medium text-stone-800 dark:text-stone-200 mt-0.5 block truncate">
               {organisation.name}
             </span>
+          </div>
+        </div>
+
+        {/* Console Quick Switch for Instant Navigation */}
+        <div className="pt-2 border-t border-stone-100 dark:border-stone-800 space-y-2">
+          <div className="text-[11px] font-semibold text-stone-600 dark:text-stone-300">
+            Console Quick Switch
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={async () => {
+                await setActiveRole('admin');
+                onBack();
+              }}
+              className="px-3 py-2.5 rounded-xl bg-[#17495e] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm hover:opacity-90 cursor-pointer transition-all"
+            >
+              <Crown className="w-3.5 h-3.5 text-[#e8b98a]" />
+              <span>Admin Console</span>
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                await setActiveRole('teacher');
+                onBack();
+              }}
+              className="px-3 py-2.5 rounded-xl bg-stone-900 dark:bg-stone-100 text-stone-100 dark:text-stone-900 text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm hover:opacity-90 cursor-pointer transition-all"
+            >
+              <GraduationCap className="w-3.5 h-3.5 text-emerald-500" />
+              <span>Teacher Dashboard</span>
+            </button>
           </div>
         </div>
       </div>

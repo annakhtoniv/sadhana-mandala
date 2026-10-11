@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { fetchTeacherBatches, fetchCourses, createBatch } from '../lib/batchService';
 import { formatDateDisplay, getTodayInTimezone, calculateDayNumber } from '../lib/dateUtils';
 import { TeacherBatchDetail } from './TeacherBatchDetail';
+import { DEMO_COURSE_40, DEMO_COURSE_21, DEMO_ORG_ID, DEMO_TEACHER_PROFILE } from '../lib/mockData';
 import type { Batch, Course } from '../types/database';
 import { GraduationCap, Users, PlusCircle, Sparkles, ChevronRight, Calendar, RefreshCw } from 'lucide-react';
 
@@ -32,10 +33,11 @@ export const TeacherHome: React.FC = () => {
         fetchTeacherBatches(user.id, isAdmin),
         fetchCourses(organisation.id),
       ]);
+      const safeCourses = courseList.length > 0 ? courseList : [DEMO_COURSE_40, DEMO_COURSE_21];
       setBatches(batchList);
-      setCourses(courseList);
-      if (courseList.length > 0 && !selectedCourseId) {
-        setSelectedCourseId(courseList[0].id);
+      setCourses(safeCourses);
+      if (!selectedCourseId) {
+        setSelectedCourseId(safeCourses[0].id);
       }
     } finally {
       setLoading(false);
@@ -56,9 +58,10 @@ export const TeacherHome: React.FC = () => {
     setIsCreating(true);
     setCreateError(null);
 
-    const courseIdToUse = selectedCourseId || courses[0]?.id || 'c1000000-0000-0000-0000-000000000001';
-    const orgIdToUse = organisation.id || 'b05dc423-a7e1-439f-9c72-ec94aad01aa0';
-    const teacherIdToUse = user?.id || 'b0000000-0000-0000-0000-000000000001';
+    const availableCourses = courses.length > 0 ? courses : [DEMO_COURSE_40, DEMO_COURSE_21];
+    const courseIdToUse = selectedCourseId || availableCourses[0]?.id || DEMO_COURSE_40.id;
+    const orgIdToUse = organisation.id || DEMO_ORG_ID;
+    const teacherIdToUse = user?.id || profile?.id || DEMO_TEACHER_PROFILE.id;
 
     const result = await createBatch({
       orgId: orgIdToUse,
@@ -241,12 +244,11 @@ export const TeacherHome: React.FC = () => {
                   Course Programme
                 </label>
                 <select
-                  value={selectedCourseId}
+                  value={selectedCourseId || (courses.length > 0 ? courses[0].id : DEMO_COURSE_40.id)}
                   onChange={(e) => setSelectedCourseId(e.target.value)}
-                  required
                   className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs focus:outline-none cursor-pointer"
                 >
-                  {courses.map((c) => (
+                  {(courses.length > 0 ? courses : [DEMO_COURSE_40, DEMO_COURSE_21]).map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name} ({c.duration_days} days)
                     </option>

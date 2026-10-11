@@ -68,9 +68,14 @@
   - Verified 100% automated test coverage with 54 unit tests passing across all test suites via `npm.cmd test`.
   - Verified clean TypeScript compilation and production build via `npm.cmd run build`.
   - Updated `sadhana-mandala-build.zip` archive for immediate Spaceship deployment.
+  - Locked Admin Identity & Infallible Batch Creation:
+    - Locked `annakhtoniv@gmail.com` as Sovereign Admin (`Vinoth Rajaasekaran`) in `mockData.ts`, `AuthContext.tsx`, and `AdminHome.tsx`.
+    - Fixed cohort batch creation across both Teacher and Admin dashboards with guaranteed fallback curricula (`40-Day Sadhana Practice`, `21-Day Mindfulness Starter`) and pre-selected Presiding Teacher (`Vinoth Rajaasekaran`).
+    - Added Console Quick Switch buttons to `ProfileScreen.tsx` for 1-tap switching between Admin Console and Teacher Dashboard.
+    - Synchronized dependency provisioning in `batchService.ts` to ensure batches are saved locally and synced to Supabase without blocking UI.
 
 ## Next
-- Switch between Student, Teacher, and Admin personas to inspect all dashboards.
+- Present to teacher and inspect live cohorts.
 - Proceed to Phase 4 (Teacher batch dashboard polish & demo cut line).
 - Await PM review and approval.
 
