@@ -1,6 +1,10 @@
-const ftp = require('basic-ftp');
-const path = require('path');
-const fs = require('fs');
+import * as ftp from 'basic-ftp';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 function logSummary(msg) {
   console.log(msg);
@@ -39,7 +43,6 @@ async function deploy() {
     'sadhana.zyxenai.com',
   ].filter(Boolean);
 
-  // Remove duplicates
   const uniqueHosts = [...new Set(hostsToTry)];
 
   let connectedClient = null;
@@ -51,7 +54,7 @@ async function deploy() {
     // Strategy 1: Explicit FTPS on Port 21 (Spaceship default)
     try {
       console.log(`📡 Strategy 1: Explicit FTPS (AUTH TLS) on ${host}:21...`);
-      const client = new ftp.Client(45000);
+      const client = new ftp.Client(60000);
       client.ftp.verbose = true;
       await client.access({
         host,
@@ -72,7 +75,7 @@ async function deploy() {
     // Strategy 2: Standard Plain FTP on Port 21
     try {
       console.log(`📡 Strategy 2: Plain standard FTP on ${host}:21...`);
-      const client = new ftp.Client(45000);
+      const client = new ftp.Client(60000);
       client.ftp.verbose = true;
       await client.access({
         host,
@@ -92,7 +95,7 @@ async function deploy() {
     // Strategy 3: Implicit FTPS on Port 990
     try {
       console.log(`📡 Strategy 3: Implicit FTPS on ${host}:990...`);
-      const client = new ftp.Client(45000);
+      const client = new ftp.Client(60000);
       client.ftp.verbose = true;
       await client.access({
         host,
@@ -127,20 +130,21 @@ async function deploy() {
 
     let targetDir = configuredDir.trim();
 
-    if (targetDir && targetDir !== '/') {
+    if (targetDir && targetDir !== '/' && targetDir !== '.') {
       console.log(`Navigating to configured target directory: "${targetDir}"...`);
       await client.ensureDir(targetDir);
     } else {
+      // Smart discovery
       const names = list.map(i => i.name.toLowerCase());
-      if (names.includes('public_html')) {
+      if (names.includes('sadhana.zyxenai.com')) {
+        await client.cd('sadhana.zyxenai.com');
+      } else if (names.includes('public_html')) {
         await client.cd('public_html');
         const pubList = await client.list();
         const pubNames = pubList.map(i => i.name.toLowerCase());
         if (pubNames.includes('sadhana.zyxenai.com')) {
           await client.cd('sadhana.zyxenai.com');
         }
-      } else if (names.includes('sadhana.zyxenai.com')) {
-        await client.cd('sadhana.zyxenai.com');
       }
     }
 
