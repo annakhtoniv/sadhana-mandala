@@ -9,7 +9,7 @@ async function deploy() {
   const configuredDir = process.env.FTP_SERVER_DIR || '';
 
   if (!user || !password) {
-    console.error('❌ Error: FTP_USERNAME or FTP_PASSWORD environment variables are missing.');
+    console.log(`::error::FTP credentials missing! user=${user ? 'present' : 'MISSING'}, password=${password ? 'present' : 'MISSING'}`);
     process.exit(1);
   }
 
@@ -67,7 +67,7 @@ async function deploy() {
       Object.assign(client, plainClient);
       connected = true;
     } catch (err) {
-      console.error(`❌ Standard FTP connection also failed: ${err.message}`);
+      console.log(`::error::Standard FTP connection failed: ${err.message}`);
       process.exit(1);
     }
   }
@@ -123,11 +123,11 @@ async function deploy() {
     const remoteCheck = await client.list();
     const remoteIndex = remoteCheck.find(f => f.name === 'index.html');
     if (remoteIndex) {
-      console.log(`✅ Verified remote index.html exists (${remoteIndex.size} bytes, modified: ${remoteIndex.rawModifiedAt})`);
+      console.log(`::notice::Deployment verified! remote index.html exists (${remoteIndex.size} bytes, modified: ${remoteIndex.rawModifiedAt})`);
     }
 
   } catch (err) {
-    console.error('❌ Error during file upload:', err);
+    console.log(`::error::Upload error: ${err.message}`);
     process.exit(1);
   } finally {
     client.close();
