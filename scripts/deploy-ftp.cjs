@@ -37,19 +37,14 @@ async function deploy() {
     process.exit(1);
   }
 
-  // Generate cleaned hosts
-  const hostCandidates = [
-    cleanHost(rawHost),
-    'server60-1.shared.spaceship.host',
-    'sadhana.zyxenai.com',
-    '66.29.148.114',
-  ].filter(Boolean);
-  const uniqueHosts = [...new Set(hostCandidates)];
+  const primaryHost = cleanHost(rawHost) || 'server60-1.shared.spaceship.host';
+  const uniqueHosts = [primaryHost];
+  if (primaryHost !== 'server60-1.shared.spaceship.host') {
+    uniqueHosts.push('server60-1.shared.spaceship.host');
+  }
 
-  // Generate cleaned passwords
   const passwordCandidates = [rawPass, rawPass.trim()].filter((p, idx, arr) => arr.indexOf(p) === idx);
 
-  // Generate username candidates (handles cPanel user vs user@domain format)
   const trimmedUser = rawUser.trim();
   const userCandidates = [];
   if (trimmedUser.includes('@')) {
@@ -65,7 +60,10 @@ async function deploy() {
   }
   const uniqueUsers = [...new Set(userCandidates)];
 
-  logSummary(`📋 Diagnostics: Hosts: [${uniqueHosts.join(', ')}], Users to try: ${uniqueUsers.length}, Pass length: ${rawPass.length}`);
+  logSummary(`📋 Diagnostics: Hosts: [${uniqueHosts.join(', ')}], Users to try: ${uniqueUsers.length}`);
+  console.log('User char codes:', [...rawUser].map(c => c.charCodeAt(0)).join(','));
+  console.log('Server char codes:', [...rawHost].map(c => c.charCodeAt(0)).join(','));
+  console.log('Dir:', configuredDir);
 
   let connectedClient = null;
   let connectedHost = null;
@@ -74,12 +72,13 @@ async function deploy() {
   hostLoop: for (const host of uniqueHosts) {
     for (const user of uniqueUsers) {
       for (const password of passwordCandidates) {
-        logSummary(`\n🔍 Trying host: \`${host}\` with user pattern: \`${user.includes('@') ? user.split('@')[0] + '@' + user.split('@')[1] : user}\`...`);
+        logSummary(`\n🔍 Trying host: \`${host}\` with user pattern: \`${user}\`...`);
 
-        // Strategy 1: Explicit FTPS on Port 21 (Spaceship standard)
+        // Strategy 1: Explicit FTPS on Port 21
+        let client = null;
         try {
-          console.log(`📡 Strategy 1: Explicit FTPS on ${host}:21...`);
-          const client = new ftp.Client(30000);
+          console.log(`📡 Strategy 1: Explicit FTPS on ${host}:21 with ${user}...`);
+          client = new ftp.Client(20000);
           client.ftp.verbose = true;
           await client.access({
             host,
@@ -89,23 +88,22 @@ async function deploy() {
             secure: true,
             secureOptions: { rejectUnauthorized: false },
           });
-          logSummary(`✅ Successfully authenticated on \`${host}\` via **Explicit FTPS**!`);
+          logSummary(`✅ Successfully authenticated on \`${host}\` via **Explicit FTPS** as \`${user}\`!`);
           connectedClient = client;
           connectedHost = host;
           successfulUser = user;
           break hostLoop;
         } catch (err) {
-          console.warn(`⚠️ Strategy 1 (FTPS) failed on ${host}: ${err.message}`);
-          if (err.message && err.message.includes('530')) {
-            // Authentication failed with this user/pass combination, continue to next
-            continue;
-          }
+          console.warn(`⚠️ FTPS on ${host} failed: ${err.message}`);
+          if (client) client.close();
         }
 
-        // Strategy 2: Plain FTP on Port 21
+        await new Promise(r => setTimeout(r, 1500));
+
+        // Strategy 2: Plain standard FTP on Port 21
         try {
-          console.log(`📡 Strategy 2: Plain FTP on ${host}:21...`);
-          const client = new ftp.Client(30000);
+          console.log(`📡 Strategy 2: Plain FTP on ${host}:21 with ${user}...`);
+          client = new ftp.Client(20000);
           client.ftp.verbose = true;
           await client.access({
             host,
@@ -114,14 +112,17 @@ async function deploy() {
             port: 21,
             secure: false,
           });
-          logSummary(`✅ Successfully authenticated on \`${host}\` via **Standard FTP**!`);
+          logSummary(`✅ Successfully authenticated on \`${host}\` via **Standard FTP** as \`${user}\`!`);
           connectedClient = client;
           connectedHost = host;
           successfulUser = user;
           break hostLoop;
         } catch (err) {
-          console.warn(`⚠️ Strategy 2 (FTP) failed on ${host}: ${err.message}`);
+          console.warn(`⚠️ Standard FTP on ${host} failed: ${err.message}`);
+          if (client) client.close();
         }
+
+        await new Promise(r => setTimeout(r, 1500));
       }
     }
   }
