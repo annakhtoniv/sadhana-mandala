@@ -84,6 +84,8 @@
   - Teacher dashboard: added the "No answer" count, fixed finished batches flagging every student as Quiet, fixed sort by today's status, shows last check-in day and date, shows load errors.
   - 59 unit tests passing (`npx vitest run`), clean build (`npm run build`).
 
+- Removed the old Spaceship deployment (`.github/workflows/deploy.yml`, `scripts/deploy-ftp.*` and the `basic-ftp` package). It failed on every push to main after hosting moved; GitHub Pages (`.github/workflows/pages.yml`) is the only deployment now.
+
 ## Next
 - Already applied to the live database on 2026-10-11 by Claude: the profile protection trigger (no one can change their own role or organisation any more), the 8 helper functions, the organisation-only join code, and the two other real accounts set from admin to student (profiles and role_grants).
 - Still to apply. The Supabase connector timed out on statements that drop or delete, so run these in the Supabase SQL editor (Dashboard > SQL Editor > New query > paste the file > Run), in this order:
