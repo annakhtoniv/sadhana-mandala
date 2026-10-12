@@ -90,20 +90,28 @@
 - **Phase 4 signed off on 2026-10-12 (DEMO CUT LINE reached).** Tested on a phone at sadhana.zyxenai.com, signed in with Google, Teacher view, "Autumn Awakening Cohort": Done 6, Rest 2, Not yet 2, No answer 20, Quiet 5, 30 students, 3 invites. Matches the seed exactly.
 
 - Scope extended on 2026-10-12 to a "Sadhana ERP" (programmes, LMS, follow-ups, events, CRM for volunteers); see SPEC.md "Sadhana ERP" and phases 5-10. PM decisions: follow-ups are a mix that differs per programme; admins and teachers both add programmes; volunteers invite leads all three ways (manual, one-tap links, automatic later); dummy data until the first real group; this is a pilot for AOL, so every programme is configuration.
-- Phase 5 (programme catalogue and multi-enrolment) built on 2026-10-12, waiting for the PM to run the SQL and test:
+- Phase 5 (programme catalogue and multi-enrolment) built and deployed on 2026-10-12 (SQL run in Supabase, 29/29 PASS; PR merged):
   - [supabase/phase5_programmes.sql](supabase/phase5_programmes.sql): the `courses` table becomes the programme catalogue (code, category, programme length, prerequisites, active flag, display order, optional daily practice track). Teachers can now add and edit programmes as well as admins. Daily check-ins are only accepted for programmes with a practice track. Only adds things; safe to re-run.
   - [supabase/seed_dummy_data.sql](supabase/seed_dummy_data.sql): the course is now the Happiness Program with its 40-Day Sadhana track; added the starting AOL catalogue (Art of Silence, Sahaj Samadhi Meditation, Sri Sri Yoga, Volunteer Training Program, Advanced Meditation Program) and two batches, "Art of Silence – September" (finished, students 1-10) and "VTP – October" (running, students 1-5), both taught by Priya Patel. Phase 4 numbers are unchanged.
   - [supabase/verify.sql](supabase/verify.sql) (renamed from `phase4_verify.sql`): 29 checks, adding that a teacher can add a programme but not in another organisation, a student cannot add one, a student sees all four of their programmes, and a check-in on VTP (no practice track) is refused. Tested on a local copy: 29/29 PASS, and the seed is safe to run twice.
   - App: new Programmes screen for admins (Admin > Programmes tab) and teachers (Teacher home > Programmes). Students in more than one programme see "My programmes" and can switch; only programmes with a practice track show the daily check-in, streak and trail. Students can join another programme with its join code. Batches of programmes without a practice track show the roster without check-in counts.
   - 81 unit tests passing (22 new for programme rules), clean build.
 
+- Phase 6 (LMS) built on 2026-10-12, waiting for the PM to run the SQL and test:
+  - [supabase/phase6_lms.sql](supabase/phase6_lms.sql): new tables `lesson_modules` (per programme, with an unlock rule: open from the start, on day N of the student's batch, or after the previous module) and `lesson_progress` (completed lessons per student); lessons gain `module_id`, display order and minutes. The database hides lessons of locked modules from students and only lets them complete lessons they can open. Admins and teachers manage modules and lessons. Only adds things; safe to re-run.
+  - Seed: placeholder modules for the Happiness Program (Before you begin; Week 1, opens day 1; Week 2, opens day 8; Going deeper, after Week 2) and Art of Silence (Preparing for silence; After the programme), and lesson progress for students 1-10.
+  - [supabase/verify.sql](supabase/verify.sql): 37 checks (8 new): teacher adds a module and lesson; teacher sees own students' progress; student sees only their programmes' modules, cannot open locked lessons or complete them, and finishing Week 2 opens "Going deeper"; student cannot add a module. 37/37 PASS on a local copy; a check fails if the lock rule is removed.
+  - App: Programmes screen > "Learning modules" on each programme: add, edit, hide, reorder and delete modules and lessons (text with simple formatting and preview, optional https video link, minutes). Students see a "Learning" section for the selected programme with progress, locked modules and why they are locked, a lesson reader and "Mark as complete". Teachers see "Lessons: x of y" per student in the batch roster. The Lessons tab now shows only lessons outside programme modules.
+  - Lesson text uses a small built-in formatter (headings, bold, italic, lists, https links) that never runs HTML from the text.
+  - 97 unit tests passing (16 new for module unlocking, progress, validation and the formatter), clean build.
+
 ## Next
-- PM: in the Supabase SQL editor run, in this order: `supabase/phase5_programmes.sql`, `supabase/seed_dummy_data.sql`, `supabase/verify.sql` (all 29 rows PASS). Then merge the Phase 5 pull request.
-- PM: test Phase 5 (sign in with Google, not the demo button):
-  1. Teacher view > Programmes: the six AOL programmes are listed; add a new one (e.g. "Know Your Child") and edit a programme's length. No code change needed.
-  2. Teacher view > New Batch: the new programme can be chosen.
-  3. To see a student with three programmes, look at Autumn Awakening, Art of Silence – September and VTP – October rosters: Aarav Mehta (student01) is in all of them. Only the Happiness Program batches show check-in counts.
-- Then Phase 6 (LMS: modules and lessons per programme).
+- PM: in the Supabase SQL editor run, in this order: `supabase/phase6_lms.sql`, `supabase/seed_dummy_data.sql`, `supabase/verify.sql` (all 37 rows PASS). Then merge the Phase 6 pull request.
+- PM: test Phase 6 (sign in with Google):
+  1. Teacher view > Programmes > Happiness Program > Learning modules: four modules are listed. Add a lesson to "Before you begin" (use Preview), and add a new module that opens on day 30.
+  2. Open the Autumn Awakening roster: students 1-10 show "Lessons: 2 of 6" or "3 of 6", the others "0 of 6".
+  3. Student side (demo button, View: Student): the Learning section shows the modules, "Going deeper" is locked with its reason, and "Mark as complete" updates the progress bar.
+- Then Phase 7 (follow-ups per programme).
 - Before a demo on any later day, re-run `supabase/seed_dummy_data.sql` that morning, so the batches sit on day 23 / day 2 / finished again.
 - To check the dashboard against the seed, sign out first and sign in with Google. The 1-click demo button shows sample data from `mockData.ts`, not the database.
 

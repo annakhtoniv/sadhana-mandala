@@ -1,8 +1,8 @@
 -- ============================================================================
--- Sadhana Mandala: verification (phases 4 and 5)
+-- Sadhana Mandala: verification (phases 4, 5 and 6)
 --
 -- Run in the Supabase SQL editor after phase4_security.sql,
--- phase5_programmes.sql and seed_dummy_data.sql. It signs in as the fictional seed users one at a time
+-- phase5_programmes.sql, phase6_lms.sql and seed_dummy_data.sql. It signs in as the fictional seed users one at a time
 -- (by setting the same JWT claims Supabase sets for a real sign-in) and checks
 -- what each of them can see and change. Nothing is saved: every write attempt
 -- is rolled back immediately.
@@ -25,6 +25,10 @@ declare
   v_marcus uuid := 'c0000000-0000-0000-0000-000000000001';
   v_student01 uuid := 'd0000000-0000-0000-0000-000000000001';
   v_vtp    uuid := 'd1000000-0000-0000-0000-000000000006';
+  v_hp_course uuid := 'c1000000-0000-0000-0000-000000000001';
+  v_mod_week2 uuid := 'f1000000-0000-0000-0000-000000000003';
+  v_lesson_week2  uuid := 'f2000000-0000-0000-0000-000000000005';
+  v_lesson_deeper uuid := 'f2000000-0000-0000-0000-000000000006';
   v_day int;
   v_n int;
   v_txt text;
@@ -40,6 +44,8 @@ declare
          + (select count(*) from public.lessons where org_id = $1)
          + (select count(*) from public.batch_invites where org_id = $1)
          + (select count(*) from public.role_grants where org_id = $1)
+         + (select count(*) from public.lesson_modules where org_id = $1)
+         + (select count(*) from public.lesson_progress where org_id = $1)
   $q$;
 begin
   select ((now() at time zone o.timezone)::date - b.start_date) + 1 into v_day
@@ -126,6 +132,20 @@ begin
   exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
   r := r || array['Teacher A (Ananda)|add a programme to Org B|blocked', v_txt];
 
+  begin
+    with m as (
+      insert into public.lesson_modules (org_id, course_id, title, unlock_rule)
+      values (v_org_a, v_hp_course, 'Verify module', 'always') returning id
+    )
+    insert into public.lessons (org_id, title, body, scope, course_id, module_id, published)
+    select v_org_a, 'Verify lesson', 'x', 'course', v_hp_course, m.id, true from m;
+    raise exception 'PROBE_WROTE';
+  exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked: ' || sqlerrm end; end;
+  r := r || array['Teacher A (Ananda)|add a module and lesson (phase 6)|allowed', v_txt];
+
+  select count(*) into v_n from public.lesson_progress;
+  r := r || array['Teacher A (Ananda)|own students'' lesson progress visible|25', v_n::text];
+
   reset role;
 
   -- ------------------------------------------------------------------ Teacher B
@@ -188,6 +208,35 @@ begin
     raise exception 'PROBE_WROTE';
   exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
   r := r || array['Student (Aarav)|add a programme|blocked', v_txt];
+
+  select count(*) into v_n from public.lesson_modules;
+  r := r || array['Student (Aarav)|modules of own programmes (HP 4, Silence 2)|6', v_n::text];
+
+  select count(*) into v_n from public.lessons where module_id is not null;
+  r := r || array['Student (Aarav)|open module lessons (locked ones hidden)|7', v_n::text];
+
+  select count(*) into v_n from public.lesson_progress where student_id <> v_student01;
+  r := r || array['Student (Aarav)|other students'' lesson progress visible|0', v_n::text];
+
+  begin
+    insert into public.lesson_progress (org_id, student_id, lesson_id) values (v_org_a, v_student01, v_lesson_deeper);
+    raise exception 'PROBE_WROTE';
+  exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
+  r := r || array['Student (Aarav)|complete a lesson in a locked module|blocked', v_txt];
+
+  begin
+    insert into public.lesson_progress (org_id, student_id, lesson_id) values (v_org_a, v_student01, v_lesson_week2);
+    select count(*) into v_n from public.lessons where id = v_lesson_deeper;
+    v_txt := case when v_n = 1 then 'opens' else 'stays locked' end;
+    raise exception 'PROBE_DONE';
+  exception when others then if sqlerrm <> 'PROBE_DONE' then v_txt := 'error: ' || sqlerrm; end if; end;
+  r := r || array['Student (Aarav)|finishing Week 2 opens "Going deeper"|opens', v_txt];
+
+  begin
+    insert into public.lesson_modules (org_id, course_id, title) values (v_org_a, v_hp_course, 'Student module');
+    raise exception 'PROBE_WROTE';
+  exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
+  r := r || array['Student (Aarav)|add a module|blocked', v_txt];
 
   reset role;
 

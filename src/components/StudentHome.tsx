@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { isDemoMode } from '../lib/supabase';
+import { ProgrammeLearning } from './ProgrammeLearning';
 import { calculateDayNumber, formatDateDisplay } from '../lib/dateUtils';
 import {
   fetchStudentCheckins,
@@ -413,7 +414,7 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
             </div>
           </dl>
           <p className="text-[11px] text-stone-400">
-            This programme has no daily check-in. Learning modules and follow-ups for it will appear here.
+            This programme has no daily check-in.
           </p>
         </div>
       ) : (
@@ -726,6 +727,9 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
       </div>
       </>
       )}
+
+      {/* Learning modules of the selected programme (Phase 6) */}
+      {course && <ProgrammeLearning key={course.id} course={course} dayNumber={todayDayNumber} />}
 
       {/* Join another programme with its join code */}
       <form

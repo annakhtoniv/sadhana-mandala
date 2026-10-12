@@ -5,8 +5,9 @@
 -- If you ever run this file, run these files right after it, in order:
 --   1. supabase/phase4_security.sql   (replaces every policy, removes set_my_role)
 --   2. supabase/phase5_programmes.sql (programme catalogue columns and rules)
---   3. supabase/seed_dummy_data.sql   (resets the dummy data to the SPEC)
---   4. supabase/verify.sql            (every row must say PASS)
+--   3. supabase/phase6_lms.sql        (learning modules, lessons, progress)
+--   4. supabase/seed_dummy_data.sql   (resets the dummy data to the SPEC)
+--   5. supabase/verify.sql            (every row must say PASS)
 -- ============================================================================
 
 -- ============================================================================

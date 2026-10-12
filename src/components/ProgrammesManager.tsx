@@ -9,7 +9,8 @@ import {
   type ProgrammeInput,
 } from '../lib/programmeUtils';
 import type { Course } from '../types/database';
-import { ArrowLeft, BookOpen, Flame, Pencil, PlusCircle, RefreshCw } from 'lucide-react';
+import { ArrowLeft, BookOpen, Flame, Layers, Pencil, PlusCircle, RefreshCw } from 'lucide-react';
+import { ModulesEditor } from './ModulesEditor';
 
 interface ProgrammesManagerProps {
   onBack?: () => void;
@@ -59,6 +60,7 @@ export const ProgrammesManager: React.FC<ProgrammesManagerProps> = ({ onBack }) 
   const [editing, setEditing] = useState<ProgrammeInput | null>(null);
   const [formErrors, setFormErrors] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [modulesFor, setModulesFor] = useState<Course | null>(null);
 
   const loadData = async () => {
     if (!organisation.id && !isDemoMode()) return;
@@ -118,6 +120,10 @@ export const ProgrammesManager: React.FC<ProgrammesManagerProps> = ({ onBack }) 
   };
 
   const update = (patch: Partial<ProgrammeInput>) => setEditing((prev) => (prev ? { ...prev, ...patch } : prev));
+
+  if (modulesFor) {
+    return <ModulesEditor course={modulesFor} onBack={() => setModulesFor(null)} />;
+  }
 
   const inputClass =
     'w-full px-3 py-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-sm text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-stone-500';
@@ -240,6 +246,15 @@ export const ProgrammesManager: React.FC<ProgrammesManagerProps> = ({ onBack }) 
                   </span>
                 )}
               </div>
+
+              <button
+                type="button"
+                onClick={() => setModulesFor(p)}
+                className="w-full mt-1 py-2 rounded-xl border border-stone-200 dark:border-stone-700 text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span>Learning modules</span>
+              </button>
             </div>
           ))}
         </div>

@@ -1,4 +1,4 @@
-import type { Course, Batch, Enrolment, Checkin, Profile } from '../types/database';
+import type { Course, Batch, Enrolment, Checkin, Profile, Lesson, LessonModule } from '../types/database';
 
 // Compute start date so today is exactly Day 23 of 40
 const todayDate = new Date();
@@ -249,3 +249,55 @@ export function getDemoBatchCheckins(): Checkin[] {
 
   return allCheckins;
 }
+
+// Phase 6: sample learning modules for demo mode
+const demoLesson = (id: string, title: string, body: string, minutes: number, sort: number): Lesson => ({
+  id,
+  org_id: DEMO_ORG_ID,
+  title,
+  body,
+  scope: 'course',
+  published: true,
+  sort_order: sort,
+  estimated_minutes: minutes,
+  created_at: '2026-01-01T00:00:00Z',
+  updated_at: '2026-01-01T00:00:00Z',
+});
+
+const demoModule = (
+  id: string,
+  courseId: string,
+  title: string,
+  sort: number,
+  rule: LessonModule['unlock_rule'],
+  day: number | null,
+  lessons: Lesson[]
+): LessonModule => ({
+  id,
+  org_id: DEMO_ORG_ID,
+  course_id: courseId,
+  title,
+  description: null,
+  sort_order: sort,
+  unlock_rule: rule,
+  unlock_day: day,
+  published: true,
+  created_at: '2026-01-01T00:00:00Z',
+  lessons: lessons.map((l) => ({ ...l, course_id: courseId, module_id: id })),
+});
+
+export const DEMO_MODULES: LessonModule[] = [
+  demoModule('dm-hp-1', DEMO_COURSE_40.id, 'Before you begin', 10, 'always', null, [
+    demoLesson('dl-1', 'Welcome to the programme', '## Welcome\n\nSample lesson.\n\n- What the programme covers\n- How the daily practice works', 5, 10),
+    demoLesson('dl-2', 'How the daily check-in works', '1. Open the app each day\n2. Answer **Done**, **Not yet** or **Rest day**', 3, 20),
+  ]),
+  demoModule('dm-hp-2', DEMO_COURSE_40.id, 'Week 1 of your practice', 20, 'day', 1, [
+    demoLesson('dl-3', 'Setting up a daily routine', 'Sample lesson.', 5, 10),
+  ]),
+  demoModule('dm-hp-3', DEMO_COURSE_40.id, 'Going deeper', 30, 'sequential', null, [
+    demoLesson('dl-4', 'Reflection: what has changed?', 'Sample reflection.', 10, 10),
+  ]),
+  demoModule('dm-aos-1', DEMO_COURSE_SILENCE.id, 'Preparing for silence', 10, 'always', null, [
+    demoLesson('dl-5', 'What to bring', 'Sample packing list.', 3, 10),
+  ]),
+];

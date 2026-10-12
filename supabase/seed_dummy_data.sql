@@ -10,6 +10,9 @@
 --   2 more batches so students 1-5 show a multi-programme journey:
 --   Happiness Program -> Art of Silence (finished, students 1-10) -> VTP
 --   (running, students 1-5). Neither has a daily practice track.
+--   Phase 6: placeholder learning modules for the Happiness Program (4
+--   modules: always open, day 1, day 8, after the previous one) and Art of
+--   Silence (2 modules), and lesson progress for students 1-10.
 -- Organisation B "Prana Flow Academy": different name and colours,
 --   show_powered_by false, 1 batch, 5 students.
 --
@@ -19,7 +22,8 @@
 -- on the morning of a demo so the batches sit on day 23 / day 2 / finished.
 --
 -- Real accounts are never deleted or changed by this script.
--- Run supabase/phase4_security.sql and supabase/phase5_programmes.sql first,
+-- Run supabase/phase4_security.sql, supabase/phase5_programmes.sql and
+-- supabase/phase6_lms.sql first,
 -- and supabase/verify.sql after.
 --
 -- Expected teacher dashboard for "Autumn Awakening" (day 23 of 40):
@@ -58,6 +62,14 @@ declare
   v_batch_b_id     uuid := 'd2000000-0000-0000-0000-000000000001'; -- Prana Sunrise
   v_batch_silence_id uuid := 'd1000000-0000-0000-0000-000000000005'; -- Art of Silence (finished)
   v_batch_vtp_id     uuid := 'd1000000-0000-0000-0000-000000000006'; -- VTP (running)
+
+  -- Learning modules (Phase 6)
+  v_mod_hp_before  uuid := 'f1000000-0000-0000-0000-000000000001';
+  v_mod_hp_week1   uuid := 'f1000000-0000-0000-0000-000000000002';
+  v_mod_hp_week2   uuid := 'f1000000-0000-0000-0000-000000000003';
+  v_mod_hp_deeper  uuid := 'f1000000-0000-0000-0000-000000000004';
+  v_mod_aos_prep   uuid := 'f1000000-0000-0000-0000-000000000005';
+  v_mod_aos_after  uuid := 'f1000000-0000-0000-0000-000000000006';
 
   v_names text[] := array[
     'Aarav Mehta', 'Maya Lin', 'Leo Dubois', 'Elena Rostova', 'Fatima Al-Mansoori',
@@ -118,6 +130,10 @@ begin
   where p.id = b.teacher_id and p.org_id in (v_org_a_id, v_org_b_id) and p.email like '%example.com';
 
   delete from public.batch_invites where org_id in (v_org_a_id, v_org_b_id) and email like '%example.com';
+  -- Seeded learning modules (their lessons and progress cascade)
+  delete from public.lesson_modules
+  where id in (v_mod_hp_before, v_mod_hp_week1, v_mod_hp_week2, v_mod_hp_deeper, v_mod_aos_prep, v_mod_aos_after);
+
   delete from public.lessons where org_id in (v_org_a_id, v_org_b_id)
     and author_id in (v_teacher_a1_id, v_teacher_a2_id, v_teacher_b_id);
   delete from public.profiles where org_id in (v_org_a_id, v_org_b_id) and email like '%example.com';
@@ -355,5 +371,57 @@ begin
     (v_org_a_id, 'Why 40 days?', 'Placeholder lesson for the 40-Day course.', 'course', v_course_a_id, null, null, true, v_teacher_a1_id),
     (v_org_a_id, 'Day 1: Setting an intention', 'Placeholder lesson for Autumn Awakening.', 'batch', null, v_batch_day23_id, 1, true, v_teacher_a1_id),
     (v_org_b_id, 'Breath foundations', 'Placeholder lesson for Prana Flow students.', 'general', null, null, null, true, v_teacher_b_id);
+
+  -- --------------------------------------------------------------------------
+  -- Learning modules and lessons (Phase 6, placeholder content)
+  -- --------------------------------------------------------------------------
+  insert into public.lesson_modules (id, org_id, course_id, title, description, sort_order, unlock_rule, unlock_day, published) values
+    (v_mod_hp_before, v_org_a_id, v_course_a_id, 'Before you begin', 'Open as soon as you join.', 10, 'always', null, true),
+    (v_mod_hp_week1,  v_org_a_id, v_course_a_id, 'Week 1 of your practice', 'Opens on day 1.', 20, 'day', 1, true),
+    (v_mod_hp_week2,  v_org_a_id, v_course_a_id, 'Week 2 of your practice', 'Opens on day 8.', 30, 'day', 8, true),
+    (v_mod_hp_deeper, v_org_a_id, v_course_a_id, 'Going deeper', 'Opens when you finish Week 2.', 40, 'sequential', null, true),
+    (v_mod_aos_prep,  v_org_a_id, v_prog_silence_id, 'Preparing for silence', 'Open as soon as you join.', 10, 'always', null, true),
+    (v_mod_aos_after, v_org_a_id, v_prog_silence_id, 'After the programme', 'Opens when you finish the preparation.', 20, 'sequential', null, true);
+
+  insert into public.lessons (id, org_id, title, body, scope, course_id, module_id, sort_order, estimated_minutes, published, author_id) values
+    ('f2000000-0000-0000-0000-000000000001', v_org_a_id, 'Welcome to the programme',
+     E'## Welcome\n\nPlaceholder lesson. Your teacher replaces this text on the **Programmes** screen.\n\n- What the programme covers\n- How the daily practice works\n- Who to ask for help',
+     'course', v_course_a_id, v_mod_hp_before, 10, 5, true, v_teacher_a1_id),
+    ('f2000000-0000-0000-0000-000000000002', v_org_a_id, 'How the daily check-in works',
+     E'Placeholder lesson.\n\n1. Open the app each day\n2. Answer **Done**, **Not yet** or **Rest day**\n3. Watch your streak grow',
+     'course', v_course_a_id, v_mod_hp_before, 20, 3, true, v_teacher_a1_id),
+    ('f2000000-0000-0000-0000-000000000003', v_org_a_id, 'Setting up a daily routine',
+     E'Placeholder lesson about choosing a fixed time and place for practice.',
+     'course', v_course_a_id, v_mod_hp_week1, 10, 5, true, v_teacher_a1_id),
+    ('f2000000-0000-0000-0000-000000000004', v_org_a_id, 'Common questions in week 1',
+     E'Placeholder lesson with frequently asked questions.',
+     'course', v_course_a_id, v_mod_hp_week1, 20, 5, true, v_teacher_a1_id),
+    ('f2000000-0000-0000-0000-000000000005', v_org_a_id, 'Staying consistent',
+     E'Placeholder lesson about keeping the practice going in week 2.',
+     'course', v_course_a_id, v_mod_hp_week2, 10, 5, true, v_teacher_a1_id),
+    ('f2000000-0000-0000-0000-000000000006', v_org_a_id, 'Reflection: what has changed?',
+     E'Placeholder reflection lesson.',
+     'course', v_course_a_id, v_mod_hp_deeper, 10, 10, true, v_teacher_a1_id),
+    ('f2000000-0000-0000-0000-000000000007', v_org_a_id, 'What to bring',
+     E'Placeholder packing list for the silence programme.',
+     'course', v_prog_silence_id, v_mod_aos_prep, 10, 3, true, v_teacher_a2_id),
+    ('f2000000-0000-0000-0000-000000000008', v_org_a_id, 'Guidelines for the silence',
+     E'Placeholder guidelines.',
+     'course', v_prog_silence_id, v_mod_aos_prep, 20, 5, true, v_teacher_a2_id),
+    ('f2000000-0000-0000-0000-000000000009', v_org_a_id, 'Carrying silence into daily life',
+     E'Placeholder lesson for after the programme.',
+     'course', v_prog_silence_id, v_mod_aos_after, 10, 5, true, v_teacher_a2_id);
+
+  -- Progress: students 1-10 finished "Before you begin"; 1-5 also the first Week 1 lesson
+  for i in 1..10 loop
+    v_student_id := ('d0000000-0000-0000-0000-' || lpad(i::text, 12, '0'))::uuid;
+    insert into public.lesson_progress (org_id, student_id, lesson_id, completed_at) values
+      (v_org_a_id, v_student_id, 'f2000000-0000-0000-0000-000000000001', (v_today_a - 22)::timestamptz + time '08:00'),
+      (v_org_a_id, v_student_id, 'f2000000-0000-0000-0000-000000000002', (v_today_a - 22)::timestamptz + time '08:10');
+    if i <= 5 then
+      insert into public.lesson_progress (org_id, student_id, lesson_id, completed_at)
+      values (v_org_a_id, v_student_id, 'f2000000-0000-0000-0000-000000000003', (v_today_a - 20)::timestamptz + time '08:00');
+    end if;
+  end loop;
 end;
 $$;
