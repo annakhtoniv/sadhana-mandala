@@ -131,15 +131,86 @@ come from the organisation record.
    including 5 quiet students. Organisation B: different name and colours,
    show_powered_by false, 1 batch, 5 students. Test: the dashboard matches the
    seed, and a teacher in A cannot read anything from B.
-   --- DEMO CUT LINE ---
-5. Lessons (create, publish, read) with placeholder content.
-6. Admin screens.
-7. PWA install, empty states, error messages, final polish.
+   --- DEMO CUT LINE --- (Phases 0-4 done; Phase 4 signed off 2026-10-12)
+
+## Sadhana ERP (scope extension agreed 2026-10-12)
+The app grows from a 40-day practice companion into a small ERP for the
+whole student journey, piloted for The Art of Living (AOL). It keeps the
+white-label rule: every programme name, practice, module and follow-up is
+configuration data, never code. We copy proven data designs from Odoo (CRM
+pipeline, Events, eLearning) but do not run Odoo itself: it needs its own
+server and per-user licences, and would lose this mobile-first app.
+
+### Programmes (catalogue, configurable)
+- The `courses` table is the programme catalogue. In the app it is called
+  "Programmes". Admins and teachers can add and edit programmes on screen.
+- A programme has: name, code, category, description, programme length in
+  days (optional), prerequisite programmes, active flag, display order, and
+  an optional daily practice track (name and number of days).
+- The daily practice track is per programme. For AOL only the Happiness
+  Program has one (the 40-day Sadhana). Programmes without a track have no
+  daily check-in.
+- A batch is one run of a programme (dates, teacher, join code and QR).
+- A student can be enrolled in many programmes over time, e.g. Happiness
+  Program, then Art of Silence, then VTP. The student home shows "My
+  programmes" and each one keeps its own history.
+- Starting AOL catalogue (data, editable): Happiness Program, Art of
+  Silence, Sahaj Samadhi Meditation, Sri Sri Yoga, Volunteer Training
+  Program (VTP), Advanced Meditation Program, plus any added later.
+
+### Follow-ups (per programme)
+A mix, different per programme: follow-up sessions (events), personal
+follow-up by a teacher or volunteer (a task with notes), and practice
+reminders. Each programme defines its own follow-up plan.
+
+### LMS (per programme)
+Each programme has its own learning modules made of lessons (text, video
+link), unlocked by day or by finishing the previous one, with progress per
+student.
+
+### Events
+Intro talks, programme runs, satsangs and follow-up sessions: schedule,
+venue or online link, capacity, registration and attendance (QR check-in).
+
+### CRM (for volunteers)
+- New role: volunteer (in addition to student, teacher, admin).
+- Contacts (people without an account yet), leads with a pipeline: New,
+  Invited to intro talk, Attended, Interested, Registered for Happiness
+  Program, Completed. Notes and calls, owner volunteer, source.
+- Converting a lead registers them for an event or a programme; when they
+  sign up, the contact links to their account.
+- Inviting leads, all three ways: (a) the app shows the contact details and
+  the volunteer sends the message themselves, (b) one-tap WhatsApp and email
+  links, (c) automatic sending, which needs a paid email or WhatsApp
+  provider and comes last.
+
+### Data
+Dummy data only until the first real group. Before real people's data is
+added (especially CRM contacts who have not signed up), add a consent and
+opt-out approach that follows the UAE data protection law (PDPL), approved
+by the organisation.
+
+## Phases (continued)
+5. Programme catalogue and multi-enrolment: programmes screen for admins
+   and teachers, AOL catalogue in the seed, practice track per programme,
+   "My programmes" for students. Test: a teacher adds a programme without
+   code changes; a student in three programmes sees all three; only the
+   Happiness Program has the 40-day check-in.
+6. LMS: modules and lessons per programme, progress per student
+   (replaces the old "Lessons" phase).
+7. Follow-ups per programme.
+8. Events: intro talks, registrations, attendance.
+9. CRM for volunteers: contacts, pipeline, conversion to event or
+   programme registration, invites (manual and one-tap links).
+10. Admin screens, funnel reports (leads, intro talk, Happiness Program,
+    Sadhana completed, next programme), automatic invites, PWA install and
+    final polish (replaces the old phases 6 and 7).
 
 ## Out of scope (do not build)
-Community or chat, payments, notifications or reminders, integrations with
-other tools, native mobile apps, organisation self-signup, billing,
-per-organisation domains, a platform owner screen (I manage organisations in
-the Supabase table editor).
+Community or chat, payments, native mobile apps, organisation self-signup,
+billing, per-organisation domains, accounting, inventory, HR, a platform
+owner screen (I manage organisations in the Supabase table editor).
+Notifications and integrations only as described for CRM invites and
+practice reminders above.
 
 https://github.com/annakhtoniv/sadhana-mandala.git

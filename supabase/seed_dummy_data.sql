@@ -1,9 +1,15 @@
 -- ============================================================================
--- Sadhana Mandala: Phase 4 dummy data seed (SPEC.md phase 4)
+-- Sadhana Mandala: dummy data seed (SPEC.md phases 4 and 5)
 --
--- Organisation A "Sadhana Mandala": 1 course, 3 batches (finished at day 40,
---   day 23, day 2), 30 clearly fictional students with example.com emails and
---   varied check-ins, including 5 quiet students.
+-- Organisation A "Sadhana Mandala":
+--   Phase 4: the Happiness Program with its 40-Day Sadhana practice track,
+--   3 Happiness Program batches (finished at day 40, day 23, day 2), 30
+--   clearly fictional students with example.com emails and varied
+--   check-ins, including 5 quiet students.
+--   Phase 5: the starting AOL programme catalogue (editable on screen) and
+--   2 more batches so students 1-5 show a multi-programme journey:
+--   Happiness Program -> Art of Silence (finished, students 1-10) -> VTP
+--   (running, students 1-5). Neither has a daily practice track.
 -- Organisation B "Prana Flow Academy": different name and colours,
 --   show_powered_by false, 1 batch, 5 students.
 --
@@ -13,7 +19,8 @@
 -- on the morning of a demo so the batches sit on day 23 / day 2 / finished.
 --
 -- Real accounts are never deleted or changed by this script.
--- Run supabase/phase4_security.sql first, and supabase/phase4_verify.sql after.
+-- Run supabase/phase4_security.sql and supabase/phase5_programmes.sql first,
+-- and supabase/verify.sql after.
 --
 -- Expected teacher dashboard for "Autumn Awakening" (day 23 of 40):
 --   Done 6 · Rest 2 · Not yet 2 · No answer 20 · Quiet 5 · 30 students
@@ -31,6 +38,12 @@ declare
 
   v_course_a_id uuid := 'c1000000-0000-0000-0000-000000000001';
   v_course_b_id uuid := 'c2000000-0000-0000-0000-000000000001';
+  -- Rest of the AOL catalogue (Org A)
+  v_prog_silence_id uuid := 'c1000000-0000-0000-0000-000000000002';
+  v_prog_ssm_id     uuid := 'c1000000-0000-0000-0000-000000000003';
+  v_prog_yoga_id    uuid := 'c1000000-0000-0000-0000-000000000004';
+  v_prog_vtp_id     uuid := 'c1000000-0000-0000-0000-000000000005';
+  v_prog_amp_id     uuid := 'c1000000-0000-0000-0000-000000000006';
 
   v_teacher_a1_id uuid := 'b0000000-0000-0000-0000-000000000001'; -- Ananda Sharma
   v_teacher_a2_id uuid := 'b0000000-0000-0000-0000-000000000002'; -- Priya Patel
@@ -43,6 +56,8 @@ declare
   v_batch_day2_id  uuid := 'd1000000-0000-0000-0000-000000000003'; -- New Moon
   v_batch_old_day1 uuid := 'd1000000-0000-0000-0000-000000000004'; -- removed (not in SPEC)
   v_batch_b_id     uuid := 'd2000000-0000-0000-0000-000000000001'; -- Prana Sunrise
+  v_batch_silence_id uuid := 'd1000000-0000-0000-0000-000000000005'; -- Art of Silence (finished)
+  v_batch_vtp_id     uuid := 'd1000000-0000-0000-0000-000000000006'; -- VTP (running)
 
   v_names text[] := array[
     'Aarav Mehta', 'Maya Lin', 'Leo Dubois', 'Elena Rostova', 'Fatima Al-Mansoori',
@@ -94,7 +109,8 @@ begin
   -- Reset earlier dummy data (cascades to enrolments, check-ins, invites)
   -- --------------------------------------------------------------------------
   delete from public.batches
-  where id in (v_batch_day23_id, v_batch_day40_id, v_batch_day2_id, v_batch_old_day1, v_batch_b_id);
+  where id in (v_batch_day23_id, v_batch_day40_id, v_batch_day2_id, v_batch_old_day1, v_batch_b_id,
+               v_batch_silence_id, v_batch_vtp_id);
 
   -- Batches a dummy teacher still owns (from older seed versions)
   delete from public.batches b
@@ -115,17 +131,47 @@ begin
     and not exists (select 1 from public.batches b where b.course_id = c.id);
 
   -- --------------------------------------------------------------------------
-  -- Courses (1 per organisation)
+  -- Programmes (the `courses` table is the programme catalogue)
   -- --------------------------------------------------------------------------
-  insert into public.courses (id, org_id, name, description, duration_days)
-  values (v_course_a_id, v_org_a_id, '40-Day Sadhana Practice',
-          'A daily meditation and awareness commitment for forty days.', 40)
-  on conflict (id) do update set org_id = excluded.org_id, name = excluded.name, duration_days = 40;
+  -- Happiness Program: the only Org A programme with a daily practice track.
+  -- Always reset, because the Phase 4 dashboard numbers depend on it.
+  insert into public.courses (id, org_id, name, code, category, description, programme_days,
+                              has_practice_track, practice_name, duration_days, sort_order, is_active)
+  values (v_course_a_id, v_org_a_id, 'Happiness Program', 'HP', 'Core programme',
+          'Introductory programme with breathing, meditation and wisdom, followed by a 40-day daily practice.',
+          3, true, '40-Day Sadhana', 40, 10, true)
+  on conflict (id) do update set
+    org_id = excluded.org_id, name = excluded.name, code = excluded.code, category = excluded.category,
+    description = excluded.description, programme_days = excluded.programme_days,
+    has_practice_track = true, practice_name = excluded.practice_name, duration_days = 40,
+    sort_order = excluded.sort_order, is_active = true, prerequisite_ids = '{}';
 
-  insert into public.courses (id, org_id, name, description, duration_days)
-  values (v_course_b_id, v_org_b_id, 'Prana Foundation 30',
-          'Pranayama breathwork over 30 days.', 30)
-  on conflict (id) do update set org_id = excluded.org_id, name = excluded.name, duration_days = 30;
+  -- The rest of the starting catalogue. Inserted once and then left alone, so
+  -- changes made on the Programmes screen survive a re-run of this script.
+  insert into public.courses (id, org_id, name, code, category, description, programme_days,
+                              has_practice_track, duration_days, prerequisite_ids, sort_order, is_active)
+  values
+    (v_prog_silence_id, v_org_a_id, 'Art of Silence', 'AOS', 'Advanced programme',
+     'Residential silence programme that deepens the Happiness Program practices.',
+     null, false, 40, array[v_course_a_id], 20, true),
+    (v_prog_ssm_id, v_org_a_id, 'Sahaj Samadhi Meditation', 'SSM', 'Meditation',
+     'Meditation programme.', null, false, 40, '{}', 30, true),
+    (v_prog_yoga_id, v_org_a_id, 'Sri Sri Yoga', 'SSY', 'Yoga',
+     'Yoga programme.', null, false, 40, '{}', 40, true),
+    (v_prog_vtp_id, v_org_a_id, 'Volunteer Training Program', 'VTP', 'Volunteer programme',
+     'Training for volunteers who want to serve and share the programmes.',
+     null, false, 40, array[v_course_a_id], 50, true),
+    (v_prog_amp_id, v_org_a_id, 'Advanced Meditation Program', 'AMP', 'Advanced programme',
+     'Advanced meditation programme.', null, false, 40, array[v_course_a_id], 60, true)
+  on conflict do nothing;
+
+  insert into public.courses (id, org_id, name, code, category, description, programme_days,
+                              has_practice_track, practice_name, duration_days, sort_order, is_active)
+  values (v_course_b_id, v_org_b_id, 'Prana Foundation 30', 'PF30', 'Core programme',
+          'Pranayama breathwork over 30 days.', null, true, '30-Day Breath Practice', 30, 10, true)
+  on conflict (id) do update set
+    org_id = excluded.org_id, name = excluded.name, code = excluded.code,
+    has_practice_track = true, practice_name = excluded.practice_name, duration_days = 30, is_active = true;
 
   -- Older seed versions used a non-example.com dummy admin (never a real sign-in)
   delete from public.profiles p
@@ -159,7 +205,9 @@ begin
     (v_batch_day40_id, v_org_a_id, v_course_a_id, v_teacher_a1_id, 'Summer Solstice Sadhana',  v_today_a - 40, 'SUMMER40'),
     (v_batch_day23_id, v_org_a_id, v_course_a_id, v_teacher_a1_id, 'Autumn Awakening Cohort',  v_today_a - 22, 'AUTUMN23'),
     (v_batch_day2_id,  v_org_a_id, v_course_a_id, v_teacher_a2_id, 'New Moon Mindfulness',     v_today_a - 1,  'MOON02'),
-    (v_batch_b_id,     v_org_b_id, v_course_b_id, v_teacher_b_id,  'Prana Sunrise Cohort',     v_today_b - 9,  'PRANA10');
+    (v_batch_b_id,     v_org_b_id, v_course_b_id, v_teacher_b_id,  'Prana Sunrise Cohort',     v_today_b - 9,  'PRANA10'),
+    (v_batch_silence_id, v_org_a_id, v_prog_silence_id, v_teacher_a2_id, 'Art of Silence – September', v_today_a - 25, 'SILENCE09'),
+    (v_batch_vtp_id,     v_org_a_id, v_prog_vtp_id,     v_teacher_a2_id, 'VTP – October',              v_today_a - 3,  'VTP10');
 
   -- --------------------------------------------------------------------------
   -- Org A: 30 students
@@ -186,6 +234,16 @@ begin
     if i between 16 and 20 then
       insert into public.enrolments (org_id, batch_id, student_id, source, joined_at)
       values (v_org_a_id, v_batch_day2_id, v_student_id, 'invite', (v_today_a - 2)::timestamptz);
+    end if;
+
+    -- Multi-programme journey: 1-10 did Art of Silence, 1-5 are now in VTP
+    if i <= 10 then
+      insert into public.enrolments (org_id, batch_id, student_id, source, joined_at)
+      values (v_org_a_id, v_batch_silence_id, v_student_id, 'code', (v_today_a - 26)::timestamptz);
+    end if;
+    if i <= 5 then
+      insert into public.enrolments (org_id, batch_id, student_id, source, joined_at)
+      values (v_org_a_id, v_batch_vtp_id, v_student_id, 'invite', (v_today_a - 4)::timestamptz);
     end if;
   end loop;
 

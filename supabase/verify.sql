@@ -1,8 +1,8 @@
 -- ============================================================================
--- Sadhana Mandala: Phase 4 verification
+-- Sadhana Mandala: verification (phases 4 and 5)
 --
--- Run in the Supabase SQL editor after phase4_security.sql and
--- seed_dummy_data.sql. It signs in as the fictional seed users one at a time
+-- Run in the Supabase SQL editor after phase4_security.sql,
+-- phase5_programmes.sql and seed_dummy_data.sql. It signs in as the fictional seed users one at a time
 -- (by setting the same JWT claims Supabase sets for a real sign-in) and checks
 -- what each of them can see and change. Nothing is saved: every write attempt
 -- is rolled back immediately.
@@ -24,6 +24,7 @@ declare
   v_admin_a uuid := 'b0000000-0000-0000-0000-000000000003';
   v_marcus uuid := 'c0000000-0000-0000-0000-000000000001';
   v_student01 uuid := 'd0000000-0000-0000-0000-000000000001';
+  v_vtp    uuid := 'd1000000-0000-0000-0000-000000000006';
   v_day int;
   v_n int;
   v_txt text;
@@ -111,6 +112,20 @@ begin
   exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
   r := r || array['Teacher A (Ananda)|write a student''s check-in|blocked', v_txt];
 
+  begin
+    insert into public.courses (org_id, name, code, category, has_practice_track, duration_days)
+    values (v_org_a, 'Verify Test Programme', 'VERIFY-TEST', 'Test', false, 40);
+    raise exception 'PROBE_WROTE';
+  exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked: ' || sqlerrm end; end;
+  r := r || array['Teacher A (Ananda)|add a programme (phase 5)|allowed', v_txt];
+
+  begin
+    insert into public.courses (org_id, name, code, category, has_practice_track, duration_days)
+    values (v_org_b, 'Verify Test Programme', 'VERIFY-TEST', 'Test', false, 40);
+    raise exception 'PROBE_WROTE';
+  exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
+  r := r || array['Teacher A (Ananda)|add a programme to Org B|blocked', v_txt];
+
   reset role;
 
   -- ------------------------------------------------------------------ Teacher B
@@ -139,7 +154,7 @@ begin
   r := r || array['Student (Aarav)|other students'' check-ins visible|0', v_n::text];
 
   select count(*) into v_n from public.profiles;
-  r := r || array['Student (Aarav)|profiles visible (self + own teachers)|2', v_n::text];
+  r := r || array['Student (Aarav)|profiles visible (self + 2 teachers)|3', v_n::text];
 
   begin
     insert into public.checkins (org_id, student_id, batch_id, day_number, status)
@@ -157,6 +172,23 @@ begin
   exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
   r := r || array['Student (Aarav)|change yesterday''s answer|blocked', v_txt];
 
+  select count(*) into v_n from public.enrolments where student_id = v_student01;
+  r := r || array['Student (Aarav)|own programmes (HP x2, Silence, VTP)|4', v_n::text];
+
+  begin
+    insert into public.checkins (org_id, student_id, batch_id, day_number, status)
+    values (v_org_a, v_student01, v_vtp, 4, 'done');
+    raise exception 'PROBE_WROTE';
+  exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
+  r := r || array['Student (Aarav)|daily check-in on VTP (no practice track)|blocked', v_txt];
+
+  begin
+    insert into public.courses (org_id, name, category, has_practice_track, duration_days)
+    values (v_org_a, 'Student Programme', 'Test', false, 40);
+    raise exception 'PROBE_WROTE';
+  exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
+  r := r || array['Student (Aarav)|add a programme|blocked', v_txt];
+
   reset role;
 
   -- ------------------------------------------------------------------ Admin A
@@ -164,7 +196,7 @@ begin
   set local role authenticated;
 
   select count(*) into v_n from public.batches;
-  r := r || array['Admin A|sees all Org A batches|3', v_n::text];
+  r := r || array['Admin A|sees all Org A batches|5', v_n::text];
 
   execute v_sql_foreign into v_n using v_org_b;
   r := r || array['Admin A|rows visible from Org B (all tables)|0', v_n::text];

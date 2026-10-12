@@ -1,4 +1,5 @@
 import { supabase, isDemoMode } from './supabase';
+import { sortProgrammes } from './programmeUtils';
 import type { Batch, Course, Enrolment, BatchInvite } from '../types/database';
 import {
   DEMO_ORG_ID,
@@ -6,6 +7,7 @@ import {
   DEMO_COURSE_40,
   DEMO_COURSE_21,
   DEMO_ENROLMENT_VINOTH,
+  DEMO_ENROLMENT_SILENCE,
   DEMO_ALL_BATCHES,
   DEMO_ROSTER_STUDENTS,
 } from './mockData';
@@ -53,21 +55,23 @@ function parseEmailList(rawEmailsText: string): string[] {
 }
 
 /**
- * Fetches the user's most recent enrolment, or null when they are not in a batch
- * (SPEC: such a user sees the "You are not in a batch yet" panel).
- * Sample data is used only in the 1-click demo mode.
+ * Every programme the user is enrolled in, newest first
+ * (SPEC: a student can be in many programmes over time).
  */
-export async function fetchUserEnrolment(userId: string): Promise<Enrolment | null> {
+export async function fetchUserEnrolments(userId: string): Promise<Enrolment[]> {
   if (isDemoMode()) {
     const savedDemo = localStorage.getItem('sadhana_demo_enrolment');
     if (savedDemo) {
       try {
-        return JSON.parse(savedDemo);
+        return [JSON.parse(savedDemo)];
       } catch {
         // ignore parse error
       }
     }
-    return { ...DEMO_ENROLMENT_VINOTH, student_id: userId || DEMO_ENROLMENT_VINOTH.student_id };
+    return [
+      { ...DEMO_ENROLMENT_VINOTH, student_id: userId || DEMO_ENROLMENT_VINOTH.student_id },
+      { ...DEMO_ENROLMENT_SILENCE, student_id: userId || DEMO_ENROLMENT_SILENCE.student_id },
+    ];
   }
 
   const { data, error } = await supabase
@@ -82,14 +86,12 @@ export async function fetchUserEnrolment(userId: string): Promise<Enrolment | nu
       batch:batches(${BATCH_SELECT})
     `)
     .eq('student_id', userId)
-    .order('joined_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .order('joined_at', { ascending: false });
 
   if (error) {
     throw new Error(error.message);
   }
-  return (data as unknown as Enrolment) || null;
+  return (data as unknown as Enrolment[]) || [];
 }
 
 /**
@@ -334,7 +336,8 @@ export async function fetchBatchInvites(batchId: string): Promise<BatchInvite[]>
 }
 
 /**
- * Fetches available courses for an organisation.
+ * Active programmes of an organisation, in catalogue order
+ * (used when creating a batch).
  */
 export async function fetchCourses(orgId: string): Promise<Course[]> {
   if (isDemoMode()) {
@@ -344,40 +347,10 @@ export async function fetchCourses(orgId: string): Promise<Course[]> {
   const { data, error } = await supabase
     .from('courses')
     .select('*')
-    .eq('org_id', orgId)
-    .order('created_at', { ascending: true });
+    .eq('org_id', orgId);
 
   if (error) {
     throw new Error(error.message);
   }
-  return (data as Course[]) || [];
-}
-
-/**
- * Creates a new course in the organisation.
- */
-export async function createCourse(params: {
-  orgId: string;
-  name: string;
-  description: string;
-  durationDays: number;
-}): Promise<{ success: boolean; data?: Course; error?: string }> {
-  try {
-    const { data, error } = await supabase
-      .from('courses')
-      .insert({
-        org_id: params.orgId,
-        name: params.name,
-        description: params.description || null,
-        duration_days: params.durationDays || 40,
-      })
-      .select('*')
-      .single();
-
-    if (error) throw error;
-    return { success: true, data: data as Course };
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Failed to create course';
-    return { success: false, error: msg };
-  }
+  return sortProgrammes(((data as Course[]) || []).filter((c) => c.is_active !== false));
 }

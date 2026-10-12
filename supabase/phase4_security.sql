@@ -16,7 +16,8 @@
 --   * Join codes worked across organisations.
 --
 -- Safe to run more than once. Run it in the Supabase SQL editor, then run
--- supabase/seed_dummy_data.sql, then supabase/phase4_verify.sql.
+-- supabase/phase5_programmes.sql, supabase/seed_dummy_data.sql, then
+-- supabase/verify.sql.
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
