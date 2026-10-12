@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { isDemoMode } from '../lib/supabase';
 import { ProgrammeLearning } from './ProgrammeLearning';
+import { ProgrammeFollowups } from './ProgrammeFollowups';
 import { calculateDayNumber, formatDateDisplay } from '../lib/dateUtils';
 import {
   fetchStudentCheckins,
@@ -726,6 +727,17 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
         </div>
       </div>
       </>
+      )}
+
+      {/* Reminders and follow-up sessions of the selected programme (Phase 7) */}
+      {course && batch && (
+        <ProgrammeFollowups
+          key={`fu-${batch.id}`}
+          batchId={batch.id}
+          courseId={course.id}
+          dayNumber={todayDayNumber}
+          timeZone={organisation.timezone}
+        />
       )}
 
       {/* Learning modules of the selected programme (Phase 6) */}

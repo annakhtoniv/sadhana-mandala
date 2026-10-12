@@ -159,3 +159,48 @@ export interface LessonProgress {
   lesson_id: string;
   completed_at: string;
 }
+
+export type FollowupKind = 'session' | 'personal' | 'reminder';
+
+/** Phase 7: one step of a programme's follow-up plan */
+export interface FollowupStep {
+  id: string;
+  org_id: string;
+  course_id: string;
+  kind: FollowupKind;
+  title: string;
+  description: string | null;
+  /** Day of the batch the step falls due (Day 1 = start date) */
+  offset_day: number;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at?: string;
+}
+
+export type FollowupRecordStatus = 'scheduled' | 'done' | 'skipped';
+
+/** Phase 7: a session scheduled/held in a batch (student_id null) or a personal follow-up */
+export interface FollowupRecord {
+  id: string;
+  org_id: string;
+  batch_id: string;
+  step_id: string;
+  student_id: string | null;
+  status: FollowupRecordStatus;
+  scheduled_for: string | null;
+  location: string | null;
+  notes: string | null;
+  updated_at: string;
+}
+
+/** Phase 7: what a student may see of a follow-up session (my_batch_sessions) */
+export interface BatchSession {
+  step_id: string;
+  title: string;
+  description: string | null;
+  offset_day: number;
+  status: FollowupRecordStatus | null;
+  scheduled_for: string | null;
+  location: string | null;
+}

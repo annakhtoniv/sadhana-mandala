@@ -1,8 +1,9 @@
 -- ============================================================================
--- Sadhana Mandala: verification (phases 4, 5 and 6)
+-- Sadhana Mandala: verification (phases 4 to 7)
 --
 -- Run in the Supabase SQL editor after phase4_security.sql,
--- phase5_programmes.sql, phase6_lms.sql and seed_dummy_data.sql. It signs in as the fictional seed users one at a time
+-- phase5_programmes.sql, phase6_lms.sql, phase7_followups.sql and
+-- seed_dummy_data.sql. It signs in as the fictional seed users one at a time
 -- (by setting the same JWT claims Supabase sets for a real sign-in) and checks
 -- what each of them can see and change. Nothing is saved: every write attempt
 -- is rolled back immediately.
@@ -29,6 +30,8 @@ declare
   v_mod_week2 uuid := 'f1000000-0000-0000-0000-000000000003';
   v_lesson_week2  uuid := 'f2000000-0000-0000-0000-000000000005';
   v_lesson_deeper uuid := 'f2000000-0000-0000-0000-000000000006';
+  v_fu_call1 uuid := 'e3000000-0000-0000-0000-000000000002';
+  v_student21 uuid := 'd0000000-0000-0000-0000-000000000021';
   v_day int;
   v_n int;
   v_txt text;
@@ -46,6 +49,8 @@ declare
          + (select count(*) from public.role_grants where org_id = $1)
          + (select count(*) from public.lesson_modules where org_id = $1)
          + (select count(*) from public.lesson_progress where org_id = $1)
+         + (select count(*) from public.followup_steps where org_id = $1)
+         + (select count(*) from public.followup_records where org_id = $1)
   $q$;
 begin
   select ((now() at time zone o.timezone)::date - b.start_date) + 1 into v_day
@@ -146,6 +151,30 @@ begin
   select count(*) into v_n from public.lesson_progress;
   r := r || array['Teacher A (Ananda)|own students'' lesson progress visible|25', v_n::text];
 
+  select count(*) into v_n from public.followup_records;
+  r := r || array['Teacher A (Ananda)|Autumn follow-up records visible (phase 7)|32', v_n::text];
+
+  begin
+    insert into public.followup_records (org_id, batch_id, step_id, student_id, status, notes)
+    values (v_org_a, v_autumn, v_fu_call1, v_student21, 'done', 'Verify note');
+    raise exception 'PROBE_WROTE';
+  exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked: ' || sqlerrm end; end;
+  r := r || array['Teacher A (Ananda)|record a follow-up in own batch|allowed', v_txt];
+
+  begin
+    insert into public.followup_records (org_id, batch_id, step_id, student_id, status)
+    values (v_org_a, v_moon, v_fu_call1, v_student21, 'done');
+    raise exception 'PROBE_WROTE';
+  exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
+  r := r || array['Teacher A (Ananda)|record a follow-up in another teacher''s batch|blocked', v_txt];
+
+  begin
+    insert into public.followup_steps (org_id, course_id, kind, title, offset_day)
+    values (v_org_a, v_hp_course, 'reminder', 'Verify reminder', 5);
+    raise exception 'PROBE_WROTE';
+  exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked: ' || sqlerrm end; end;
+  r := r || array['Teacher A (Ananda)|add a follow-up plan step|allowed', v_txt];
+
   reset role;
 
   -- ------------------------------------------------------------------ Teacher B
@@ -237,6 +266,25 @@ begin
     raise exception 'PROBE_WROTE';
   exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
   r := r || array['Student (Aarav)|add a module|blocked', v_txt];
+
+  select count(*) into v_n from public.followup_records;
+  r := r || array['Student (Aarav)|follow-up records and notes visible|0', v_n::text];
+
+  select count(*) into v_n from public.followup_steps;
+  r := r || array['Student (Aarav)|follow-up plan steps visible (reminders)|8', v_n::text];
+
+  select count(*) into v_n from public.my_batch_sessions(v_autumn);
+  r := r || array['Student (Aarav)|own batch follow-up sessions|2', v_n::text];
+
+  select count(*) into v_n from public.my_batch_sessions(v_moon);
+  r := r || array['Student (Aarav)|sessions of a batch he is not in|0', v_n::text];
+
+  begin
+    insert into public.followup_steps (org_id, course_id, kind, title, offset_day)
+    values (v_org_a, v_hp_course, 'reminder', 'Student reminder', 5);
+    raise exception 'PROBE_WROTE';
+  exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
+  r := r || array['Student (Aarav)|add a follow-up plan step|blocked', v_txt];
 
   reset role;
 
