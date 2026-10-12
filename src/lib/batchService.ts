@@ -1,6 +1,6 @@
-import { supabase, isDemoMode } from './supabase';
+import { supabase, isDemoMode, isSupabaseConfigured } from './supabase';
 import { sortProgrammes } from './programmeUtils';
-import type { Batch, Course, Enrolment, BatchInvite } from '../types/database';
+import type { Batch, BatchJoinPreview, Course, Enrolment, BatchInvite } from '../types/database';
 import {
   DEMO_ORG_ID,
   DEMO_TEACHER_PROFILE,
@@ -353,4 +353,21 @@ export async function fetchCourses(orgId: string): Promise<Course[]> {
     throw new Error(error.message);
   }
   return sortProgrammes(((data as Course[]) || []).filter((c) => c.is_active !== false));
+}
+
+/**
+ * Batch QR: which batch a join code belongs to, shown on the sign-in page
+ * before the person signs in. Returns null when the code is unknown.
+ */
+export async function fetchBatchJoinPreview(joinCode: string): Promise<BatchJoinPreview | null> {
+  const code = joinCode.trim().toUpperCase();
+  if (isDemoMode() || !isSupabaseConfigured) {
+    const b = DEMO_ALL_BATCHES.find((x) => x.join_code.toUpperCase() === code);
+    return b
+      ? { batch_name: b.name, course_name: b.course?.name || '', start_date: b.start_date, org_name: '', org_slug: '' }
+      : null;
+  }
+  const { data, error } = await supabase.rpc('batch_join_preview', { p_code: code });
+  if (error) throw new Error(error.message);
+  return (data as BatchJoinPreview | null) || null;
 }

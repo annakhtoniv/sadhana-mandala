@@ -1,5 +1,5 @@
 import { isoToZonedInput, zonedInputToIso } from './dateUtils';
-import type { Course, Batch, Enrolment, Checkin, Profile, Lesson, LessonModule, FollowupStep, OrgEvent, EventRegistration, RegistrationStatus } from '../types/database';
+import type { Course, Batch, Enrolment, Checkin, Profile, Lesson, LessonModule, FollowupStep, OrgEvent, EventRegistration, RegistrationStatus, CrmContact, CrmActivity, CrmStage, CrmSource, FunnelReport } from '../types/database';
 
 // Compute start date so today is exactly Day 23 of 40
 const todayDate = new Date();
@@ -364,3 +364,61 @@ export const DEMO_EVENT_REGISTRATIONS: EventRegistration[] = [
   guest_email: email as string | null, guest_phone: null, status: status as RegistrationStatus,
   checked_in_at: null, created_at: '2026-01-01T00:00:00Z', profile: null,
 }));
+
+// Phase 9: sample leads for the 1-click demo (owned by the demo admin)
+const demoDay = (days: number) => isoToZonedInput(new Date(Date.now() + days * 86400000).toISOString(), 'Asia/Dubai').slice(0, 10);
+
+export const DEMO_CONTACTS: CrmContact[] = (
+  [
+    ['Rania Aziz', 'guest.rania@example.com', '+971 50 000 0001', 'friend', 'invited', 1, 'Colleague. Asked about the breathing technique.'],
+    ['Hiro Tanaka', 'past.guest1@example.com', '+971 50 000 0011', 'event', 'attended', 0, 'Came to the last intro talk.'],
+    ['Nadia Karim', 'past.guest3@example.com', '+971 50 000 0013', 'event', 'interested', 2, 'Wants a weekend batch.'],
+    ['Joel Mathew', null, '+971 50 000 0015', 'walk_in', 'new', 0, 'Met at the community fair.'],
+    ['Daniel Vance', 'student30@example.com', null, 'website', 'registered', null, null],
+    ['Mona Saleh', 'mona.saleh@example.com', null, 'social', 'lost', null, 'Asked not to be contacted again.'],
+  ] as [string, string | null, string | null, CrmSource, CrmStage, number | null, string | null][]
+).map(([full_name, email, phone, source, stage, next, notes], i) => ({
+  id: `dc-${i + 1}`,
+  org_id: DEMO_ORG_ID,
+  full_name,
+  email,
+  phone,
+  source,
+  stage,
+  furthest_stage: stage === 'lost' ? 'invited' : stage,
+  interest_course_id: DEMO_COURSE_40.id,
+  owner_id: DEMO_TEACHER_PROFILE.id,
+  profile_id: null,
+  consent_at: '2026-10-01T00:00:00Z',
+  opted_out: stage === 'lost',
+  next_action_on: next === null ? null : demoDay(next),
+  notes,
+  created_by: DEMO_TEACHER_PROFILE.id,
+  created_at: '2026-10-01T00:00:00Z',
+  updated_at: '2026-10-01T00:00:00Z',
+}));
+
+export const DEMO_CRM_ACTIVITIES: CrmActivity[] = [
+  { id: 'da-1', org_id: DEMO_ORG_ID, contact_id: 'dc-1', kind: 'whatsapp', body: 'Sent the intro talk details.', created_by: DEMO_TEACHER_PROFILE.id, created_at: '2026-10-09T10:00:00Z' },
+  { id: 'da-2', org_id: DEMO_ORG_ID, contact_id: 'dc-2', kind: 'call', body: 'Enjoyed the talk. Will check his calendar.', created_by: DEMO_TEACHER_PROFILE.id, created_at: '2026-10-08T10:00:00Z' },
+];
+
+export const DEMO_FUNNEL: FunnelReport = {
+  since: null,
+  leads: { total: 11, invited: 9, attended: 4, interested: 3, registered: 2, completed: 1, lost: 1, signed_up: 2 },
+  sources: [
+    { source: 'friend', leads: 4, registered: 1 },
+    { source: 'event', leads: 3, registered: 0 },
+    { source: 'website', leads: 2, registered: 1 },
+    { source: 'social', leads: 1, registered: 0 },
+    { source: 'walk_in', leads: 1, registered: 0 },
+  ],
+  owners: [
+    { owner_id: 'v1', name: 'Ravi Kumar', leads: 6, registered: 1 },
+    { owner_id: 'v2', name: 'Sara Haddad', leads: 3, registered: 1 },
+    { owner_id: null, name: 'Unassigned', leads: 2, registered: 0 },
+  ],
+  journey: [
+    { course_id: DEMO_COURSE_40.id, course_name: 'Happiness Program', practice_days: 40, enrolled: 35, track_over: 15, completed: 9, next_programme: 10 },
+  ],
+};

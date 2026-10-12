@@ -112,7 +112,7 @@
   - App: Programmes screen > "Follow-up plan" on each programme (add, edit, hide, delete steps). Batch screen > "Follow-ups" with what is to do: schedule a session (when, where or online link), mark it held or skipped with notes; tick students off a personal follow-up with private notes (students still to do are listed first). Students see today's reminders and the coming follow-up sessions with time and place.
   - 109 unit tests passing (12 new for follow-up rules), clean build.
 
-- Phase 8 (events) built on 2026-10-12, waiting for the PM to merge, run the SQL and test:
+- Phase 8 (events) built and deployed on 2026-10-12 (SQL run in Supabase, 62/62 PASS; PR merged):
   - [supabase/phase8_events.sql](supabase/phase8_events.sql): new tables `events` (intro talks, programmes, satsangs, follow-up sessions: time, venue or online link, capacity, optional programme, draft or published, secret check-in code) and `event_registrations` (members, or guests without an account added by staff; status registered, attended, no-show or cancelled). Capacity is enforced by the database for everyone. Members register, cancel and check in only through functions and see only their own registrations; the check-in code column cannot be read by members (staff get it for the QR through `event_checkin_code()`). QR check-in works from 2 hours before the start until the end. Only adds things; safe to re-run.
   - Seed: 7 events: next intro talk (6 guests, 2 members), past intro talk (5 attended, 2 no-show, 1 cancelled), satsang (students 1-10), a full small group (2 of 2), a draft, an event happening now (code NOWCHECK, for testing check-in) and an Org B event.
   - [supabase/verify.sql](supabase/verify.sql): 62 checks (16 new), all PASS on a local copy.
@@ -120,13 +120,26 @@
   - Event and follow-up session times are now entered in the organisation's time zone, whatever time zone the phone uses.
   - 124 unit tests passing (15 new), clean build.
 
+- Phases 9 and 10 (CRM for volunteers, batch QR join, reports, PWA) built on 2026-10-12, waiting for the PM to merge, run the SQL and test:
+  - Batch QR join fixed and finished: the admin screen's batch QR used `?join=` while the app only read `?code=`, so scanning it did not join. Both now work (old printed codes too). A new student scans the QR, sees "You are joining a batch: <name>" on the sign-in page, signs in with Google and is enrolled automatically, with a "Welcome! You have joined ..." banner. The code is kept on the phone for a day across the Google sign-in. Admin and teacher batch screens share one QR panel: Share, WhatsApp, Copy link and a printable QR poster (PNG).
+  - [supabase/phase9_crm.sql](supabase/phase9_crm.sql): new role **volunteer** (role checks on `profiles` and `role_grants` now allow it); tables `crm_contacts` (leads: name, phone, email, source, stage, furthest stage, interest programme, owner, linked account, consent date, opted out, next follow-up, notes) and `crm_activities` (calls, notes, messages, stage changes); `event_registrations.contact_id`. Volunteers see and change only their own leads; admins and teachers see all leads of the organisation and assign owners; students see nothing. Functions: `crm_invite_to_event` (adds the lead to an event's guest list), `crm_register_for_batch` (enrols the member, or invites their email so they are enrolled when they sign in), `crm_open_batches`, `crm_owners`, `batch_join_preview` (sign-in page), `crm_funnel_report` (admins and teachers). Automatic: a lead who signs up is linked to their account (same email); attending an event moves the lead to Attended; enrolling moves it to Registered. The only change to existing objects is the two role checks; safe to re-run.
+  - Seed: volunteers Ravi Kumar and Sara Haddad; 11 Org A leads in every stage (Ravi 6, Sara 3, 2 unassigned), linked to the intro talk guests; 2 leads linked to student accounts; 1 Org B lead.
+  - [supabase/verify.sql](supabase/verify.sql): 85 checks (23 new), all PASS on a local copy: volunteer sees only own leads and their history, cannot give a lead to someone else or link it to any account by hand, can invite own lead to the intro talk and register own lead for a batch, cannot open reports or make himself a teacher; students and Org B see no leads; teacher sees all leads and the funnel; marking a lead attended moves its stage; a lead who signs up and joins a batch is linked and registered; the sign-in page can show the batch for a QR code.
+  - App: **Leads** icon in the header (volunteers always; teachers and admins outside the Student view): pipeline counts, filters (All, Follow up due, each stage), search, Add a lead (with consent and "do not contact" ticks), lead page with Call / WhatsApp / Email buttons, stage buttons, "Invite to an event" and "Register for a programme" (each writes a ready message with the event details or the batch QR link, sent from the volunteer's own WhatsApp or email), and the history. Warnings for leads without recorded consent; no message buttons for leads who opted out.
+  - Phase 10: **Reports** (Admin > Reports tab, and Leads > Reports for teachers): lead funnel (leads, invited, attended, interested, registered, completed, signed up, lost), the Happiness Program journey (enrolled, practice period over, completed the practice = "done" on at least 80% of the days, went on to a next programme), leads per source and per volunteer, for all time or the last 90 or 30 days. Admin > People: Volunteer role in both role lists; the hardcoded admin name and sample numbers are gone outside the 1-click demo.
+  - PWA: app icons (they were missing), full manifest (standalone, theme colours, maskable icon), offline start, and an "Install the app" card on the Profile screen (Android/Chrome install button; iPhone instructions).
+  - Automatic invites (sending without the volunteer) are not built: they need a paid email or WhatsApp provider and an approved consent text (PDPL). The data for it (consent, opt-out) is in place.
+  - 139 unit tests passing (15 new), clean build.
+
 ## Next
-- PM: merge the Phase 8 pull request, then in the Supabase SQL editor run (from `main`): `supabase/phase8_events.sql`, `supabase/seed_dummy_data.sql`, `supabase/verify.sql` (all 62 rows PASS). Until the SQL is run, the Events screen shows "Could not load events"; nothing else is affected.
-- PM: test Phase 8 (sign in with Google):
-  1. Calendar icon > Events: the intro talk (22 places left), satsang and small group (Full). Register for the satsang, then cancel.
-  2. View: Teacher > Events > Manage the intro talk: 8 registered; add a guest; mark one guest Attended. Show the check-in QR.
-  3. Create an event starting in 1 hour with a venue, open its check-in QR, and scan it with your phone camera: you are checked in and see a confirmation.
-- Then Phase 9 (CRM for volunteers: contacts, pipeline, conversion to event or programme registration).
+- PM: merge the Phases 9 and 10 pull request, then in the Supabase SQL editor run (from `main`): `supabase/phase9_crm.sql`, `supabase/seed_dummy_data.sql`, `supabase/verify.sql` (all 85 rows PASS). Until the SQL is run, the Leads screen and Reports show an error and the sign-in page shows only the join code; joining by QR already works.
+- PM: test (sign in with Google):
+  1. Admin > Cohorts > QR icon on a batch: Share / WhatsApp / Copy link / Download QR poster. Scan the QR with a phone that is signed out (or a private window): the sign-in page names the batch; sign in with Google and you are in the batch with a welcome banner.
+  2. Leads icon (next to the calendar): 11 leads. Open Joel Mathew > Invite to an event > Register and write the invitation > WhatsApp. Then Events > Manage the intro talk: Joel is on the guest list; mark him Attended and see his stage change to Attended.
+  3. Leads > Reports, and Admin > Reports: the funnel matches the seed (11 leads, 9 invited, 4 attended, 2 registered).
+  4. Admin > People: give a test Google account the Volunteer role; signed in as that account, Leads shows only that account's leads.
+  5. Profile > Install the app.
+- Decide: automatic invites (Phase 10 remainder). Options: email through a provider such as Resend or Brevo (free tiers exist), WhatsApp Business API (paid per message). Both need the consent text approved first.
 - Before a demo on any later day, re-run `supabase/seed_dummy_data.sql` that morning, so the batches sit on day 23 / day 2 / finished again.
 - To check the dashboard against the seed, sign out first and sign in with Google. The 1-click demo button shows sample data from `mockData.ts`, not the database.
 
@@ -134,10 +147,10 @@
 Decided 2026-10-12: keep the demo data and the 1-click demo login until after the teacher's feedback. Then, before the first real batch:
 - Clean the database: remove all fictional `@example.com` profiles, the seeded batches, enrolments, check-ins, invites and placeholder lessons in both organisations. Keep real accounts. Decide whether Organisation B (Prana Flow) stays.
 - Decide about the 1-click demo login: remove it, or keep it with a visible "Demo – sample data" banner.
+- Remove the seeded CRM leads and the two dummy volunteers, and get the consent wording for leads (PDPL) approved by the organisation before volunteers enter real people.
 - Clear demo logins saved in browsers from before 2026-10-11 (the old automatic demo login). Until then, anyone who visited the site earlier sees sample data until they sign out once.
 
 ## Known Issues
 - Anyone who visited before 2026-10-11 still has the old automatic demo login saved in their browser and sees sample data until they sign out (see "Before working with a real batch").
 - Demo mode is not labelled on screen, so sample data can be mistaken for real data.
-- Admin screens (`AdminHome.tsx`, phase 6) still mix in sample data and a hardcoded admin name; left for phase 6.
 - `RUN_THIS_IN_SUPABASE.sql` still contains the old unsafe policies; never run it without `supabase/phase4_security.sql` after it.

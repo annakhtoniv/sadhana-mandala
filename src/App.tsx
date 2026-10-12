@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
@@ -9,15 +9,36 @@ import { AdminHome } from './components/AdminHome';
 import { ProfileScreen } from './components/ProfileScreen';
 import { LessonsScreen } from './components/LessonsScreen';
 import { EventsScreen } from './components/EventsScreen';
+import { CrmScreen } from './components/CrmScreen';
 import { GuidedTour } from './components/GuidedTour';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
+import { clearPending, peekPending, PENDING_JOIN_KEY } from './lib/joinLink';
+import { fetchBatchJoinPreview } from './lib/batchService';
+import { formatDateDisplay } from './lib/dateUtils';
+import type { BatchJoinPreview } from './types/database';
 import { LogIn, Sparkles, AlertCircle, Loader2 } from 'lucide-react';
+
+type Tab = 'home' | 'lessons' | 'profile' | 'events' | 'leads';
 
 function MainApp() {
   const { user, activeRole, setActiveRole, hasConsent, isLoading, organisation, signInDemo, notice, clearNotice } = useAuth();
-  const [currentTab, setCurrentTab] = useState<'home' | 'lessons' | 'profile' | 'events'>('home');
+  const [currentTab, setCurrentTab] = useState<Tab>('home');
   const [authError, setAuthError] = useState<string | null>(null);
   const [isSigningIn, setIsSigningIn] = useState(false);
+  // Batch QR scanned before sign-in: show which batch the person is joining
+  const [pendingJoin, setPendingJoin] = useState<string | null>(() => peekPending(PENDING_JOIN_KEY));
+  const [joinPreview, setJoinPreview] = useState<BatchJoinPreview | null | 'unknown'>(null);
+
+  useEffect(() => {
+    if (user || !pendingJoin) return;
+    let cancelled = false;
+    fetchBatchJoinPreview(pendingJoin)
+      .then((p) => !cancelled && setJoinPreview(p || 'unknown'))
+      .catch(() => !cancelled && setJoinPreview(null));
+    return () => {
+      cancelled = true;
+    };
+  }, [user, pendingJoin]);
   const [showTour, setShowTour] = useState(() => {
     return (
       localStorage.getItem('sadhana_tour_completed') !== 'true' &&
@@ -96,6 +117,42 @@ function MainApp() {
               </p>
             </div>
 
+            {pendingJoin && (
+              <div className="p-4 rounded-2xl border-2 border-emerald-500/60 bg-emerald-50 dark:bg-emerald-950/40 text-left space-y-1.5" role="status">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
+                  You are joining a batch
+                </div>
+                {joinPreview && joinPreview !== 'unknown' ? (
+                  <>
+                    <div className="text-base font-semibold text-stone-900 dark:text-stone-100">{joinPreview.batch_name}</div>
+                    <div className="text-xs text-stone-600 dark:text-stone-300">
+                      {joinPreview.course_name}
+                      {joinPreview.start_date ? ` · starts ${formatDateDisplay(joinPreview.start_date, organisation.timezone)}` : ''}
+                    </div>
+                  </>
+                ) : joinPreview === 'unknown' ? (
+                  <div className="text-xs text-red-600 dark:text-red-400">
+                    The join code {pendingJoin} was not found. Please check the QR code with your teacher.
+                  </div>
+                ) : (
+                  <div className="text-sm font-mono font-semibold text-stone-900 dark:text-stone-100">Join code {pendingJoin}</div>
+                )}
+                <p className="text-xs text-stone-600 dark:text-stone-300">
+                  Sign in with Google below and you are added to this batch automatically.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    clearPending(PENDING_JOIN_KEY);
+                    setPendingJoin(null);
+                  }}
+                  className="text-[11px] text-stone-500 underline cursor-pointer"
+                >
+                  Not now
+                </button>
+              </div>
+            )}
+
             <div className="bg-white dark:bg-stone-900 p-6 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-4">
               <p className="text-xs text-stone-500 dark:text-stone-400">
                 Sign in with your Google account to access your daily practice, track streaks, and connect with your teacher.
@@ -108,7 +165,7 @@ function MainApp() {
                 className="w-full h-12 rounded-xl bg-stone-900 dark:bg-stone-100 text-stone-100 dark:text-stone-900 font-medium text-sm flex items-center justify-center gap-3 shadow hover:opacity-90 active:scale-[0.99] transition-all disabled:opacity-50 cursor-pointer"
               >
                 <LogIn className="w-4 h-4" />
-                <span>{isSigningIn ? 'Connecting to Google...' : 'Continue with Google'}</span>
+                <span>{isSigningIn ? 'Connecting to Google...' : pendingJoin ? 'Continue with Google and join' : 'Continue with Google'}</span>
               </button>
 
               <div className="relative py-1 flex items-center justify-center">
@@ -154,7 +211,7 @@ function MainApp() {
       {/* Navigation Header */}
       <Header
         currentTab={currentTab}
-        onNavigate={(tab) => setCurrentTab(tab as 'home' | 'lessons' | 'profile' | 'events')}
+        onNavigate={(tab) => setCurrentTab(tab as Tab)}
         activeRoleView={activeRole}
         onRoleSwitch={(newRole) => setActiveRole(newRole)}
         onOpenTour={() => setShowTour(true)}
@@ -186,7 +243,9 @@ function MainApp() {
             </button>
           </div>
         )}
-        {currentTab === 'events' ? (
+        {currentTab === 'leads' ? (
+          <CrmScreen onBack={() => setCurrentTab('home')} />
+        ) : currentTab === 'events' ? (
           <EventsScreen onBack={() => setCurrentTab('home')} />
         ) : currentTab === 'profile' ? (
           <ProfileScreen onBack={() => setCurrentTab('home')} />

@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { QRCodeSVG } from 'qrcode.react';
 import { fetchBatchEnrolments, fetchBatchInvites, addBatchInvites } from '../lib/batchService';
 import { fetchBatchCheckins, calculateStreak, isStudentQuiet } from '../lib/checkinService';
 import { formatDateDisplay, calculateDayNumber } from '../lib/dateUtils';
 import { hasPracticeTrack, programmeRunStatus, RUN_STATUS_LABEL } from '../lib/programmeUtils';
 import { fetchProgrammeModules, fetchStudentsLessonProgress } from '../lib/lmsService';
 import { BatchFollowups } from './BatchFollowups';
+import { BatchSharePanel } from './BatchSharePanel';
 import type { Batch, Enrolment, BatchInvite, Organisation, Checkin } from '../types/database';
 import {
   ArrowLeft,
@@ -217,8 +217,6 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
     return list;
   }, [studentMetrics, sortBy]);
 
-  const joinUrl = `${window.location.origin}?code=${batch.join_code}`;
-
   return (
     <div className="w-full space-y-6 animate-in fade-in duration-150">
       {/* Top back navigation */}
@@ -321,7 +319,7 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
             className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
           >
             <QrCode className="w-3.5 h-3.5" />
-            <span>{showQR ? 'Hide QR' : 'Show QR'}</span>
+            <span>{showQR ? 'Hide QR' : 'Show QR & share'}</span>
           </button>
         </div>
 
@@ -339,16 +337,14 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
           </button>
         </div>
 
-        {/* Live QR Code Display */}
+        {/* Batch QR: scan, sign in with Google, enrolled automatically */}
         {showQR && (
-          <div className="p-4 bg-stone-50 dark:bg-stone-800 rounded-2xl flex flex-col items-center justify-center space-y-2 animate-in fade-in">
-            <div className="p-3 bg-white rounded-xl shadow-sm">
-              <QRCodeSVG value={joinUrl} size={160} level="M" />
-            </div>
-            <p className="text-[11px] text-stone-500 dark:text-stone-400 text-center">
-              Students can scan this QR code directly on their phone to join this batch.
-            </p>
-          </div>
+          <BatchSharePanel
+            batchName={batch.name}
+            courseName={batch.course?.name || ''}
+            joinCode={batch.join_code}
+            appName={organisation.app_name}
+          />
         )}
 
         <button

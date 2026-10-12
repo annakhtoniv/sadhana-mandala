@@ -23,6 +23,11 @@
 --   satsang in 7 days (students 1-10), a small group that is full (2 of 2),
 --   a draft, an event happening now (for testing QR check-in) and one Org B
 --   event. Check-in codes are fixed so they can be tested.
+--   Phase 9: two volunteers (Ravi Kumar, Sara Haddad) and 11 CRM leads in
+--   every pipeline stage: Ravi owns 6, Sara owns 3, 2 are unassigned (only
+--   admins and teachers see them). Leads invited to the intro talk are
+--   linked to its guest registrations; two leads are linked to student
+--   accounts (one registered, one completed). Org B has 1 lead.
 -- Organisation B "Prana Flow Academy": different name and colours,
 --   show_powered_by false, 1 batch, 5 students.
 --
@@ -34,7 +39,7 @@
 -- Real accounts are never deleted or changed by this script.
 -- Run supabase/phase4_security.sql, supabase/phase5_programmes.sql,
 -- supabase/phase6_lms.sql, supabase/phase7_followups.sql and
--- supabase/phase8_events.sql first,
+-- supabase/phase8_events.sql and supabase/phase9_crm.sql first,
 -- and supabase/verify.sql after.
 --
 -- Expected teacher dashboard for "Autumn Awakening" (day 23 of 40):
@@ -100,6 +105,10 @@ declare
   v_ev_draft     uuid := 'e4000000-0000-0000-0000-000000000005';
   v_ev_org_b     uuid := 'e4000000-0000-0000-0000-000000000006';
   v_ev_now       uuid := 'e4000000-0000-0000-0000-000000000007';
+
+  -- Volunteers (Phase 9)
+  v_vol_ravi_id uuid := 'b0000000-0000-0000-0000-000000000004';
+  v_vol_sara_id uuid := 'b0000000-0000-0000-0000-000000000005';
   v_tz text;
 
   v_names text[] := array[
@@ -161,6 +170,8 @@ begin
   where p.id = b.teacher_id and p.org_id in (v_org_a_id, v_org_b_id) and p.email like '%example.com';
 
   delete from public.batch_invites where org_id in (v_org_a_id, v_org_b_id) and email like '%example.com';
+  -- Seeded CRM leads (their activities cascade)
+  delete from public.crm_contacts where id::text like 'e5000000-%';
   -- Seeded events (their registrations cascade)
   delete from public.events
   where id in (v_ev_talk_next, v_ev_talk_past, v_ev_satsang, v_ev_full, v_ev_draft, v_ev_org_b, v_ev_now);
@@ -240,6 +251,8 @@ begin
     (v_teacher_a1_id, v_org_a_id, 'teacher.ananda@example.com',   'Ananda Sharma', 'teacher', now() - interval '60 days'),
     (v_teacher_a2_id, v_org_a_id, 'teacher.priya@example.com',    'Priya Patel',   'teacher', now() - interval '60 days'),
     (v_admin_a_id,    v_org_a_id, 'admin.sadhana@example.com',    'Sadhana Admin', 'admin',   now() - interval '60 days'),
+    (v_vol_ravi_id,   v_org_a_id, 'volunteer.ravi@example.com',   'Ravi Kumar',    'volunteer', now() - interval '50 days'),
+    (v_vol_sara_id,   v_org_a_id, 'volunteer.sara@example.com',   'Sara Haddad',   'volunteer', now() - interval '50 days'),
     (v_teacher_b_id,  v_org_b_id, 'teacher.marcus@example.com',   'Marcus Vance',  'teacher', now() - interval '30 days'),
     (v_admin_b_id,    v_org_b_id, 'admin.prana@example.com',      'Prana Admin',   'admin',   now() - interval '30 days')
   on conflict (id) do update set
@@ -249,6 +262,8 @@ begin
     (v_org_a_id, 'teacher.ananda@example.com', 'teacher'),
     (v_org_a_id, 'teacher.priya@example.com',  'teacher'),
     (v_org_a_id, 'admin.sadhana@example.com',  'admin'),
+    (v_org_a_id, 'volunteer.ravi@example.com', 'volunteer'),
+    (v_org_a_id, 'volunteer.sara@example.com', 'volunteer'),
     (v_org_b_id, 'teacher.marcus@example.com', 'teacher'),
     (v_org_b_id, 'admin.prana@example.com',    'admin')
   on conflict (org_id, email) do update set role = excluded.role;
@@ -559,5 +574,62 @@ begin
   -- Org B
   insert into public.event_registrations (org_id, event_id, profile_id, status, added_by)
   values (v_org_b_id, v_ev_org_b, 'e0000000-0000-0000-0000-000000000001', 'registered', v_teacher_b_id);
+  -- --------------------------------------------------------------------------
+  -- CRM leads (Phase 9). Ravi owns 1-6, Sara 7-9, 10-11 unassigned, 12 Org B.
+  -- --------------------------------------------------------------------------
+  insert into public.crm_contacts (id, org_id, full_name, email, phone, source, stage, furthest_stage,
+                                   interest_course_id, owner_id, profile_id, consent_at, opted_out,
+                                   next_action_on, notes, created_by, created_at) values
+    ('e5000000-0000-0000-0000-000000000001', v_org_a_id, 'Rania Aziz', 'guest.rania@example.com', '+971 50 000 0001', 'friend',
+     'invited', 'invited', v_course_a_id, v_vol_ravi_id, null, now() - interval '9 days', false,
+     v_today_a + 1, 'Colleague of Ravi. Asked about the breathing technique.', v_vol_ravi_id, now() - interval '9 days'),
+    ('e5000000-0000-0000-0000-000000000002', v_org_a_id, 'Omar Farouk', 'guest.omar@example.com', '+971 50 000 0002', 'social',
+     'invited', 'invited', v_course_a_id, v_vol_ravi_id, null, now() - interval '8 days', false,
+     null, null, v_vol_ravi_id, now() - interval '8 days'),
+    ('e5000000-0000-0000-0000-000000000003', v_org_a_id, 'Hiro Tanaka', 'past.guest1@example.com', '+971 50 000 0011', 'event',
+     'attended', 'attended', v_course_a_id, v_vol_ravi_id, null, now() - interval '12 days', false,
+     v_today_a, 'Came to the last intro talk. Call to ask about the next Happiness Program.', v_vol_ravi_id, now() - interval '12 days'),
+    ('e5000000-0000-0000-0000-000000000004', v_org_a_id, 'Nadia Karim', 'past.guest3@example.com', '+971 50 000 0013', 'event',
+     'interested', 'interested', v_course_a_id, v_vol_ravi_id, null, now() - interval '12 days', false,
+     v_today_a + 2, 'Wants a weekend batch.', v_vol_ravi_id, now() - interval '12 days'),
+    ('e5000000-0000-0000-0000-000000000005', v_org_a_id, 'Joel Mathew', null, '+971 50 000 0015', 'walk_in',
+     'new', 'new', v_course_a_id, v_vol_ravi_id, null, now() - interval '1 day', false,
+     v_today_a, 'Met at the community fair.', v_vol_ravi_id, now() - interval '1 day'),
+    ('e5000000-0000-0000-0000-000000000006', v_org_a_id, 'Aarav Mehta', 'student01@example.com', '+971 50 000 0016', 'friend',
+     'completed', 'completed', v_course_a_id, v_vol_ravi_id, 'd0000000-0000-0000-0000-000000000001', now() - interval '80 days', false,
+     null, 'Finished the Happiness Program and the 40 days. Now in VTP.', v_vol_ravi_id, now() - interval '80 days'),
+    ('e5000000-0000-0000-0000-000000000007', v_org_a_id, 'Priyanka Iyer', 'guest.priyanka@example.com', '+971 50 000 0003', 'friend',
+     'invited', 'invited', v_course_a_id, v_vol_sara_id, null, now() - interval '6 days', false,
+     null, null, v_vol_sara_id, now() - interval '6 days'),
+    ('e5000000-0000-0000-0000-000000000008', v_org_a_id, 'Daniel Vance', 'student30@example.com', null, 'website',
+     'registered', 'registered', v_course_a_id, v_vol_sara_id, 'd0000000-0000-0000-0000-000000000030', now() - interval '30 days', false,
+     null, null, v_vol_sara_id, now() - interval '30 days'),
+    ('e5000000-0000-0000-0000-000000000009', v_org_a_id, 'Grace Liu', 'grace.liu@example.com', null, 'website',
+     'new', 'new', v_course_a_id, v_vol_sara_id, null, null, false,
+     v_today_a + 1, 'Filled in the website form. Consent not recorded yet.', v_vol_sara_id, now() - interval '2 days'),
+    ('e5000000-0000-0000-0000-000000000010', v_org_a_id, 'Tom Becker', null, '+971 50 000 0004', 'event',
+     'invited', 'invited', v_course_a_id, null, null, now() - interval '5 days', false,
+     null, 'Signed up at the door. Needs an owner.', v_teacher_a1_id, now() - interval '5 days'),
+    ('e5000000-0000-0000-0000-000000000011', v_org_a_id, 'Mona Saleh', 'mona.saleh@example.com', null, 'social',
+     'lost', 'invited', v_course_a_id, null, null, now() - interval '40 days', true,
+     null, 'Asked not to be contacted again.', v_teacher_a1_id, now() - interval '40 days'),
+    ('e5000000-0000-0000-0000-000000000012', v_org_b_id, 'Prana Lead', 'prana.lead@example.com', null, 'friend',
+     'new', 'new', v_course_b_id, v_teacher_b_id, null, now() - interval '3 days', false,
+     null, null, v_teacher_b_id, now() - interval '3 days');
+
+  -- Link the intro talk registrations to their leads
+  update public.event_registrations r set contact_id = c.id
+  from public.crm_contacts c
+  where c.id::text like 'e5000000-%' and r.event_id in (v_ev_talk_next, v_ev_talk_past)
+    and ((c.email is not null and lower(r.guest_email) = c.email) or (c.email is null and r.guest_phone = c.phone));
+
+  insert into public.crm_activities (org_id, contact_id, kind, body, created_by, created_at) values
+    (v_org_a_id, 'e5000000-0000-0000-0000-000000000001', 'whatsapp', 'Sent the intro talk details.', v_vol_ravi_id, now() - interval '3 days'),
+    (v_org_a_id, 'e5000000-0000-0000-0000-000000000001', 'stage', 'Invited to the intro talk', v_vol_ravi_id, now() - interval '3 days'),
+    (v_org_a_id, 'e5000000-0000-0000-0000-000000000003', 'call', 'Enjoyed the talk. Will check his calendar for the next programme.', v_vol_ravi_id, now() - interval '4 days'),
+    (v_org_a_id, 'e5000000-0000-0000-0000-000000000004', 'note', 'Prefers Saturday and Sunday mornings.', v_vol_ravi_id, now() - interval '4 days'),
+    (v_org_a_id, 'e5000000-0000-0000-0000-000000000007', 'email', 'Sent the intro talk invitation.', v_vol_sara_id, now() - interval '2 days'),
+    (v_org_a_id, 'e5000000-0000-0000-0000-000000000011', 'note', 'Opted out by phone.', v_teacher_a1_id, now() - interval '30 days'),
+    (v_org_b_id, 'e5000000-0000-0000-0000-000000000012', 'note', 'Org B note.', v_teacher_b_id, now() - interval '3 days');
 end;
 $$;

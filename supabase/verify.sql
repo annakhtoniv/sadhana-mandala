@@ -1,9 +1,9 @@
 -- ============================================================================
--- Sadhana Mandala: verification (phases 4 to 8)
+-- Sadhana Mandala: verification (phases 4 to 9)
 --
 -- Run in the Supabase SQL editor after phase4_security.sql,
 -- phase5_programmes.sql, phase6_lms.sql, phase7_followups.sql,
--- phase8_events.sql and seed_dummy_data.sql. It signs in as the fictional seed users one at a time
+-- phase8_events.sql, phase9_crm.sql and seed_dummy_data.sql. It signs in as the fictional seed users one at a time
 -- (by setting the same JWT claims Supabase sets for a real sign-in) and checks
 -- what each of them can see and change. Nothing is saved: every write attempt
 -- is rolled back immediately.
@@ -35,6 +35,14 @@ declare
   v_ev_talk_next uuid := 'e4000000-0000-0000-0000-000000000001';
   v_ev_talk_past uuid := 'e4000000-0000-0000-0000-000000000002';
   v_ev_full      uuid := 'e4000000-0000-0000-0000-000000000004';
+  v_ravi  uuid := 'b0000000-0000-0000-0000-000000000004';
+  v_sara  uuid := 'b0000000-0000-0000-0000-000000000005';
+  v_lead_rania uuid := 'e5000000-0000-0000-0000-000000000001';
+  v_lead_hiro  uuid := 'e5000000-0000-0000-0000-000000000003';
+  v_lead_joel  uuid := 'e5000000-0000-0000-0000-000000000005';
+  v_lead_sara  uuid := 'e5000000-0000-0000-0000-000000000007';
+  v_lead_grace uuid := 'e5000000-0000-0000-0000-000000000009';
+  v_json json;
   v_day int;
   v_n int;
   v_txt text;
@@ -56,6 +64,8 @@ declare
          + (select count(*) from public.followup_records where org_id = $1)
          + (select count(*) from public.events where org_id = $1)
          + (select count(*) from public.event_registrations where org_id = $1)
+         + (select count(*) from public.crm_contacts where org_id = $1)
+         + (select count(*) from public.crm_activities where org_id = $1)
   $q$;
 begin
   select ((now() at time zone o.timezone)::date - b.start_date) + 1 into v_day
@@ -201,6 +211,25 @@ begin
     raise exception 'PROBE_WROTE';
   exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
   r := r || array['Teacher A (Ananda)|add a guest to a full event|blocked', v_txt];
+
+  -- Phase 9: CRM
+  select count(*) into v_n from public.crm_contacts;
+  r := r || array['Teacher A (Ananda)|sees every Org A lead (phase 9)|11', v_n::text];
+
+  v_json := public.crm_funnel_report(null);
+  v_txt := 'total=' || (v_json->'leads'->>'total') || ' invited=' || (v_json->'leads'->>'invited')
+        || ' attended=' || (v_json->'leads'->>'attended') || ' registered=' || (v_json->'leads'->>'registered');
+  r := r || array['Teacher A (Ananda)|lead funnel|total=11 invited=9 attended=4 registered=2', v_txt];
+  r := r || array['Teacher A (Ananda)|journey report lists the Happiness Program|Happiness Program',
+                  coalesce(v_json->'journey'->0->>'course_name', 'none')];
+
+  begin
+    update public.event_registrations set status = 'attended'
+    where event_id = v_ev_talk_next and contact_id = v_lead_rania;
+    select stage into v_txt from public.crm_contacts where id = v_lead_rania;
+    raise exception 'PROBE_DONE';
+  exception when others then if sqlerrm <> 'PROBE_DONE' then v_txt := 'error: ' || sqlerrm; end if; end;
+  r := r || array['Teacher A (Ananda)|marking a lead attended moves the lead to attended|attended', v_txt];
 
   reset role;
 
@@ -374,7 +403,99 @@ begin
   exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
   r := r || array['Student (Aarav)|create an event|blocked', v_txt];
 
+  select count(*) into v_n from public.crm_contacts;
+  r := r || array['Student (Aarav)|CRM leads visible|0', v_n::text];
+
+  v_txt := public.crm_invite_to_event(v_lead_rania, v_ev_talk_next)->>'success';
+  r := r || array['Student (Aarav)|invite a lead to an event|false', v_txt];
+
   reset role;
+
+  -- ------------------------------------------------------------------ Volunteer A (Ravi, phase 9)
+  perform set_config('request.jwt.claims', json_build_object('sub', v_ravi, 'email', 'volunteer.ravi@example.com', 'role', 'authenticated')::text, true);
+  set local role authenticated;
+
+  select count(*) into v_n from public.crm_contacts;
+  r := r || array['Volunteer (Ravi)|sees only own leads|6', v_n::text];
+
+  select count(*) into v_n from public.crm_contacts where id = v_lead_sara;
+  r := r || array['Volunteer (Ravi)|sees another volunteer''s lead|0', v_n::text];
+
+  select count(*) into v_n from public.crm_activities;
+  r := r || array['Volunteer (Ravi)|activities visible (own leads only)|4', v_n::text];
+
+  select count(*) into v_n from public.event_registrations;
+  r := r || array['Volunteer (Ravi)|event registrations visible|0', v_n::text];
+
+  select string_agg(name, ', ' order by start_date) into v_txt from public.crm_open_batches();
+  r := r || array['Volunteer (Ravi)|batches he can register leads for|VTP – October, New Moon Mindfulness', coalesce(v_txt, 'none')];
+
+  begin
+    insert into public.crm_contacts (org_id, full_name, owner_id, created_by) values (v_org_a, 'New friend', v_ravi, v_ravi);
+    raise exception 'PROBE_WROTE';
+  exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
+  r := r || array['Volunteer (Ravi)|add a lead for himself|allowed', v_txt];
+
+  begin
+    insert into public.crm_contacts (org_id, full_name, owner_id, created_by) values (v_org_a, 'Sneaky', v_sara, v_ravi);
+    raise exception 'PROBE_WROTE';
+  exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
+  r := r || array['Volunteer (Ravi)|add a lead owned by someone else|blocked', v_txt];
+
+  begin
+    update public.crm_contacts set owner_id = v_sara where id = v_lead_joel;
+    raise exception 'PROBE_WROTE';
+  exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
+  r := r || array['Volunteer (Ravi)|hand his lead to another volunteer|blocked', v_txt];
+
+  begin
+    update public.crm_contacts set profile_id = v_student01 where id = v_lead_joel returning coalesce(profile_id::text, 'not linked') into v_txt;
+    raise exception 'PROBE_DONE';
+  exception when others then if sqlerrm <> 'PROBE_DONE' then v_txt := 'error: ' || sqlerrm; end if; end;
+  r := r || array['Volunteer (Ravi)|link his lead to any account by hand|not linked', v_txt];
+
+  begin
+    v_txt := public.crm_invite_to_event(v_lead_joel, v_ev_talk_next)->>'success';
+    v_txt := v_txt || ' / ' || (select stage from public.crm_contacts where id = v_lead_joel);
+    raise exception 'PROBE_DONE';
+  exception when others then if sqlerrm <> 'PROBE_DONE' then v_txt := 'error: ' || sqlerrm; end if; end;
+  r := r || array['Volunteer (Ravi)|invite his lead to the intro talk|true / invited', v_txt];
+
+  begin
+    v_txt := public.crm_invite_to_event(v_lead_sara, v_ev_talk_next)->>'success';
+    raise exception 'PROBE_DONE';
+  exception when others then if sqlerrm <> 'PROBE_DONE' then v_txt := 'error: ' || sqlerrm; end if; end;
+  r := r || array['Volunteer (Ravi)|invite another volunteer''s lead|false', v_txt];
+
+  begin
+    v_txt := public.crm_register_for_batch(v_lead_hiro, v_moon)->>'success';
+    v_txt := v_txt || ' / ' || (select stage from public.crm_contacts where id = v_lead_hiro);
+    raise exception 'PROBE_DONE';
+  exception when others then if sqlerrm <> 'PROBE_DONE' then v_txt := 'error: ' || sqlerrm; end if; end;
+  r := r || array['Volunteer (Ravi)|register his lead for a Happiness Program batch|true / registered', v_txt];
+
+  v_txt := coalesce(public.crm_funnel_report(null)->>'success', 'null');
+  r := r || array['Volunteer (Ravi)|open the funnel report|false', v_txt];
+
+  begin
+    update public.profiles set role = 'teacher' where id = v_ravi;
+    raise exception 'PROBE_WROTE';
+  exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
+  r := r || array['Volunteer (Ravi)|make himself a teacher|blocked', v_txt];
+
+  reset role;
+
+  -- ------------------------------------------------------------------ Lead signs up (phase 9)
+  begin
+    insert into public.profiles (id, org_id, email, full_name, role)
+    values ('a9000000-0000-0000-0000-000000000001', v_org_a, 'grace.liu@example.com', 'Grace Liu', 'student');
+    insert into public.enrolments (org_id, batch_id, student_id, source)
+    values (v_org_a, v_moon, 'a9000000-0000-0000-0000-000000000001', 'code');
+    select case when profile_id is not null then 'linked' else 'not linked' end || ' / ' || stage
+    into v_txt from public.crm_contacts where id = v_lead_grace;
+    raise exception 'PROBE_DONE';
+  exception when others then if sqlerrm <> 'PROBE_DONE' then v_txt := 'error: ' || sqlerrm; end if; end;
+  r := r || array['Lead (Grace)|signs up and joins a batch|linked / registered', v_txt];
 
   -- ------------------------------------------------------------------ Admin A
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin_a, 'email', 'admin.sadhana@example.com', 'role', 'authenticated')::text, true);
@@ -396,6 +517,13 @@ begin
     v_txt := v_n::text;
   exception when others then v_txt := '0'; end;
   r := r || array['Anonymous visitor|check-ins visible|0', v_txt];
+  begin
+    select count(*) into v_n from public.crm_contacts;
+    v_txt := v_n::text;
+  exception when others then v_txt := '0'; end;
+  r := r || array['Anonymous visitor|CRM leads visible|0', v_txt];
+  v_txt := coalesce(public.batch_join_preview('autumn23')->>'batch_name', 'none');
+  r := r || array['Anonymous visitor|batch QR shows the batch before sign-in|Autumn Awakening Cohort', v_txt];
   reset role;
 
   -- ------------------------------------------------------------------ Results
