@@ -7,8 +7,9 @@
 --   2. supabase/phase5_programmes.sql (programme catalogue columns and rules)
 --   3. supabase/phase6_lms.sql        (learning modules, lessons, progress)
 --   4. supabase/phase7_followups.sql  (follow-up plans and records)
---   5. supabase/seed_dummy_data.sql   (resets the dummy data to the SPEC)
---   6. supabase/verify.sql            (every row must say PASS)
+--   5. supabase/phase8_events.sql     (events, registrations, attendance)
+--   6. supabase/seed_dummy_data.sql   (resets the dummy data to the SPEC)
+--   7. supabase/verify.sql            (every row must say PASS)
 -- ============================================================================
 
 -- ============================================================================

@@ -95,3 +95,47 @@ export function formatDateDisplay(
     return dateStr;
   }
 }
+
+/**
+ * An instant shown as "YYYY-MM-DDTHH:mm" wall-clock time in a time zone
+ * (the value format of <input type="datetime-local">).
+ */
+export function isoToZonedInput(iso: string | null, timeZone: string): string {
+  if (!iso) return '';
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(iso));
+  const get = (type: string) => parts.find((p) => p.type === type)?.value || '00';
+  return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`;
+}
+
+/** Offset of a time zone from UTC at an instant, in milliseconds (Dubai: +4h). */
+function zoneOffsetMs(utcMs: number, timeZone: string): number {
+  const asZoned = isoToZonedInput(new Date(utcMs).toISOString(), timeZone);
+  const [date, time] = asZoned.split('T');
+  const [y, m, d] = date.split('-').map(Number);
+  const [h, min] = time.split(':').map(Number);
+  return Date.UTC(y, m - 1, d, h, min) - Math.floor(utcMs / 60000) * 60000;
+}
+
+/**
+ * "YYYY-MM-DDTHH:mm" wall-clock time in a time zone -> ISO instant.
+ * Lets a teacher type event times in the organisation's time zone whatever
+ * time zone their phone is set to.
+ */
+export function zonedInputToIso(local: string, timeZone: string): string | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(local);
+  if (!match) return null;
+  const [, y, m, d, h, min] = match.map(Number);
+  const guess = Date.UTC(y, m - 1, d, h, min);
+  let utc = guess - zoneOffsetMs(guess, timeZone);
+  // Second pass corrects the rare case where the offset changes in between (daylight saving)
+  utc = guess - zoneOffsetMs(utc, timeZone);
+  return new Date(utc).toISOString();
+}

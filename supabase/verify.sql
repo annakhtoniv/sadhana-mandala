@@ -1,9 +1,9 @@
 -- ============================================================================
--- Sadhana Mandala: verification (phases 4 to 7)
+-- Sadhana Mandala: verification (phases 4 to 8)
 --
 -- Run in the Supabase SQL editor after phase4_security.sql,
--- phase5_programmes.sql, phase6_lms.sql, phase7_followups.sql and
--- seed_dummy_data.sql. It signs in as the fictional seed users one at a time
+-- phase5_programmes.sql, phase6_lms.sql, phase7_followups.sql,
+-- phase8_events.sql and seed_dummy_data.sql. It signs in as the fictional seed users one at a time
 -- (by setting the same JWT claims Supabase sets for a real sign-in) and checks
 -- what each of them can see and change. Nothing is saved: every write attempt
 -- is rolled back immediately.
@@ -32,6 +32,9 @@ declare
   v_lesson_deeper uuid := 'f2000000-0000-0000-0000-000000000006';
   v_fu_call1 uuid := 'e3000000-0000-0000-0000-000000000002';
   v_student21 uuid := 'd0000000-0000-0000-0000-000000000021';
+  v_ev_talk_next uuid := 'e4000000-0000-0000-0000-000000000001';
+  v_ev_talk_past uuid := 'e4000000-0000-0000-0000-000000000002';
+  v_ev_full      uuid := 'e4000000-0000-0000-0000-000000000004';
   v_day int;
   v_n int;
   v_txt text;
@@ -51,6 +54,8 @@ declare
          + (select count(*) from public.lesson_progress where org_id = $1)
          + (select count(*) from public.followup_steps where org_id = $1)
          + (select count(*) from public.followup_records where org_id = $1)
+         + (select count(*) from public.events where org_id = $1)
+         + (select count(*) from public.event_registrations where org_id = $1)
   $q$;
 begin
   select ((now() at time zone o.timezone)::date - b.start_date) + 1 into v_day
@@ -175,6 +180,28 @@ begin
   exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked: ' || sqlerrm end; end;
   r := r || array['Teacher A (Ananda)|add a follow-up plan step|allowed', v_txt];
 
+  select count(*) into v_n from public.events;
+  r := r || array['Teacher A (Ananda)|Org A events incl. draft (phase 8)|6', v_n::text];
+
+  select count(*) into v_n from public.event_registrations;
+  r := r || array['Teacher A (Ananda)|Org A event registrations|28', v_n::text];
+
+  r := r || array['Teacher A (Ananda)|check-in code for the QR|TALKNEXT', coalesce(public.event_checkin_code(v_ev_talk_next), 'null')];
+
+  begin
+    insert into public.event_registrations (org_id, event_id, guest_name, guest_email, status)
+    values (v_org_a, v_ev_talk_next, 'Verify Guest', 'verify.guest@example.com', 'registered');
+    raise exception 'PROBE_WROTE';
+  exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked: ' || sqlerrm end; end;
+  r := r || array['Teacher A (Ananda)|add a guest to an intro talk|allowed', v_txt];
+
+  begin
+    insert into public.event_registrations (org_id, event_id, guest_name, status)
+    values (v_org_a, v_ev_full, 'One too many', 'registered');
+    raise exception 'PROBE_WROTE';
+  exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
+  r := r || array['Teacher A (Ananda)|add a guest to a full event|blocked', v_txt];
+
   reset role;
 
   -- ------------------------------------------------------------------ Teacher B
@@ -285,6 +312,67 @@ begin
     raise exception 'PROBE_WROTE';
   exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
   r := r || array['Student (Aarav)|add a follow-up plan step|blocked', v_txt];
+
+  select count(*) into v_n from public.events;
+  r := r || array['Student (Aarav)|published events visible (no draft)|5', v_n::text];
+
+  select count(*) into v_n from public.event_registrations;
+  r := r || array['Student (Aarav)|registrations visible (own only)|1', v_n::text];
+
+  begin
+    execute 'select checkin_code from public.events limit 1' into v_txt;
+    v_txt := 'readable';
+  exception when others then v_txt := 'hidden'; end;
+  r := r || array['Student (Aarav)|event check-in codes|hidden', v_txt];
+
+  begin
+    v_txt := public.register_for_event(v_ev_talk_next)->>'success';
+    raise exception 'PROBE_DONE';
+  exception when others then if sqlerrm <> 'PROBE_DONE' then v_txt := 'error: ' || sqlerrm; end if; end;
+  r := r || array['Student (Aarav)|register for the next intro talk|true', v_txt];
+
+  begin
+    v_txt := public.register_for_event(v_ev_full)->>'success';
+    raise exception 'PROBE_DONE';
+  exception when others then if sqlerrm <> 'PROBE_DONE' then v_txt := 'error: ' || sqlerrm; end if; end;
+  r := r || array['Student (Aarav)|register for a full event|false', v_txt];
+
+  begin
+    v_txt := public.register_for_event(v_ev_talk_past)->>'success';
+    raise exception 'PROBE_DONE';
+  exception when others then if sqlerrm <> 'PROBE_DONE' then v_txt := 'error: ' || sqlerrm; end if; end;
+  r := r || array['Student (Aarav)|register for a past event|false', v_txt];
+
+  begin
+    v_txt := public.check_in_to_event('NOWCHECK')->>'success';
+    raise exception 'PROBE_DONE';
+  exception when others then if sqlerrm <> 'PROBE_DONE' then v_txt := 'error: ' || sqlerrm; end if; end;
+  r := r || array['Student (Aarav)|QR check-in to the event happening now|true', v_txt];
+
+  begin
+    v_txt := public.check_in_to_event('TALKNEXT')->>'success';
+    raise exception 'PROBE_DONE';
+  exception when others then if sqlerrm <> 'PROBE_DONE' then v_txt := 'error: ' || sqlerrm; end if; end;
+  r := r || array['Student (Aarav)|QR check-in 3 days before the event|false', v_txt];
+
+  begin
+    v_txt := public.check_in_to_event('BREATHB1')->>'success';
+    raise exception 'PROBE_DONE';
+  exception when others then if sqlerrm <> 'PROBE_DONE' then v_txt := 'error: ' || sqlerrm; end if; end;
+  r := r || array['Student (Aarav)|QR check-in to an Org B event|false', v_txt];
+
+  begin
+    insert into public.event_registrations (org_id, event_id, profile_id, status)
+    values (v_org_a, v_ev_full, v_student01, 'attended');
+    raise exception 'PROBE_WROTE';
+  exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
+  r := r || array['Student (Aarav)|write a registration directly|blocked', v_txt];
+
+  begin
+    insert into public.events (org_id, title, starts_at) values (v_org_a, 'Student event', now() + interval '1 day');
+    raise exception 'PROBE_WROTE';
+  exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
+  r := r || array['Student (Aarav)|create an event|blocked', v_txt];
 
   reset role;
 

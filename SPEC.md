@@ -207,7 +207,11 @@ by the organisation.
    screen shows what is due; the teacher schedules and holds a session and
    ticks students off with notes students never see; students see the
    reminder and the session time in the app.
-8. Events: intro talks, registrations, attendance.
+8. Events: intro talks, registrations, attendance. Test: a teacher creates
+   an intro talk with a capacity; a member registers and cancels; staff add
+   guests without an account; a full event refuses more registrations;
+   scanning the event's check-in QR at the event marks the member attended;
+   members never see other attendees or the check-in code.
 9. CRM for volunteers: contacts, pipeline, conversion to event or
    programme registration, invites (manual and one-tap links).
 10. Admin screens, funnel reports (leads, intro talk, Happiness Program,

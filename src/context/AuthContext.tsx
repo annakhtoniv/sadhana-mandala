@@ -4,6 +4,7 @@ import { supabase, isSupabaseConfigured, isDemoMode, DEMO_SESSION_KEY } from '..
 import { fetchOrganisation, getResolvedOrgSlug, DEFAULT_ORGANISATION } from '../lib/organisation';
 import { claimUserInvites, fetchUserEnrolments, joinBatchByCode } from '../lib/batchService';
 import { pickDefaultEnrolment } from '../lib/programmeUtils';
+import { checkInToEvent } from '../lib/eventService';
 import { DEMO_TEACHER_PROFILE } from '../lib/mockData';
 import { allowedRoleViews } from '../lib/roles';
 import type { Organisation, Profile, UserRole, Enrolment } from '../types/database';
@@ -29,6 +30,9 @@ interface AuthContextType {
   refreshProfile: () => Promise<void>;
   refreshEnrolment: () => Promise<void>;
   joinBatch: (code: string) => Promise<{ success: boolean; message?: string }>;
+  /** A one-off message for the user, e.g. the result of an event QR check-in */
+  notice: { tone: 'success' | 'error'; text: string } | null;
+  clearNotice: () => void;
   signInDemo: (role?: UserRole) => Promise<void>;
 }
 
@@ -37,14 +41,17 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 // A batch QR code opens the app with ?code=JOINCODE. Keep the code across the
 // Google sign-in redirect and join the batch once the user is signed in.
 const PENDING_JOIN_KEY = 'sadhana_pending_join_code';
+// An event check-in QR opens the app with ?event=CHECKINCODE (Phase 8)
+const PENDING_CHECKIN_KEY = 'sadhana_pending_event_checkin';
 // The programme a student last opened on this device
 const SELECTED_ENROLMENT_KEY = 'sadhana_selected_enrolment';
 try {
-  const codeFromUrl = new URLSearchParams(window.location.search).get('code');
-  if (codeFromUrl) {
-    sessionStorage.setItem(PENDING_JOIN_KEY, codeFromUrl.trim().toUpperCase());
-    window.history.replaceState(null, '', window.location.pathname);
-  }
+  const params = new URLSearchParams(window.location.search);
+  const codeFromUrl = params.get('code');
+  const eventFromUrl = params.get('event');
+  if (codeFromUrl) sessionStorage.setItem(PENDING_JOIN_KEY, codeFromUrl.trim().toUpperCase());
+  if (eventFromUrl) sessionStorage.setItem(PENDING_CHECKIN_KEY, eventFromUrl.trim().toUpperCase());
+  if (codeFromUrl || eventFromUrl) window.history.replaceState(null, '', window.location.pathname);
 } catch {
   // ignore (non-browser environment)
 }
@@ -58,6 +65,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const enrolment = enrolments.find((e) => e.id === selectedEnrolmentId) || null;
   const [organisation, setOrganisation] = useState<Organisation>(DEFAULT_ORGANISATION);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
 
   // Active Role view (supports easy instant switching between Student, Teacher, and Admin)
   const [activeRole, setActiveRoleState] = useState<UserRole>(() => {
@@ -143,6 +151,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       await loadEnrolmentForUser(currentUser.id);
+
+      const pendingCheckin = sessionStorage.getItem(PENDING_CHECKIN_KEY);
+      if (pendingCheckin) {
+        sessionStorage.removeItem(PENDING_CHECKIN_KEY);
+        const res = await checkInToEvent(pendingCheckin);
+        setNotice(
+          res.success
+            ? { tone: 'success', text: `You are checked in${res.title ? ` to "${res.title}"` : ''}. Welcome!` }
+            : { tone: 'error', text: res.message || 'Check-in did not work. Please ask the host.' }
+        );
+      }
     } catch (err) {
       console.error('Error fetching profile:', err);
     }
@@ -372,6 +391,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         enrolment,
         enrolments,
         selectEnrolment,
+        notice,
+        clearNotice: () => setNotice(null),
         organisation,
         role,
         activeRole,

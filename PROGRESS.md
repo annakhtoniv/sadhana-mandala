@@ -105,20 +105,28 @@
   - Lesson text uses a small built-in formatter (headings, bold, italic, lists, https links) that never runs HTML from the text.
   - 97 unit tests passing (16 new for module unlocking, progress, validation and the formatter), clean build.
 
-- Phase 7 (follow-ups per programme) built on 2026-10-12, waiting for the PM to run the SQL and test:
+- Phase 7 (follow-ups per programme) built and deployed on 2026-10-12 (SQL run in Supabase, 46/46 PASS; PR merged):
   - [supabase/phase7_followups.sql](supabase/phase7_followups.sql): new tables `followup_steps` (a programme's follow-up plan: follow-up sessions, personal follow-ups and practice reminders, each due on a day of the batch) and `followup_records` (a session scheduled or held in a batch, or a personal follow-up per student, with notes). Admins and teachers manage plans; the batch teacher and admins record follow-ups. Students never see records or notes; they get their batch's session times through `my_batch_sessions()`. Only adds things; safe to re-run.
   - Seed: Happiness Program plan (day 1 reminder, day 3 check-in call, day 8 session, day 15 second check-in, day 21 "Halfway there!" reminder, day 22 monthly session) and Art of Silence plan (day 4 personal follow-up, day 10 satsang). Autumn Awakening: both sessions held, day-3 calls done for students 1-20, day-15 calls for 1-10.
   - [supabase/verify.sql](supabase/verify.sql): 46 checks (9 new): teacher sees and records own batch follow-ups but not another teacher's batch; teacher adds a plan step; student sees no records or notes, sees the plan (reminders), sees own batch sessions only, and cannot add a step. 46/46 PASS on a local copy.
   - App: Programmes screen > "Follow-up plan" on each programme (add, edit, hide, delete steps). Batch screen > "Follow-ups" with what is to do: schedule a session (when, where or online link), mark it held or skipped with notes; tick students off a personal follow-up with private notes (students still to do are listed first). Students see today's reminders and the coming follow-up sessions with time and place.
   - 109 unit tests passing (12 new for follow-up rules), clean build.
 
+- Phase 8 (events) built on 2026-10-12, waiting for the PM to merge, run the SQL and test:
+  - [supabase/phase8_events.sql](supabase/phase8_events.sql): new tables `events` (intro talks, programmes, satsangs, follow-up sessions: time, venue or online link, capacity, optional programme, draft or published, secret check-in code) and `event_registrations` (members, or guests without an account added by staff; status registered, attended, no-show or cancelled). Capacity is enforced by the database for everyone. Members register, cancel and check in only through functions and see only their own registrations; the check-in code column cannot be read by members (staff get it for the QR through `event_checkin_code()`). QR check-in works from 2 hours before the start until the end. Only adds things; safe to re-run.
+  - Seed: 7 events: next intro talk (6 guests, 2 members), past intro talk (5 attended, 2 no-show, 1 cancelled), satsang (students 1-10), a full small group (2 of 2), a draft, an event happening now (code NOWCHECK, for testing check-in) and an Org B event.
+  - [supabase/verify.sql](supabase/verify.sql): 62 checks (16 new), all PASS on a local copy.
+  - App: calendar icon in the header opens Events: coming events with places left, Register / Cancel my place, online links shown only after registering, past events. Teachers and admins (in the Teacher or Admin view): New event, Manage (attendance counts, check-in QR, registrations with Attended / No-show / Cancel / Undo, Add guest), edit and delete. Scanning an event QR opens the app, signs in and checks the member in, with a confirmation banner.
+  - Event and follow-up session times are now entered in the organisation's time zone, whatever time zone the phone uses.
+  - 124 unit tests passing (15 new), clean build.
+
 ## Next
-- PM: in the Supabase SQL editor run, in this order: `supabase/phase7_followups.sql`, `supabase/seed_dummy_data.sql`, `supabase/verify.sql` (all 46 rows PASS). Then merge the Phase 7 pull request.
-- PM: test Phase 7 (sign in with Google):
-  1. Teacher view > Programmes > Happiness Program > Follow-up plan: six steps. Add a reminder on day 23 ("Keep going!").
-  2. Autumn Awakening > Follow-ups: "Second check-in" shows 10 of 30; tick off a student and add a note. Open "Monthly follow-up session" (already held) and see its notes.
-  3. Student side (demo button, View: Student): the "Halfway there!" reminder and the follow-up sessions card.
-- Then Phase 8 (Events: intro talks, registrations, attendance).
+- PM: merge the Phase 8 pull request, then in the Supabase SQL editor run (from `main`): `supabase/phase8_events.sql`, `supabase/seed_dummy_data.sql`, `supabase/verify.sql` (all 62 rows PASS). Until the SQL is run, the Events screen shows "Could not load events"; nothing else is affected.
+- PM: test Phase 8 (sign in with Google):
+  1. Calendar icon > Events: the intro talk (22 places left), satsang and small group (Full). Register for the satsang, then cancel.
+  2. View: Teacher > Events > Manage the intro talk: 8 registered; add a guest; mark one guest Attended. Show the check-in QR.
+  3. Create an event starting in 1 hour with a venue, open its check-in QR, and scan it with your phone camera: you are checked in and see a confirmation.
+- Then Phase 9 (CRM for volunteers: contacts, pipeline, conversion to event or programme registration).
 - Before a demo on any later day, re-run `supabase/seed_dummy_data.sql` that morning, so the batches sit on day 23 / day 2 / finished again.
 - To check the dashboard against the seed, sign out first and sign in with Google. The 1-click demo button shows sample data from `mockData.ts`, not the database.
 

@@ -1,4 +1,5 @@
-import type { Course, Batch, Enrolment, Checkin, Profile, Lesson, LessonModule, FollowupStep } from '../types/database';
+import { isoToZonedInput, zonedInputToIso } from './dateUtils';
+import type { Course, Batch, Enrolment, Checkin, Profile, Lesson, LessonModule, FollowupStep, OrgEvent, EventRegistration, RegistrationStatus } from '../types/database';
 
 // Compute start date so today is exactly Day 23 of 40
 const todayDate = new Date();
@@ -323,3 +324,43 @@ export const DEMO_FOLLOWUP_STEPS: FollowupStep[] = [
   demoStep('df-4', 'reminder', 'Halfway there!', 21, 'Twenty days of practice done. Keep going.'),
   demoStep('df-5', 'session', 'Monthly follow-up session', 25),
 ];
+
+// Phase 8: sample events for demo mode (times relative to now)
+// Sample organisation time zone (the seeded organisations use Asia/Dubai)
+const inDays = (days: number, hour: number) => {
+  const d = new Date(Date.now() + days * 86400000);
+  const date = isoToZonedInput(d.toISOString(), 'Asia/Dubai').slice(0, 10);
+  return zonedInputToIso(`${date}T${String(hour).padStart(2, '0')}:00`, 'Asia/Dubai') as string;
+};
+
+export const DEMO_EVENTS: OrgEvent[] = [
+  {
+    id: 'de-1', org_id: DEMO_ORG_ID, kind: 'intro_talk', title: 'Introduction to the Happiness Program',
+    description: 'A free 60-minute talk about the programme, with a short guided breathing session.',
+    starts_at: inDays(3, 19), ends_at: inDays(3, 20), venue: 'Community centre, room 2', online_url: null,
+    capacity: 30, course_id: DEMO_COURSE_40.id, batch_id: null, host_id: DEMO_TEACHER_PROFILE.id, published: true,
+    created_at: '2026-01-01T00:00:00Z',
+  },
+  {
+    id: 'de-2', org_id: DEMO_ORG_ID, kind: 'satsang', title: 'Monthly online satsang',
+    description: 'Music, meditation and wisdom.', starts_at: inDays(7, 18), ends_at: inDays(7, 20), venue: null,
+    online_url: 'https://example.com/satsang', capacity: null, course_id: null, batch_id: null,
+    host_id: DEMO_TEACHER_PROFILE.id, published: true, created_at: '2026-01-01T00:00:00Z',
+  },
+  {
+    id: 'de-3', org_id: DEMO_ORG_ID, kind: 'intro_talk', title: 'Introduction to the Happiness Program',
+    description: null, starts_at: inDays(-5, 19), ends_at: inDays(-5, 20), venue: 'Community centre, room 2',
+    online_url: null, capacity: 20, course_id: DEMO_COURSE_40.id, batch_id: null, host_id: DEMO_TEACHER_PROFILE.id,
+    published: true, created_at: '2026-01-01T00:00:00Z',
+  },
+];
+
+export const DEMO_EVENT_REGISTRATIONS: EventRegistration[] = [
+  ['Guest Rania', 'guest.rania@example.com', 'registered'],
+  ['Guest Omar', 'guest.omar@example.com', 'registered'],
+  ['Guest Priyanka', null, 'registered'],
+].map(([name, email, status], i) => ({
+  id: `der-${i}`, org_id: DEMO_ORG_ID, event_id: 'de-1', profile_id: null, guest_name: name as string,
+  guest_email: email as string | null, guest_phone: null, status: status as RegistrationStatus,
+  checked_in_at: null, created_at: '2026-01-01T00:00:00Z', profile: null,
+}));
