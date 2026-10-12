@@ -29,6 +29,16 @@ interface TeacherBatchDetailProps {
 
 type SortField = 'name' | 'streak' | 'status' | 'quiet';
 
+const STATUS_ORDER: Record<string, number> = { done: 0, rest: 1, not_yet: 2, none: 3 };
+
+function formatShortDate(isoTimestamp: string, timeZone: string): string {
+  try {
+    return new Intl.DateTimeFormat('en-GB', { timeZone, day: 'numeric', month: 'short' }).format(new Date(isoTimestamp));
+  } catch {
+    return '';
+  }
+}
+
 export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
   batch,
   organisation,
@@ -38,6 +48,7 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
   const [invites, setInvites] = useState<BatchInvite[]>([]);
   const [batchCheckins, setBatchCheckins] = useState<Checkin[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Invite modal state
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -54,9 +65,14 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
 
   const durationDays = batch.course?.duration_days || 40;
   const currentDay = calculateDayNumber(batch.start_date, organisation.timezone);
+  const isFinished = currentDay > durationDays;
+  const hasStarted = currentDay >= 1;
+  // The day the counts describe: today while running, the last day once finished
+  const countsDay = Math.min(currentDay, durationDays);
 
   const loadData = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const [enrList, invList, checkinList] = await Promise.all([
         fetchBatchEnrolments(batch.id),
@@ -66,6 +82,8 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
       setEnrolments(enrList);
       setInvites(invList);
       setBatchCheckins(checkinList);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Could not load this batch');
     } finally {
       setLoading(false);
     }
@@ -117,9 +135,9 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
       // Sort by day_number ascending
       studentChecks.sort((a, b) => a.day_number - b.day_number);
 
-      const todayCheck = studentChecks.find((c) => c.day_number === currentDay);
-      const streak = calculateStreak(studentChecks, currentDay);
-      const isQuiet = isStudentQuiet(studentChecks, currentDay);
+      const todayCheck = hasStarted ? studentChecks.find((c) => c.day_number === countsDay) : undefined;
+      const streak = calculateStreak(studentChecks, currentDay, durationDays);
+      const isQuiet = isStudentQuiet(studentChecks, currentDay, 4, durationDays);
 
       // Find last check-in
       const lastCheckin = studentChecks.length > 0 ? studentChecks[studentChecks.length - 1] : null;
@@ -131,9 +149,10 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
         isQuiet,
         lastCheckinDay: lastCheckin?.day_number || null,
         lastCheckinStatus: lastCheckin?.status || null,
+        lastCheckinAt: lastCheckin?.updated_at || null,
       };
     });
-  }, [enrolments, batchCheckins, currentDay]);
+  }, [enrolments, batchCheckins, currentDay, countsDay, durationDays, hasStarted]);
 
   // Today's summary counts
   const summaryCounts = useMemo(() => {
@@ -167,7 +186,7 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
         return b.streak - a.streak;
       }
       if (sortBy === 'status') {
-        return a.todayStatus.localeCompare(b.todayStatus);
+        return STATUS_ORDER[a.todayStatus] - STATUS_ORDER[b.todayStatus];
       }
       const nameA = a.enrolment.student?.full_name || a.enrolment.student?.email || '';
       const nameB = b.enrolment.student?.full_name || b.enrolment.student?.email || '';
@@ -227,42 +246,37 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
         </div>
       </div>
 
-      {/* Today's Counts Summary Cards (Per SPEC: "counts for today") */}
-      <div className="grid grid-cols-4 gap-2">
-        <div className="bg-white dark:bg-stone-900 p-3 rounded-2xl border border-stone-200 dark:border-stone-800 text-center space-y-0.5">
-          <div className="text-[10px] uppercase font-semibold text-emerald-600 dark:text-emerald-400">
-            Done
-          </div>
-          <div className="text-xl font-bold text-stone-900 dark:text-stone-100">
-            {summaryCounts.done}
-          </div>
+      {loadError && (
+        <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-900 text-xs text-red-700 dark:text-red-300">
+          Could not load this batch: {loadError}
         </div>
+      )}
 
-        <div className="bg-white dark:bg-stone-900 p-3 rounded-2xl border border-stone-200 dark:border-stone-800 text-center space-y-0.5">
-          <div className="text-[10px] uppercase font-semibold text-indigo-600 dark:text-indigo-400">
-            Rest
-          </div>
-          <div className="text-xl font-bold text-stone-900 dark:text-stone-100">
-            {summaryCounts.rest}
-          </div>
+      {/* Counts for today (SPEC: "counts for today") */}
+      <div className="space-y-2">
+        <div className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
+          {!hasStarted
+            ? 'Not started yet'
+            : isFinished
+            ? `Final day · Day ${durationDays}`
+            : `Today · Day ${currentDay}`}
         </div>
-
-        <div className="bg-white dark:bg-stone-900 p-3 rounded-2xl border border-stone-200 dark:border-stone-800 text-center space-y-0.5">
-          <div className="text-[10px] uppercase font-semibold text-amber-600 dark:text-amber-400">
-            Not Yet
-          </div>
-          <div className="text-xl font-bold text-stone-900 dark:text-stone-100">
-            {summaryCounts.notYet}
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-stone-900 p-3 rounded-2xl border border-stone-200 dark:border-stone-800 text-center space-y-0.5">
-          <div className="text-[10px] uppercase font-semibold text-red-600 dark:text-red-400">
-            Quiet
-          </div>
-          <div className="text-xl font-bold text-red-600 dark:text-red-400">
-            {summaryCounts.quiet}
-          </div>
+        <div className="grid grid-cols-5 gap-1.5">
+          {[
+            { label: 'Done', value: summaryCounts.done, tone: 'text-emerald-600 dark:text-emerald-400' },
+            { label: 'Rest', value: summaryCounts.rest, tone: 'text-indigo-600 dark:text-indigo-400' },
+            { label: 'Not yet', value: summaryCounts.notYet, tone: 'text-amber-600 dark:text-amber-400' },
+            { label: 'No answer', value: summaryCounts.none, tone: 'text-stone-500 dark:text-stone-400' },
+            { label: 'Quiet', value: summaryCounts.quiet, tone: 'text-red-600 dark:text-red-400' },
+          ].map((card) => (
+            <div
+              key={card.label}
+              className="bg-white dark:bg-stone-900 px-1 py-3 rounded-2xl border border-stone-200 dark:border-stone-800 text-center space-y-0.5"
+            >
+              <div className={`text-[10px] leading-tight uppercase font-semibold ${card.tone}`}>{card.label}</div>
+              <div className="text-xl font-bold text-stone-900 dark:text-stone-100">{card.value}</div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -348,7 +362,7 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
           <p className="text-xs text-stone-400 italic py-2">No students enrolled in this batch yet.</p>
         ) : (
           <div className="divide-y divide-stone-100 dark:divide-stone-800">
-            {sortedRoster.map(({ enrolment: enr, todayStatus, streak, isQuiet, lastCheckinDay, lastCheckinStatus }) => (
+            {sortedRoster.map(({ enrolment: enr, todayStatus, streak, isQuiet, lastCheckinDay, lastCheckinStatus, lastCheckinAt }) => (
               <div key={enr.id} className="py-3.5 flex items-center justify-between text-xs gap-2">
                 <div className="space-y-0.5 min-w-0">
                   <div className="flex items-center gap-2">
@@ -365,9 +379,11 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
                   <div className="text-[11px] text-stone-500 truncate">{enr.student?.email}</div>
                   <div className="text-[10px] text-stone-400 flex items-center gap-1.5 pt-0.5">
                     <span>
-                      Last answer:{' '}
+                      Last check-in:{' '}
                       {lastCheckinDay
-                        ? `Day ${lastCheckinDay} (${lastCheckinStatus?.replace('_', ' ')})`
+                        ? `Day ${lastCheckinDay} (${lastCheckinStatus?.replace('_', ' ')})${
+                            lastCheckinAt ? ` · ${formatShortDate(lastCheckinAt, organisation.timezone)}` : ''
+                          }`
                         : 'None yet'}
                     </span>
                   </div>
@@ -379,7 +395,7 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
                     {todayStatus === 'done' ? (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
                         <Check className="w-3 h-3" />
-                        <span>Done Today</span>
+                        <span>Done</span>
                       </span>
                     ) : todayStatus === 'rest' ? (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">

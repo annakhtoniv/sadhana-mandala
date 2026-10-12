@@ -207,6 +207,21 @@ describe('3. Quiet Student Detection Logic', () => {
     // Days 1, 2, 3, 4 without check-in = 4 days
     expect(isQuietStudent([], 4)).toBe(true);
   });
+
+  it('does not flag a finished batch student as Quiet for days after the course ended', () => {
+    // 40-day course, student checked in every day; the batch is now on "day 45"
+    const all40 = Array.from({ length: 40 }, (_, i) => ({ day_number: i + 1 }));
+    expect(isQuietStudent(all40, 45, 4, 40)).toBe(false);
+    // Without the duration bound the post-course days would count as silent
+    expect(isQuietStudent(all40, 45)).toBe(true);
+  });
+
+  it('matches the seed: last check-in on day 18 is Quiet on day 23, day 22 is not', () => {
+    const upTo18 = Array.from({ length: 18 }, (_, i) => ({ day_number: i + 1 }));
+    const upTo22 = Array.from({ length: 22 }, (_, i) => ({ day_number: i + 1 }));
+    expect(isQuietStudent(upTo18, 23, 4, 40)).toBe(true);
+    expect(isQuietStudent(upTo22, 23, 4, 40)).toBe(false);
+  });
 });
 
 describe('4. Single Row Idempotency & Upsert Logic', () => {

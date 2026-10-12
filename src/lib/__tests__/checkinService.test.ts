@@ -8,6 +8,7 @@ vi.mock('../supabase', () => {
     supabase: {
       from: fromMock,
     },
+    isDemoMode: () => false,
   };
 });
 

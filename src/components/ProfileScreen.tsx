@@ -75,7 +75,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
           </div>
         </div>
 
-        {/* Console Quick Switch for Instant Navigation */}
+        {/* Console Quick Switch (admins only) */}
+        {role === 'admin' && (
         <div className="pt-2 border-t border-stone-100 dark:border-stone-800 space-y-2">
           <div className="text-[11px] font-semibold text-stone-600 dark:text-stone-300">
             Console Quick Switch
@@ -105,6 +106,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
             </button>
           </div>
         </div>
+        )}
       </div>
 
       {/* Consent & Privacy Status */}

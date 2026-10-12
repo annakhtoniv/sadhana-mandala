@@ -129,6 +129,8 @@ export const AdminHome: React.FC = () => {
       if (!batchTeacherId) {
         setBatchTeacherId(adminUser.id);
       }
+    } catch (err) {
+      setStatusMessage(`Could not load data: ${err instanceof Error ? err.message : 'unknown error'}`);
     } finally {
       setLoading(false);
     }
