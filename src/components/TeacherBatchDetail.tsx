@@ -3,6 +3,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { fetchBatchEnrolments, fetchBatchInvites, addBatchInvites } from '../lib/batchService';
 import { fetchBatchCheckins, calculateStreak, isStudentQuiet } from '../lib/checkinService';
 import { formatDateDisplay, calculateDayNumber } from '../lib/dateUtils';
+import { hasPracticeTrack, programmeRunStatus, RUN_STATUS_LABEL } from '../lib/programmeUtils';
 import type { Batch, Enrolment, BatchInvite, Organisation, Checkin } from '../types/database';
 import {
   ArrowLeft,
@@ -61,7 +62,9 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
   const [showQR, setShowQR] = useState(false);
 
   // Sorting state for roster
-  const [sortBy, setSortBy] = useState<SortField>('quiet');
+  // Check-in counts, streaks and Quiet flags only exist for programmes with a practice track
+  const practice = hasPracticeTrack(batch.course);
+  const [sortBy, setSortBy] = useState<SortField>(practice ? 'quiet' : 'name');
 
   const durationDays = batch.course?.duration_days || 40;
   const currentDay = calculateDayNumber(batch.start_date, organisation.timezone);
@@ -137,7 +140,7 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
 
       const todayCheck = hasStarted ? studentChecks.find((c) => c.day_number === countsDay) : undefined;
       const streak = calculateStreak(studentChecks, currentDay, durationDays);
-      const isQuiet = isStudentQuiet(studentChecks, currentDay, 4, durationDays);
+      const isQuiet = practice && isStudentQuiet(studentChecks, currentDay, 4, durationDays);
 
       // Find last check-in
       const lastCheckin = studentChecks.length > 0 ? studentChecks[studentChecks.length - 1] : null;
@@ -152,7 +155,7 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
         lastCheckinAt: lastCheckin?.updated_at || null,
       };
     });
-  }, [enrolments, batchCheckins, currentDay, countsDay, durationDays, hasStarted]);
+  }, [enrolments, batchCheckins, currentDay, countsDay, durationDays, hasStarted, practice]);
 
   // Today's summary counts
   const summaryCounts = useMemo(() => {
@@ -216,7 +219,9 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
             {batch.course?.name || 'Sadhana Course'}
           </span>
           <span className="px-2 py-0.5 rounded-full bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 text-[11px] font-mono font-medium">
-            {currentDay < 1
+            {!practice
+              ? RUN_STATUS_LABEL[programmeRunStatus(batch.course, currentDay)]
+              : currentDay < 1
               ? `Starts in ${Math.abs(currentDay - 1)}d`
               : currentDay <= durationDays
               ? `Day ${currentDay} of ${durationDays}`
@@ -252,7 +257,8 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
         </div>
       )}
 
-      {/* Counts for today (SPEC: "counts for today") */}
+      {/* Counts for today (SPEC: "counts for today"); practice programmes only */}
+      {practice && (
       <div className="space-y-2">
         <div className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
           {!hasStarted
@@ -279,6 +285,7 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
           ))}
         </div>
       </div>
+      )}
 
       {/* Join Code & Quick Actions */}
       <div className="bg-white dark:bg-stone-900 p-5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-4">
@@ -350,10 +357,10 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
               onChange={(e) => setSortBy(e.target.value as SortField)}
               className="bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-1 text-xs text-stone-700 dark:text-stone-300 focus:outline-none"
             >
-              <option value="quiet">Sort: Quiet first</option>
-              <option value="streak">Sort: Streak (high to low)</option>
+              {practice && <option value="quiet">Sort: Quiet first</option>}
+              {practice && <option value="streak">Sort: Streak (high to low)</option>}
               <option value="name">Sort: Name (A-Z)</option>
-              <option value="status">Sort: Today's Status</option>
+              {practice && <option value="status">Sort: Today's Status</option>}
             </select>
           </div>
         </div>
@@ -377,6 +384,7 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
                     )}
                   </div>
                   <div className="text-[11px] text-stone-500 truncate">{enr.student?.email}</div>
+                  {practice && (
                   <div className="text-[10px] text-stone-400 flex items-center gap-1.5 pt-0.5">
                     <span>
                       Last check-in:{' '}
@@ -387,8 +395,10 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
                         : 'None yet'}
                     </span>
                   </div>
+                  )}
                 </div>
 
+                {practice && (
                 <div className="text-right space-y-1 shrink-0">
                   {/* Today's Status Badge */}
                   <div>
@@ -420,6 +430,7 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
                     <span>{streak}d streak</span>
                   </div>
                 </div>
+                )}
               </div>
             ))}
           </div>

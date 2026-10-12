@@ -4,8 +4,9 @@ import { isDemoMode } from '../lib/supabase';
 import { fetchTeacherBatches, fetchCourses, createBatch } from '../lib/batchService';
 import { formatDateDisplay, getTodayInTimezone, calculateDayNumber } from '../lib/dateUtils';
 import { TeacherBatchDetail } from './TeacherBatchDetail';
+import { ProgrammesManager } from './ProgrammesManager';
 import type { Batch, Course } from '../types/database';
-import { GraduationCap, Users, PlusCircle, Sparkles, ChevronRight, Calendar, RefreshCw } from 'lucide-react';
+import { GraduationCap, Users, PlusCircle, Sparkles, ChevronRight, Calendar, RefreshCw, BookOpen } from 'lucide-react';
 
 export const TeacherHome: React.FC = () => {
   const { organisation, user, profile, role } = useAuth();
@@ -14,6 +15,7 @@ export const TeacherHome: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedBatch, setSelectedBatch] = useState<Batch | null>(null);
+  const [showProgrammes, setShowProgrammes] = useState(false);
 
   // Create Batch Modal State
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -88,6 +90,17 @@ export const TeacherHome: React.FC = () => {
     setIsCreating(false);
   };
 
+  if (showProgrammes) {
+    return (
+      <ProgrammesManager
+        onBack={() => {
+          setShowProgrammes(false);
+          loadData();
+        }}
+      />
+    );
+  }
+
   if (selectedBatch) {
     return (
       <TeacherBatchDetail
@@ -126,6 +139,14 @@ export const TeacherHome: React.FC = () => {
         <p className="text-xs text-stone-500 dark:text-stone-400">
           Manage your batches, invite students, and view daily practice commitments in {organisation.timezone}.
         </p>
+        <button
+          type="button"
+          onClick={() => setShowProgrammes(true)}
+          className="mt-2 w-full py-2.5 rounded-xl border border-stone-200 dark:border-stone-700 text-xs font-semibold text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 flex items-center justify-center gap-2 cursor-pointer"
+        >
+          <BookOpen className="w-4 h-4" />
+          <span>Programmes ({courses.length} active)</span>
+        </button>
       </div>
 
       {/* Batches List Section */}

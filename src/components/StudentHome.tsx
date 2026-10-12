@@ -9,7 +9,13 @@ import {
   getTrailDayStatus,
   upsertCheckinInMemory,
 } from '../lib/checkinService';
-import type { Checkin, CheckinStatus } from '../types/database';
+import {
+  hasPracticeTrack,
+  practiceTrackName,
+  programmeRunStatus,
+  RUN_STATUS_LABEL,
+} from '../lib/programmeUtils';
+import type { Checkin, CheckinStatus, Enrolment } from '../types/database';
 import {
   Check,
   X,
@@ -30,7 +36,7 @@ interface StudentHomeProps {
 }
 
 export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) => {
-  const { organisation, profile, enrolment, joinBatch } = useAuth();
+  const { organisation, profile, enrolment, enrolments, selectEnrolment, joinBatch } = useAuth();
   const [joinCode, setJoinCode] = useState('');
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
@@ -43,6 +49,8 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
   const batch = enrolment?.batch;
   const course = batch?.course;
   const durationDays = course?.duration_days || 40;
+  // Only programmes with a practice track have the daily check-in (e.g. the 40-day Sadhana)
+  const practice = hasPracticeTrack(course);
 
   // Calculate today's day number in the organisation's timezone
   const todayDayNumber = batch?.start_date
@@ -109,7 +117,7 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
 
   // Handle recording check-in for TODAY only (per SPEC.md: "A student can check in for today only and can change today's answer")
   const handleCheckin = async (status: CheckinStatus) => {
-    if (!batch?.id || !profile?.id || savingCheckin) return;
+    if (!batch?.id || !profile?.id || savingCheckin || !practice) return;
 
     if (todayDayNumber < 1) {
       setSaveFeedback('Cohort has not started yet. Daily check-in opens on Day 1.');
@@ -320,6 +328,96 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
         )}
       </div>
 
+      {/* My programmes (a student can be in many programmes over time) */}
+      {enrolments.length > 1 && (
+        <div className="bg-white dark:bg-stone-900 p-4 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-2">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
+            My programmes ({enrolments.length})
+          </div>
+          <div className="space-y-1.5">
+            {enrolments.map((e: Enrolment) => {
+              const eCourse = e.batch?.course;
+              const eDay = e.batch?.start_date ? calculateDayNumber(e.batch.start_date, organisation.timezone) : 1;
+              const status = programmeRunStatus(eCourse, eDay);
+              const selected = e.id === enrolment.id;
+              return (
+                <button
+                  key={e.id}
+                  type="button"
+                  onClick={() => selectEnrolment(e.id)}
+                  aria-pressed={selected}
+                  className={`w-full p-3 rounded-xl border text-left flex items-center justify-between gap-2 transition-colors cursor-pointer ${
+                    selected
+                      ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40'
+                      : 'border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-800'
+                  }`}
+                >
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-stone-900 dark:text-stone-100 truncate">
+                      {eCourse?.name || 'Programme'}
+                    </div>
+                    <div className="text-[11px] text-stone-500 truncate">{e.batch?.name}</div>
+                  </div>
+                  <div className="shrink-0 flex flex-col items-end gap-1">
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                        status === 'running'
+                          ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
+                          : status === 'upcoming'
+                          ? 'bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300'
+                          : 'bg-stone-100 dark:bg-stone-800 text-stone-500'
+                      }`}
+                    >
+                      {RUN_STATUS_LABEL[status]}
+                    </span>
+                    {hasPracticeTrack(eCourse) && (
+                      <span className="inline-flex items-center gap-0.5 text-[10px] text-amber-600 dark:text-amber-400">
+                        <Flame className="w-3 h-3" />
+                        {practiceTrackName(eCourse)}
+                      </span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {!practice ? (
+        /* Programme without a daily practice track (e.g. Art of Silence, VTP) */
+        <div className="bg-white dark:bg-stone-900 p-5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
+              About this programme
+            </span>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300">
+              {RUN_STATUS_LABEL[programmeRunStatus(course, todayDayNumber)]}
+            </span>
+          </div>
+          {course?.description && (
+            <p className="text-sm text-stone-700 dark:text-stone-300 leading-relaxed">{course.description}</p>
+          )}
+          <dl className="grid grid-cols-2 gap-3 text-xs">
+            <div>
+              <dt className="text-stone-400">Started</dt>
+              <dd className="font-medium text-stone-800 dark:text-stone-200">
+                {batch?.start_date ? formatDateDisplay(batch.start_date, organisation.timezone) : '—'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-stone-400">Length</dt>
+              <dd className="font-medium text-stone-800 dark:text-stone-200">
+                {course?.programme_days ? `${course.programme_days} days` : 'Not set'}
+              </dd>
+            </div>
+          </dl>
+          <p className="text-[11px] text-stone-400">
+            This programme has no daily check-in. Learning modules and follow-ups for it will appear here.
+          </p>
+        </div>
+      ) : (
+      <>
       {/* Check-in Question Card */}
       <div id="tour-checkin-card" className="bg-white dark:bg-stone-900 p-6 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-5">
         <div className="space-y-1.5 text-center">
@@ -626,6 +724,35 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
           </div>
         </div>
       </div>
+      </>
+      )}
+
+      {/* Join another programme with its join code */}
+      <form
+        onSubmit={handleJoinByCode}
+        className="bg-white dark:bg-stone-900 p-4 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-2"
+      >
+        <label htmlFor="join-another" className="block text-xs font-semibold text-stone-700 dark:text-stone-300">
+          Joining another programme?
+        </label>
+        <div className="flex gap-2">
+          <input
+            id="join-another"
+            value={joinCode}
+            onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+            placeholder="Join code"
+            className="flex-1 min-w-0 px-3 py-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-sm font-mono tracking-widest text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-stone-500"
+          />
+          <button
+            type="submit"
+            disabled={joining || !joinCode.trim()}
+            className="px-4 py-2.5 rounded-xl bg-stone-900 dark:bg-stone-100 text-stone-100 dark:text-stone-900 text-xs font-semibold disabled:opacity-50"
+          >
+            {joining ? 'Joining...' : 'Join'}
+          </button>
+        </div>
+        {joinError && <p className="text-xs text-red-600 dark:text-red-400">{joinError}</p>}
+      </form>
     </div>
   );
 };

@@ -2,7 +2,8 @@ import React, { createContext, useContext, useState, useEffect, useRef, useCallb
 import type { User, Session } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured, isDemoMode, DEMO_SESSION_KEY } from '../lib/supabase';
 import { fetchOrganisation, getResolvedOrgSlug, DEFAULT_ORGANISATION } from '../lib/organisation';
-import { claimUserInvites, fetchUserEnrolment, joinBatchByCode } from '../lib/batchService';
+import { claimUserInvites, fetchUserEnrolments, joinBatchByCode } from '../lib/batchService';
+import { pickDefaultEnrolment } from '../lib/programmeUtils';
 import { DEMO_TEACHER_PROFILE } from '../lib/mockData';
 import { allowedRoleViews } from '../lib/roles';
 import type { Organisation, Profile, UserRole, Enrolment } from '../types/database';
@@ -11,7 +12,11 @@ interface AuthContextType {
   session: Session | null;
   user: User | null;
   profile: Profile | null;
+  /** The programme currently open on the student home */
   enrolment: Enrolment | null;
+  /** Every programme the user is enrolled in, newest first */
+  enrolments: Enrolment[];
+  selectEnrolment: (enrolmentId: string) => void;
   organisation: Organisation;
   role: UserRole;
   activeRole: UserRole;
@@ -32,6 +37,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 // A batch QR code opens the app with ?code=JOINCODE. Keep the code across the
 // Google sign-in redirect and join the batch once the user is signed in.
 const PENDING_JOIN_KEY = 'sadhana_pending_join_code';
+// The programme a student last opened on this device
+const SELECTED_ENROLMENT_KEY = 'sadhana_selected_enrolment';
 try {
   const codeFromUrl = new URLSearchParams(window.location.search).get('code');
   if (codeFromUrl) {
@@ -46,7 +53,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [enrolment, setEnrolment] = useState<Enrolment | null>(null);
+  const [enrolments, setEnrolments] = useState<Enrolment[]>([]);
+  const [selectedEnrolmentId, setSelectedEnrolmentId] = useState<string | null>(null);
+  const enrolment = enrolments.find((e) => e.id === selectedEnrolmentId) || null;
   const [organisation, setOrganisation] = useState<Organisation>(DEFAULT_ORGANISATION);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
@@ -57,12 +66,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const orgRef = useRef<Organisation>(DEFAULT_ORGANISATION);
 
-  const loadEnrolmentForUser = async (userId: string) => {
+  const loadEnrolmentForUser = async (userId: string, preferredId?: string | null) => {
     try {
-      setEnrolment(await fetchUserEnrolment(userId));
+      const list = await fetchUserEnrolments(userId);
+      const chosen = pickDefaultEnrolment(
+        list,
+        orgRef.current.timezone,
+        preferredId || localStorage.getItem(SELECTED_ENROLMENT_KEY)
+      );
+      setEnrolments(list);
+      setSelectedEnrolmentId(chosen?.id ?? null);
     } catch (err) {
-      console.error('Error loading enrolment:', err);
-      setEnrolment(null);
+      console.error('Error loading enrolments:', err);
+      setEnrolments([]);
+      setSelectedEnrolmentId(null);
     }
   };
 
@@ -146,9 +163,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const joinBatch = async (code: string) => {
     const res = await joinBatchByCode(code);
     if (res.success && user) {
-      await loadEnrolmentForUser(user.id);
+      // Open the programme just joined (RPC returns enrolment_id; demo returns the enrolment)
+      const joinedId: string | null = res.data?.enrolment_id || res.data?.id || null;
+      if (joinedId) localStorage.setItem(SELECTED_ENROLMENT_KEY, joinedId);
+      await loadEnrolmentForUser(user.id, joinedId);
     }
     return res;
+  };
+
+  const selectEnrolment = (enrolmentId: string) => {
+    setSelectedEnrolmentId(enrolmentId);
+    try {
+      localStorage.setItem(SELECTED_ENROLMENT_KEY, enrolmentId);
+    } catch {
+      // ignore storage errors
+    }
   };
 
   // Switch which home screen is shown. This is a view only: it never changes
@@ -229,7 +258,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else if (!isDemoMode()) {
         setUser(null);
         setProfile(null);
-        setEnrolment(null);
+        setEnrolments([]);
       }
       setIsLoading(false);
     });
@@ -277,7 +306,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setSession(null);
       setUser(null);
       setProfile(null);
-      setEnrolment(null);
+      setEnrolments([]);
     }
   };
 
@@ -323,7 +352,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setSession(null);
     setUser(null);
     setProfile(null);
-    setEnrolment(null);
+    setEnrolments([]);
   };
 
   const role = profile?.role ?? activeRole;
@@ -341,6 +370,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         profile,
         enrolment,
+        enrolments,
+        selectEnrolment,
         organisation,
         role,
         activeRole,

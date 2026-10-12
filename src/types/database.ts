@@ -35,13 +35,29 @@ export interface RoleGrant {
   created_at: string;
 }
 
+/**
+ * A programme in the catalogue (stored in the `courses` table).
+ * The Phase 5 fields are optional so older rows and sample data still type-check.
+ */
 export interface Course {
   id: string;
   org_id: string;
   name: string;
   description: string | null;
+  /** Length of the daily practice track in days (only used when has_practice_track) */
   duration_days: number;
   created_at: string;
+  code?: string | null;
+  category?: string;
+  /** Length of the programme itself in days, if known */
+  programme_days?: number | null;
+  has_practice_track?: boolean;
+  practice_name?: string | null;
+  prerequisite_ids?: string[];
+  is_active?: boolean;
+  sort_order?: number;
+  created_by?: string | null;
+  updated_at?: string;
 }
 
 export interface Batch {

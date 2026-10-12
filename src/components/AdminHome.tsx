@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { ProgrammesManager } from './ProgrammesManager';
 import { supabase } from '../lib/supabase';
 import {
   fetchCourses,
-  createCourse,
   fetchTeacherBatches,
   createBatch,
 } from '../lib/batchService';
@@ -38,7 +38,6 @@ import {
   ArrowRight,
   Search,
   X,
-  ChevronRight,
   Zap,
 } from 'lucide-react';
 
@@ -58,12 +57,6 @@ export const AdminHome: React.FC = () => {
 
   // Courses state
   const [courses, setCourses] = useState<Course[]>([]);
-  const [showCourseModal, setShowCourseModal] = useState(false);
-  const [courseName, setCourseName] = useState('');
-  const [courseDesc, setCourseDesc] = useState('');
-  const [durationDays, setDurationDays] = useState(40);
-  const [courseMsg, setCourseMsg] = useState<string | null>(null);
-  const [isCreatingCourse, setIsCreatingCourse] = useState(false);
 
   // All Batches state
   const [allBatches, setAllBatches] = useState<Batch[]>([]);
@@ -202,33 +195,6 @@ export const AdminHome: React.FC = () => {
     } catch (err) {
       console.error('Failed to change role:', err);
     }
-  };
-
-  // Handle Create Course
-  const handleCreateCourse = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!organisation.id || !courseName.trim()) return;
-
-    setIsCreatingCourse(true);
-    setCourseMsg(null);
-    const res = await createCourse({
-      orgId: organisation.id,
-      name: courseName.trim(),
-      description: courseDesc.trim(),
-      durationDays: Number(durationDays) || 40,
-    });
-
-    if (res.success) {
-      setCourseMsg('Course created successfully!');
-      setCourseName('');
-      setCourseDesc('');
-      setDurationDays(40);
-      setShowCourseModal(false);
-      await loadData();
-    } else {
-      setCourseMsg(`Error: ${res.error || 'Failed to create course'}`);
-    }
-    setIsCreatingCourse(false);
   };
 
   // Handle Create Batch (Admin Modal)
@@ -387,20 +353,15 @@ export const AdminHome: React.FC = () => {
 
           <button
             type="button"
-            onClick={() => {
-              setCourseName('');
-              setCourseDesc('');
-              setCourseMsg(null);
-              setShowCourseModal(true);
-            }}
+            onClick={() => setActiveTab('courses')}
             className="p-3 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/15 text-left transition-all cursor-pointer group"
           >
             <div className="flex items-center justify-between mb-1">
               <BookOpen className="w-4 h-4 text-[#e8b98a]" />
               <ArrowRight className="w-3.5 h-3.5 text-white/60 group-hover:translate-x-0.5 transition-transform" />
             </div>
-            <div className="text-xs font-bold text-white">Add Curriculum</div>
-            <div className="text-[10px] text-white/70">Define program days</div>
+            <div className="text-xs font-bold text-white">Programmes</div>
+            <div className="text-[10px] text-white/70">Add or edit the catalogue</div>
           </button>
 
           <button
@@ -472,7 +433,7 @@ export const AdminHome: React.FC = () => {
             {courses.length}
           </div>
           <div className="text-[10px] text-[#717e7a] dark:text-[#90a2ad]">
-            40-day & 21-day tracks
+            Active in catalogue
           </div>
         </div>
 
@@ -530,7 +491,7 @@ export const AdminHome: React.FC = () => {
           }`}
         >
           <BookOpen className="w-3.5 h-3.5" />
-          <span>Curricula ({courses.length})</span>
+          <span>Programmes ({courses.length})</span>
         </button>
 
         <button
@@ -846,76 +807,7 @@ export const AdminHome: React.FC = () => {
       )}
 
       {/* 7. TAB CONTENT: COURSE CURRICULA */}
-      {activeTab === 'courses' && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="font-serif text-lg font-bold text-[#17495e] dark:text-[#f2ede4]">
-              Curriculum Catalog
-            </h2>
-            <button
-              type="button"
-              onClick={() => {
-                setCourseName('');
-                setCourseDesc('');
-                setCourseMsg(null);
-                setShowCourseModal(true);
-              }}
-              className="px-4 py-2 rounded-2xl bg-[#17495e] dark:bg-[#e8b98a] text-white dark:text-[#0b1317] font-bold text-xs shadow-sm flex items-center gap-1.5 cursor-pointer hover:opacity-90"
-            >
-              <PlusCircle className="w-3.5 h-3.5" />
-              <span>+ New Course</span>
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-            {courses.map((course) => {
-              const cohortsUsingThis = allBatches.filter((b) => b.course_id === course.id).length;
-
-              return (
-                <div
-                  key={course.id}
-                  className="bg-white dark:bg-[#121e25] p-5 rounded-3xl border border-[#e6dccb] dark:border-[#1d2e38] shadow-xs space-y-3"
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-[#17495e] dark:text-[#e8b98a]">
-                        Commitment Program
-                      </span>
-                      <h3 className="font-serif text-base font-bold text-[#17495e] dark:text-[#f2ede4]">
-                        {course.name}
-                      </h3>
-                    </div>
-
-                    <span className="px-3 py-1 rounded-full bg-gradient-to-r from-[#d9a44a]/20 to-[#e8b98a]/30 border border-[#d9a44a]/50 text-[#8e6724] dark:text-[#e8b98a] font-mono text-xs font-bold">
-                      {course.duration_days} Days
-                    </span>
-                  </div>
-
-                  <p className="text-xs text-[#717e7a] dark:text-[#90a2ad] leading-relaxed">
-                    {course.description || 'Structured daily contemplative practice and mindfulness curriculum.'}
-                  </p>
-
-                  <div className="pt-2 border-t border-[#e6dccb]/60 dark:border-[#1d2e38]/80 flex items-center justify-between text-[11px] text-[#5a6663] dark:text-[#98abb6]">
-                    <span>{cohortsUsingThis} active cohort{cohortsUsingThis === 1 ? '' : 's'}</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setBatchCourseId(course.id);
-                        setBatchName(`${course.name} Cohort`);
-                        setShowBatchModal(true);
-                      }}
-                      className="text-[#17495e] dark:text-[#e8b98a] font-bold hover:underline cursor-pointer flex items-center gap-1"
-                    >
-                      <span>Create Cohort from this</span>
-                      <ChevronRight className="w-3 h-3" />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      {activeTab === 'courses' && <ProgrammesManager />}
 
       {/* 8. TAB CONTENT: SYSTEM & GOVERNANCE PARAMETERS */}
       {activeTab === 'system' && (
@@ -1106,98 +998,6 @@ export const AdminHome: React.FC = () => {
                   className="px-5 py-2.5 rounded-2xl bg-[#e8b98a] hover:bg-[#dfaf7f] text-[#0b1317] text-xs font-bold shadow-md transition-all cursor-pointer disabled:opacity-50"
                 >
                   {isCreatingBatch ? 'Creating Cohort...' : 'Create Batch'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 10. CREATE COURSE MODAL */}
-      {showCourseModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="w-full max-w-md bg-white dark:bg-[#0e161b] rounded-3xl border border-[#e6dccb] dark:border-[#1d2e38] p-6 shadow-2xl space-y-4">
-            <div className="flex items-start justify-between">
-              <div>
-                <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-[#17495e] dark:text-[#e8b98a]">
-                  Curriculum Engine
-                </span>
-                <h2 className="font-serif text-lg font-bold text-[#17495e] dark:text-[#f2ede4]">
-                  Create Course Program
-                </h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowCourseModal(false)}
-                className="p-1 rounded-full text-[#717e7a] dark:text-[#90a2ad] hover:text-[#1f2a28] dark:hover:text-[#f2ede4]"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateCourse} className="space-y-3.5">
-              <div>
-                <label className="block text-xs font-semibold text-[#1f2a28] dark:text-[#f2ede4] mb-1">
-                  Course Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. 40-Day Sadhana Practice"
-                  value={courseName}
-                  onChange={(e) => setCourseName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-2xl border border-[#e6dccb] dark:border-[#1d2e38] bg-[#f7f3ec] dark:bg-[#121e25] text-xs text-[#1f2a28] dark:text-[#f2ede4] focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-[#1f2a28] dark:text-[#f2ede4] mb-1">
-                  Description
-                </label>
-                <textarea
-                  rows={3}
-                  placeholder="Contemplative goals and practice intentions..."
-                  value={courseDesc}
-                  onChange={(e) => setCourseDesc(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-2xl border border-[#e6dccb] dark:border-[#1d2e38] bg-[#f7f3ec] dark:bg-[#121e25] text-xs text-[#1f2a28] dark:text-[#f2ede4] focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-[#1f2a28] dark:text-[#f2ede4] mb-1">
-                  Duration (Days)
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  max={365}
-                  required
-                  value={durationDays}
-                  onChange={(e) => setDurationDays(Number(e.target.value))}
-                  className="w-full px-3.5 py-2.5 rounded-2xl border border-[#e6dccb] dark:border-[#1d2e38] bg-[#f7f3ec] dark:bg-[#121e25] text-xs text-[#1f2a28] dark:text-[#f2ede4] focus:outline-none"
-                />
-              </div>
-
-              {courseMsg && (
-                <div className="p-3 rounded-2xl bg-stone-100 dark:bg-stone-800 text-xs text-stone-700 dark:text-stone-300">
-                  {courseMsg}
-                </div>
-              )}
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowCourseModal(false)}
-                  className="px-4 py-2.5 rounded-2xl text-xs text-[#717e7a] dark:text-[#90a2ad]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isCreatingCourse || !courseName.trim()}
-                  className="px-5 py-2.5 rounded-2xl bg-[#17495e] dark:bg-[#e8b98a] text-white dark:text-[#0b1317] text-xs font-bold shadow-md cursor-pointer disabled:opacity-50"
-                >
-                  {isCreatingCourse ? 'Creating...' : 'Create Course'}
                 </button>
               </div>
             </form>

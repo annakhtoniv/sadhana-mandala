@@ -2,10 +2,11 @@
 -- WARNING (Phase 4 review, 2026-10-11): the policies and the set_my_role
 -- function in this file are NOT safe. They let any signed-in user make
 -- themselves admin and read or change every check-in in their organisation.
--- If you ever run this file, run these three files right after it, in order:
+-- If you ever run this file, run these files right after it, in order:
 --   1. supabase/phase4_security.sql   (replaces every policy, removes set_my_role)
---   2. supabase/seed_dummy_data.sql   (resets the dummy data to the SPEC)
---   3. supabase/phase4_verify.sql     (every row must say PASS)
+--   2. supabase/phase5_programmes.sql (programme catalogue columns and rules)
+--   3. supabase/seed_dummy_data.sql   (resets the dummy data to the SPEC)
+--   4. supabase/verify.sql            (every row must say PASS)
 -- ============================================================================
 
 -- ============================================================================

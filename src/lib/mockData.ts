@@ -22,9 +22,17 @@ export const DEMO_TEACHER_PROFILE: Profile = {
 export const DEMO_COURSE_40: Course = {
   id: 'c1000000-0000-0000-0000-000000000001',
   org_id: DEMO_ORG_ID,
-  name: '40-Day Sadhana Practice',
-  description: 'A transformative daily meditation and awareness commitment for forty days.',
+  name: 'Happiness Program',
+  code: 'HP',
+  category: 'Core programme',
+  description: 'Introductory programme with breathing, meditation and wisdom, followed by a 40-day daily practice.',
+  programme_days: 3,
+  has_practice_track: true,
+  practice_name: '40-Day Sadhana',
   duration_days: 40,
+  prerequisite_ids: [],
+  is_active: true,
+  sort_order: 10,
   created_at: new Date().toISOString(),
 };
 
@@ -32,9 +40,46 @@ export const DEMO_COURSE_21: Course = {
   id: 'c1000000-0000-0000-0000-000000000002',
   org_id: DEMO_ORG_ID,
   name: '21-Day Mindfulness Starter',
+  code: 'MS21',
+  category: 'Meditation',
   description: 'A gentle introduction to daily sitting, breath observation, and calm awareness.',
+  has_practice_track: true,
+  practice_name: '21-Day Practice',
   duration_days: 21,
+  prerequisite_ids: [],
+  is_active: true,
+  sort_order: 30,
   created_at: new Date().toISOString(),
+};
+
+export const DEMO_COURSE_SILENCE: Course = {
+  id: 'c1000000-0000-0000-0000-000000000002',
+  org_id: DEMO_ORG_ID,
+  name: 'Art of Silence',
+  code: 'AOS',
+  category: 'Advanced programme',
+  description: 'Residential silence programme that deepens the Happiness Program practices.',
+  programme_days: null,
+  has_practice_track: false,
+  practice_name: null,
+  duration_days: 40,
+  prerequisite_ids: ['c1000000-0000-0000-0000-000000000001'],
+  is_active: true,
+  sort_order: 20,
+  created_at: new Date().toISOString(),
+};
+
+export const DEMO_BATCH_SILENCE: Batch = {
+  id: 'd1000000-0000-0000-0000-000000000005',
+  org_id: DEMO_ORG_ID,
+  course_id: DEMO_COURSE_SILENCE.id,
+  teacher_id: DEMO_TEACHER_PROFILE.id,
+  name: 'Art of Silence – September',
+  start_date: new Date(Date.now() - 25 * 86400000).toISOString().split('T')[0],
+  join_code: 'SILENCE09',
+  created_at: new Date().toISOString(),
+  course: DEMO_COURSE_SILENCE,
+  teacher: DEMO_TEACHER_PROFILE,
 };
 
 export const DEMO_BATCH_DAY23: Batch = {
@@ -88,6 +133,7 @@ export const DEMO_ALL_BATCHES: Batch[] = [
     course: DEMO_COURSE_40,
     teacher: DEMO_TEACHER_PROFILE,
   },
+  DEMO_BATCH_SILENCE,
 ];
 
 export const DEMO_ENROLMENT_VINOTH: Enrolment = {
@@ -98,6 +144,17 @@ export const DEMO_ENROLMENT_VINOTH: Enrolment = {
   source: 'manual',
   joined_at: new Date().toISOString(),
   batch: DEMO_BATCH_DAY23,
+  student: DEMO_TEACHER_PROFILE,
+};
+
+export const DEMO_ENROLMENT_SILENCE: Enrolment = {
+  id: 'e1000000-0000-0000-0000-000000000002',
+  org_id: DEMO_ORG_ID,
+  batch_id: DEMO_BATCH_SILENCE.id,
+  student_id: DEMO_TEACHER_PROFILE.id,
+  source: 'code',
+  joined_at: new Date(Date.now() - 26 * 86400000).toISOString(),
+  batch: DEMO_BATCH_SILENCE,
   student: DEMO_TEACHER_PROFILE,
 };
 
