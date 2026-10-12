@@ -8,13 +8,14 @@ import { TeacherHome } from './components/TeacherHome';
 import { AdminHome } from './components/AdminHome';
 import { ProfileScreen } from './components/ProfileScreen';
 import { LessonsScreen } from './components/LessonsScreen';
+import { EventsScreen } from './components/EventsScreen';
 import { GuidedTour } from './components/GuidedTour';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { LogIn, Sparkles, AlertCircle, Loader2 } from 'lucide-react';
 
 function MainApp() {
-  const { user, activeRole, setActiveRole, hasConsent, isLoading, organisation, signInDemo } = useAuth();
-  const [currentTab, setCurrentTab] = useState<'home' | 'lessons' | 'profile'>('home');
+  const { user, activeRole, setActiveRole, hasConsent, isLoading, organisation, signInDemo, notice, clearNotice } = useAuth();
+  const [currentTab, setCurrentTab] = useState<'home' | 'lessons' | 'profile' | 'events'>('home');
   const [authError, setAuthError] = useState<string | null>(null);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [showTour, setShowTour] = useState(() => {
@@ -153,7 +154,7 @@ function MainApp() {
       {/* Navigation Header */}
       <Header
         currentTab={currentTab}
-        onNavigate={(tab) => setCurrentTab(tab as 'home' | 'lessons' | 'profile')}
+        onNavigate={(tab) => setCurrentTab(tab as 'home' | 'lessons' | 'profile' | 'events')}
         activeRoleView={activeRole}
         onRoleSwitch={(newRole) => setActiveRole(newRole)}
         onOpenTour={() => setShowTour(true)}
@@ -170,7 +171,24 @@ function MainApp() {
 
       {/* Main Container */}
       <main className="flex-1 w-full max-w-md mx-auto px-4 py-6">
-        {currentTab === 'profile' ? (
+        {notice && (
+          <div
+            role="status"
+            className={`mb-4 p-3 rounded-xl border text-sm flex items-start justify-between gap-3 ${
+              notice.tone === 'success'
+                ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
+                : 'bg-red-50 dark:bg-red-950/60 border-red-200 dark:border-red-900 text-red-700 dark:text-red-300'
+            }`}
+          >
+            <span>{notice.text}</span>
+            <button type="button" onClick={clearNotice} className="text-xs underline shrink-0 cursor-pointer">
+              Close
+            </button>
+          </div>
+        )}
+        {currentTab === 'events' ? (
+          <EventsScreen onBack={() => setCurrentTab('home')} />
+        ) : currentTab === 'profile' ? (
           <ProfileScreen onBack={() => setCurrentTab('home')} />
         ) : currentTab === 'lessons' ? (
           <LessonsScreen onBack={() => setCurrentTab('home')} />

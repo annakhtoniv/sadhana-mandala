@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { allowedRoleViews } from '../lib/roles';
-import { Sparkles, User, HelpCircle } from 'lucide-react';
+import { Sparkles, User, HelpCircle, CalendarDays } from 'lucide-react';
 import type { UserRole } from '../types/database';
 
 interface HeaderProps {
@@ -86,6 +86,20 @@ export const Header: React.FC<HeaderProps> = ({
                 <HelpCircle className="w-4 h-4" />
               </button>
             )}
+
+            <button
+              type="button"
+              onClick={() => onNavigate('events')}
+              className={`p-2 rounded-xl transition-colors cursor-pointer ${
+                currentTab === 'events'
+                  ? 'bg-stone-200 dark:bg-stone-800 text-stone-900 dark:text-stone-100'
+                  : 'text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800'
+              }`}
+              title="Events"
+              aria-label="Events"
+            >
+              <CalendarDays className="w-4 h-4" />
+            </button>
 
             <button
               type="button"

@@ -204,3 +204,42 @@ export interface BatchSession {
   scheduled_for: string | null;
   location: string | null;
 }
+
+export type EventKind = 'intro_talk' | 'programme' | 'satsang' | 'followup' | 'other';
+
+/** Phase 8: an event of the organisation (the secret check-in code is never selected) */
+export interface OrgEvent {
+  id: string;
+  org_id: string;
+  kind: EventKind;
+  title: string;
+  description: string | null;
+  starts_at: string;
+  ends_at: string | null;
+  venue: string | null;
+  online_url: string | null;
+  capacity: number | null;
+  course_id: string | null;
+  batch_id: string | null;
+  host_id: string | null;
+  published: boolean;
+  created_at: string;
+  updated_at?: string;
+}
+
+export type RegistrationStatus = 'registered' | 'attended' | 'no_show' | 'cancelled';
+
+/** Phase 8: a member or a guest registered for an event */
+export interface EventRegistration {
+  id: string;
+  org_id: string;
+  event_id: string;
+  profile_id: string | null;
+  guest_name: string | null;
+  guest_email: string | null;
+  guest_phone: string | null;
+  status: RegistrationStatus;
+  checked_in_at: string | null;
+  created_at: string;
+  profile?: Pick<Profile, 'id' | 'full_name' | 'email'> | null;
+}

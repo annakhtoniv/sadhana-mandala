@@ -18,6 +18,11 @@
 --   personal follow-up), with records for Autumn Awakening: day-3 calls done
 --   for students 1-20, day-15 calls for 1-10, the day-8 session held and the
 --   day-22 session held.
+--   Phase 8: events: an intro talk in 3 days (6 guests and 2 members
+--   registered), a past intro talk (5 attended, 2 no-show, 1 cancelled), a
+--   satsang in 7 days (students 1-10), a small group that is full (2 of 2),
+--   a draft, an event happening now (for testing QR check-in) and one Org B
+--   event. Check-in codes are fixed so they can be tested.
 -- Organisation B "Prana Flow Academy": different name and colours,
 --   show_powered_by false, 1 batch, 5 students.
 --
@@ -28,7 +33,8 @@
 --
 -- Real accounts are never deleted or changed by this script.
 -- Run supabase/phase4_security.sql, supabase/phase5_programmes.sql,
--- supabase/phase6_lms.sql and supabase/phase7_followups.sql first,
+-- supabase/phase6_lms.sql, supabase/phase7_followups.sql and
+-- supabase/phase8_events.sql first,
 -- and supabase/verify.sql after.
 --
 -- Expected teacher dashboard for "Autumn Awakening" (day 23 of 40):
@@ -85,6 +91,16 @@ declare
   v_fu_hp_sess2  uuid := 'e3000000-0000-0000-0000-000000000006';
   v_fu_aos_call  uuid := 'e3000000-0000-0000-0000-000000000007';
   v_fu_aos_sess  uuid := 'e3000000-0000-0000-0000-000000000008';
+
+  -- Events (Phase 8)
+  v_ev_talk_next uuid := 'e4000000-0000-0000-0000-000000000001';
+  v_ev_talk_past uuid := 'e4000000-0000-0000-0000-000000000002';
+  v_ev_satsang   uuid := 'e4000000-0000-0000-0000-000000000003';
+  v_ev_full      uuid := 'e4000000-0000-0000-0000-000000000004';
+  v_ev_draft     uuid := 'e4000000-0000-0000-0000-000000000005';
+  v_ev_org_b     uuid := 'e4000000-0000-0000-0000-000000000006';
+  v_ev_now       uuid := 'e4000000-0000-0000-0000-000000000007';
+  v_tz text;
 
   v_names text[] := array[
     'Aarav Mehta', 'Maya Lin', 'Leo Dubois', 'Elena Rostova', 'Fatima Al-Mansoori',
@@ -145,6 +161,10 @@ begin
   where p.id = b.teacher_id and p.org_id in (v_org_a_id, v_org_b_id) and p.email like '%example.com';
 
   delete from public.batch_invites where org_id in (v_org_a_id, v_org_b_id) and email like '%example.com';
+  -- Seeded events (their registrations cascade)
+  delete from public.events
+  where id in (v_ev_talk_next, v_ev_talk_past, v_ev_satsang, v_ev_full, v_ev_draft, v_ev_org_b, v_ev_now);
+
   -- Seeded follow-up steps (their records cascade)
   delete from public.followup_steps
   where id in (v_fu_hp_rem1, v_fu_hp_call1, v_fu_hp_sess1, v_fu_hp_call2, v_fu_hp_rem2, v_fu_hp_sess2, v_fu_aos_call, v_fu_aos_sess);
@@ -477,5 +497,67 @@ begin
       values (v_org_a_id, v_batch_day23_id, v_fu_hp_call2, v_student_id, 'done', v_teacher_a1_id);
     end if;
   end loop;
+
+  -- --------------------------------------------------------------------------
+  -- Events (Phase 8). Times are local to the organisation (Asia/Dubai).
+  -- --------------------------------------------------------------------------
+  select timezone into v_tz from public.organisations where id = v_org_a_id;
+
+  insert into public.events (id, org_id, kind, title, description, starts_at, ends_at, venue, online_url,
+                             capacity, course_id, host_id, published, checkin_code, created_by) values
+    (v_ev_talk_next, v_org_a_id, 'intro_talk', 'Introduction to the Happiness Program',
+     'A free 60-minute talk about the programme, with a short guided breathing session.',
+     ((v_today_a + 3)::timestamp + time '19:00') at time zone v_tz, ((v_today_a + 3)::timestamp + time '20:00') at time zone v_tz,
+     'Community centre, room 2', null, 30, v_course_a_id, v_teacher_a1_id, true, 'TALKNEXT', v_teacher_a1_id),
+    (v_ev_talk_past, v_org_a_id, 'intro_talk', 'Introduction to the Happiness Program',
+     'A free 60-minute talk about the programme.',
+     ((v_today_a - 5)::timestamp + time '19:00') at time zone v_tz, ((v_today_a - 5)::timestamp + time '20:00') at time zone v_tz,
+     'Community centre, room 2', null, 20, v_course_a_id, v_teacher_a1_id, true, 'TALKPAST', v_teacher_a1_id),
+    (v_ev_satsang, v_org_a_id, 'satsang', 'Monthly online satsang', 'Music, meditation and wisdom.',
+     ((v_today_a + 7)::timestamp + time '18:30') at time zone v_tz, ((v_today_a + 7)::timestamp + time '20:00') at time zone v_tz,
+     null, 'https://example.com/satsang', null, null, v_teacher_a2_id, true, 'SATSANG7', v_teacher_a2_id),
+    (v_ev_full, v_org_a_id, 'other', 'Small-group meditation (2 places)', 'Placeholder event that is already full.',
+     ((v_today_a + 10)::timestamp + time '07:00') at time zone v_tz, null,
+     'Teacher''s home', null, 2, v_prog_ssm_id, v_teacher_a1_id, true, 'SMALLGRP', v_teacher_a1_id),
+    (v_ev_draft, v_org_a_id, 'other', 'Draft: Yoga day', 'Not published yet.',
+     ((v_today_a + 20)::timestamp + time '09:00') at time zone v_tz, null,
+     'Park', null, null, v_prog_yoga_id, v_teacher_a2_id, false, 'DRAFTEVT', v_teacher_a2_id),
+    (v_ev_now, v_org_a_id, 'satsang', 'Group practice (happening now)', 'Placeholder event for testing QR check-in.',
+     now() - interval '30 minutes', now() + interval '60 minutes',
+     'Community centre, room 1', null, null, null, v_teacher_a1_id, true, 'NOWCHECK', v_teacher_a1_id),
+    (v_ev_org_b, v_org_b_id, 'satsang', 'Breath circle', 'Prana Flow community breathing.',
+     ((v_today_b + 4)::timestamp + time '18:00') at time zone v_tz, null,
+     'Prana studio', null, 15, null, v_teacher_b_id, true, 'BREATHB1', v_teacher_b_id);
+
+  -- Upcoming intro talk: 6 guests (no account yet) and students 21-22
+  insert into public.event_registrations (org_id, event_id, guest_name, guest_email, guest_phone, status, added_by) values
+    (v_org_a_id, v_ev_talk_next, 'Guest Rania', 'guest.rania@example.com', '+971 50 000 0001', 'registered', v_teacher_a1_id),
+    (v_org_a_id, v_ev_talk_next, 'Guest Omar', 'guest.omar@example.com', null, 'registered', v_teacher_a1_id),
+    (v_org_a_id, v_ev_talk_next, 'Guest Priyanka', 'guest.priyanka@example.com', '+971 50 000 0003', 'registered', v_teacher_a1_id),
+    (v_org_a_id, v_ev_talk_next, 'Guest Tom', null, '+971 50 000 0004', 'registered', v_teacher_a1_id),
+    (v_org_a_id, v_ev_talk_next, 'Guest Lina', 'guest.lina@example.com', null, 'registered', v_teacher_a1_id),
+    (v_org_a_id, v_ev_talk_next, 'Guest Sam', 'guest.sam@example.com', null, 'registered', v_teacher_a1_id);
+  insert into public.event_registrations (org_id, event_id, profile_id, status, added_by) values
+    (v_org_a_id, v_ev_talk_next, 'd0000000-0000-0000-0000-000000000021', 'registered', 'd0000000-0000-0000-0000-000000000021'),
+    (v_org_a_id, v_ev_talk_next, 'd0000000-0000-0000-0000-000000000022', 'registered', 'd0000000-0000-0000-0000-000000000022');
+
+  -- Past intro talk: 5 attended, 2 no-show, 1 cancelled
+  insert into public.event_registrations (org_id, event_id, guest_name, guest_email, status, checked_in_at, added_by)
+  select v_org_a_id, v_ev_talk_past, 'Past guest ' || g, 'past.guest' || g || '@example.com',
+         case when g <= 5 then 'attended' when g <= 7 then 'no_show' else 'cancelled' end,
+         case when g <= 5 then ((v_today_a - 5)::timestamp + time '18:55') at time zone v_tz end,
+         v_teacher_a1_id
+  from generate_series(1, 8) g;
+
+  -- Satsang: students 1-10; full small group: students 11-12
+  for i in 1..12 loop
+    v_student_id := ('d0000000-0000-0000-0000-' || lpad(i::text, 12, '0'))::uuid;
+    insert into public.event_registrations (org_id, event_id, profile_id, status, added_by)
+    values (v_org_a_id, case when i <= 10 then v_ev_satsang else v_ev_full end, v_student_id, 'registered', v_student_id);
+  end loop;
+
+  -- Org B
+  insert into public.event_registrations (org_id, event_id, profile_id, status, added_by)
+  values (v_org_b_id, v_ev_org_b, 'e0000000-0000-0000-0000-000000000001', 'registered', v_teacher_b_id);
 end;
 $$;

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateDayNumber, getTodayInTimezone } from './dateUtils';
+import { calculateDayNumber, getTodayInTimezone, isoToZonedInput, zonedInputToIso } from './dateUtils';
 
 describe('calculateDayNumber', () => {
   const timezone = 'Asia/Dubai';
@@ -48,5 +48,28 @@ describe('calculateDayNumber', () => {
 
     const day = calculateDayNumber(futureStr, timezone);
     expect(day).toBeLessThanOrEqual(0);
+  });
+});
+
+
+describe('zoned datetime inputs', () => {
+  it('shows an instant as wall-clock time in the organisation time zone', () => {
+    expect(isoToZonedInput('2026-10-15T15:00:00.000Z', 'Asia/Dubai')).toBe('2026-10-15T19:00');
+    expect(isoToZonedInput(null, 'Asia/Dubai')).toBe('');
+  });
+
+  it('reads wall-clock time in the organisation time zone, whatever the device time zone', () => {
+    expect(zonedInputToIso('2026-10-15T19:00', 'Asia/Dubai')).toBe('2026-10-15T15:00:00.000Z');
+    expect(zonedInputToIso('2026-10-15T00:30', 'Asia/Dubai')).toBe('2026-10-14T20:30:00.000Z');
+  });
+
+  it('round-trips, including across a daylight-saving change', () => {
+    expect(isoToZonedInput(zonedInputToIso('2026-03-29T03:30', 'Europe/London'), 'Europe/London')).toBe('2026-03-29T03:30');
+    expect(zonedInputToIso('2026-07-01T09:00', 'Europe/London')).toBe('2026-07-01T08:00:00.000Z');
+  });
+
+  it('rejects malformed input', () => {
+    expect(zonedInputToIso('', 'Asia/Dubai')).toBeNull();
+    expect(zonedInputToIso('tomorrow', 'Asia/Dubai')).toBeNull();
   });
 });

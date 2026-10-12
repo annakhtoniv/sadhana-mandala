@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { deleteRecord, fetchBatchFollowupRecords, fetchFollowupPlan, saveRecord } from '../lib/followupService';
 import { countDue, REMINDER_VISIBLE_DAYS, stepProgress, type StepState } from '../lib/followupUtils';
+import { isoToZonedInput, zonedInputToIso } from '../lib/dateUtils';
 import type { Batch, Enrolment, FollowupRecord, FollowupRecordStatus, FollowupStep } from '../types/database';
 import { KIND_ICON } from './FollowupPlanEditor';
 import { Check, ChevronDown, ChevronRight, CircleSlash, ClipboardList } from 'lucide-react';
@@ -33,14 +34,6 @@ const STATE_CLASS: Record<StepState, string> = {
 
 const inputClass =
   'w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-sm text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-stone-500';
-
-/** "2026-10-12T19:00" in the browser's time zone, for <input type="datetime-local"> */
-function toLocalInput(iso: string | null): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
 
 export function formatSessionTime(iso: string | null, timeZone: string): string {
   if (!iso) return '';
@@ -96,7 +89,7 @@ export const BatchFollowups: React.FC<BatchFollowupsProps> = ({ batch, currentDa
     setSaveError(null);
     if (next && step.kind === 'session') {
       const r = recordFor(step.id, null);
-      setDraft({ when: toLocalInput(r?.scheduled_for ?? null), location: r?.location || '', notes: r?.notes || '' });
+      setDraft({ when: isoToZonedInput(r?.scheduled_for ?? null, timeZone), location: r?.location || '', notes: r?.notes || '' });
     }
   };
 
@@ -116,7 +109,7 @@ export const BatchFollowups: React.FC<BatchFollowupsProps> = ({ batch, currentDa
       stepId: step.id,
       studentId,
       status,
-      scheduledFor: studentId === null && draft.when ? new Date(draft.when).toISOString() : null,
+      scheduledFor: studentId === null && draft.when ? zonedInputToIso(draft.when, timeZone) : null,
       location: studentId === null ? draft.location : null,
       notes: draft.notes,
     });
@@ -215,7 +208,7 @@ export const BatchFollowups: React.FC<BatchFollowupsProps> = ({ batch, currentDa
                 <div className="mt-2 ml-[3.25rem] space-y-2">
                   {step.description && <p className="text-xs text-stone-500">{step.description}</p>}
                   <label className="block text-[11px] text-stone-500">
-                    When
+                    When ({timeZone} time)
                     <input type="datetime-local" className={inputClass} value={draft.when}
                       onChange={(e) => setDraft((d) => ({ ...d, when: e.target.value }))} />
                   </label>
