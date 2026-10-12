@@ -201,7 +201,12 @@ by the organisation.
    lesson without code changes; a student sees a locked module open on its
    day or after finishing the previous one; the teacher sees each
    student's lesson progress.
-7. Follow-ups per programme.
+7. Follow-ups per programme: a plan of steps per programme (follow-up
+   sessions, personal follow-ups, practice reminders), each due on a day of
+   the batch. Test: a teacher adds a step without code changes; the batch
+   screen shows what is due; the teacher schedules and holds a session and
+   ticks students off with notes students never see; students see the
+   reminder and the session time in the app.
 8. Events: intro talks, registrations, attendance.
 9. CRM for volunteers: contacts, pipeline, conversion to event or
    programme registration, invites (manual and one-tap links).

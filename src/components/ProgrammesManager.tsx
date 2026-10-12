@@ -9,7 +9,8 @@ import {
   type ProgrammeInput,
 } from '../lib/programmeUtils';
 import type { Course } from '../types/database';
-import { ArrowLeft, BookOpen, Flame, Layers, Pencil, PlusCircle, RefreshCw } from 'lucide-react';
+import { ArrowLeft, BookOpen, CalendarClock, Flame, Layers, Pencil, PlusCircle, RefreshCw } from 'lucide-react';
+import { FollowupPlanEditor } from './FollowupPlanEditor';
 import { ModulesEditor } from './ModulesEditor';
 
 interface ProgrammesManagerProps {
@@ -61,6 +62,7 @@ export const ProgrammesManager: React.FC<ProgrammesManagerProps> = ({ onBack }) 
   const [formErrors, setFormErrors] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [modulesFor, setModulesFor] = useState<Course | null>(null);
+  const [followupsFor, setFollowupsFor] = useState<Course | null>(null);
 
   const loadData = async () => {
     if (!organisation.id && !isDemoMode()) return;
@@ -123,6 +125,9 @@ export const ProgrammesManager: React.FC<ProgrammesManagerProps> = ({ onBack }) 
 
   if (modulesFor) {
     return <ModulesEditor course={modulesFor} onBack={() => setModulesFor(null)} />;
+  }
+  if (followupsFor) {
+    return <FollowupPlanEditor course={followupsFor} onBack={() => setFollowupsFor(null)} />;
   }
 
   const inputClass =
@@ -247,14 +252,24 @@ export const ProgrammesManager: React.FC<ProgrammesManagerProps> = ({ onBack }) 
                 )}
               </div>
 
-              <button
-                type="button"
-                onClick={() => setModulesFor(p)}
-                className="w-full mt-1 py-2 rounded-xl border border-stone-200 dark:border-stone-700 text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <Layers className="w-3.5 h-3.5" />
-                <span>Learning modules</span>
-              </button>
+              <div className="grid grid-cols-2 gap-2 mt-1">
+                <button
+                  type="button"
+                  onClick={() => setModulesFor(p)}
+                  className="py-2 rounded-xl border border-stone-200 dark:border-stone-700 text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>Learning modules</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFollowupsFor(p)}
+                  className="py-2 rounded-xl border border-stone-200 dark:border-stone-700 text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <CalendarClock className="w-3.5 h-3.5" />
+                  <span>Follow-up plan</span>
+                </button>
+              </div>
             </div>
           ))}
         </div>

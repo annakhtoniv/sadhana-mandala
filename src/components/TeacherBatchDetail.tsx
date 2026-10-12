@@ -5,6 +5,7 @@ import { fetchBatchCheckins, calculateStreak, isStudentQuiet } from '../lib/chec
 import { formatDateDisplay, calculateDayNumber } from '../lib/dateUtils';
 import { hasPracticeTrack, programmeRunStatus, RUN_STATUS_LABEL } from '../lib/programmeUtils';
 import { fetchProgrammeModules, fetchStudentsLessonProgress } from '../lib/lmsService';
+import { BatchFollowups } from './BatchFollowups';
 import type { Batch, Enrolment, BatchInvite, Organisation, Checkin } from '../types/database';
 import {
   ArrowLeft,
@@ -304,6 +305,9 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
         </div>
       </div>
       )}
+
+      {/* Follow-ups of this batch (Phase 7) */}
+      <BatchFollowups batch={batch} currentDay={currentDay} enrolments={enrolments} timeZone={organisation.timezone} />
 
       {/* Join Code & Quick Actions */}
       <div className="bg-white dark:bg-stone-900 p-5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-4">

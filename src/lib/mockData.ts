@@ -1,4 +1,4 @@
-import type { Course, Batch, Enrolment, Checkin, Profile, Lesson, LessonModule } from '../types/database';
+import type { Course, Batch, Enrolment, Checkin, Profile, Lesson, LessonModule, FollowupStep } from '../types/database';
 
 // Compute start date so today is exactly Day 23 of 40
 const todayDate = new Date();
@@ -300,4 +300,26 @@ export const DEMO_MODULES: LessonModule[] = [
   demoModule('dm-aos-1', DEMO_COURSE_SILENCE.id, 'Preparing for silence', 10, 'always', null, [
     demoLesson('dl-5', 'What to bring', 'Sample packing list.', 3, 10),
   ]),
+];
+
+// Phase 7: sample follow-up plan for demo mode
+const demoStep = (id: string, kind: FollowupStep['kind'], title: string, day: number, description: string | null = null): FollowupStep => ({
+  id,
+  org_id: DEMO_ORG_ID,
+  course_id: DEMO_COURSE_40.id,
+  kind,
+  title,
+  description,
+  offset_day: day,
+  sort_order: day * 10,
+  is_active: true,
+  created_at: '2026-01-01T00:00:00Z',
+});
+
+export const DEMO_FOLLOWUP_STEPS: FollowupStep[] = [
+  demoStep('df-1', 'reminder', 'Your 40-day practice starts today', 1, 'Practise at the same time each day and check in here.'),
+  demoStep('df-2', 'personal', 'Check-in call: how is the practice going?', 3),
+  demoStep('df-3', 'session', 'Week 1 follow-up session', 8, 'Group practice and questions.'),
+  demoStep('df-4', 'reminder', 'Halfway there!', 21, 'Twenty days of practice done. Keep going.'),
+  demoStep('df-5', 'session', 'Monthly follow-up session', 25),
 ];

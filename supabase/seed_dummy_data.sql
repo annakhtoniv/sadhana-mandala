@@ -13,6 +13,11 @@
 --   Phase 6: placeholder learning modules for the Happiness Program (4
 --   modules: always open, day 1, day 8, after the previous one) and Art of
 --   Silence (2 modules), and lesson progress for students 1-10.
+--   Phase 7: follow-up plans for the Happiness Program (2 sessions, 2
+--   personal check-ins, 2 reminders) and Art of Silence (1 session, 1
+--   personal follow-up), with records for Autumn Awakening: day-3 calls done
+--   for students 1-20, day-15 calls for 1-10, the day-8 session held and the
+--   day-22 session held.
 -- Organisation B "Prana Flow Academy": different name and colours,
 --   show_powered_by false, 1 batch, 5 students.
 --
@@ -22,8 +27,8 @@
 -- on the morning of a demo so the batches sit on day 23 / day 2 / finished.
 --
 -- Real accounts are never deleted or changed by this script.
--- Run supabase/phase4_security.sql, supabase/phase5_programmes.sql and
--- supabase/phase6_lms.sql first,
+-- Run supabase/phase4_security.sql, supabase/phase5_programmes.sql,
+-- supabase/phase6_lms.sql and supabase/phase7_followups.sql first,
 -- and supabase/verify.sql after.
 --
 -- Expected teacher dashboard for "Autumn Awakening" (day 23 of 40):
@@ -70,6 +75,16 @@ declare
   v_mod_hp_deeper  uuid := 'f1000000-0000-0000-0000-000000000004';
   v_mod_aos_prep   uuid := 'f1000000-0000-0000-0000-000000000005';
   v_mod_aos_after  uuid := 'f1000000-0000-0000-0000-000000000006';
+
+  -- Follow-up plan steps (Phase 7)
+  v_fu_hp_rem1   uuid := 'e3000000-0000-0000-0000-000000000001';
+  v_fu_hp_call1  uuid := 'e3000000-0000-0000-0000-000000000002';
+  v_fu_hp_sess1  uuid := 'e3000000-0000-0000-0000-000000000003';
+  v_fu_hp_call2  uuid := 'e3000000-0000-0000-0000-000000000004';
+  v_fu_hp_rem2   uuid := 'e3000000-0000-0000-0000-000000000005';
+  v_fu_hp_sess2  uuid := 'e3000000-0000-0000-0000-000000000006';
+  v_fu_aos_call  uuid := 'e3000000-0000-0000-0000-000000000007';
+  v_fu_aos_sess  uuid := 'e3000000-0000-0000-0000-000000000008';
 
   v_names text[] := array[
     'Aarav Mehta', 'Maya Lin', 'Leo Dubois', 'Elena Rostova', 'Fatima Al-Mansoori',
@@ -130,6 +145,10 @@ begin
   where p.id = b.teacher_id and p.org_id in (v_org_a_id, v_org_b_id) and p.email like '%example.com';
 
   delete from public.batch_invites where org_id in (v_org_a_id, v_org_b_id) and email like '%example.com';
+  -- Seeded follow-up steps (their records cascade)
+  delete from public.followup_steps
+  where id in (v_fu_hp_rem1, v_fu_hp_call1, v_fu_hp_sess1, v_fu_hp_call2, v_fu_hp_rem2, v_fu_hp_sess2, v_fu_aos_call, v_fu_aos_sess);
+
   -- Seeded learning modules (their lessons and progress cascade)
   delete from public.lesson_modules
   where id in (v_mod_hp_before, v_mod_hp_week1, v_mod_hp_week2, v_mod_hp_deeper, v_mod_aos_prep, v_mod_aos_after);
@@ -421,6 +440,41 @@ begin
     if i <= 5 then
       insert into public.lesson_progress (org_id, student_id, lesson_id, completed_at)
       values (v_org_a_id, v_student_id, 'f2000000-0000-0000-0000-000000000003', (v_today_a - 20)::timestamptz + time '08:00');
+    end if;
+  end loop;
+
+  -- --------------------------------------------------------------------------
+  -- Follow-up plans (Phase 7, placeholder wording)
+  -- --------------------------------------------------------------------------
+  insert into public.followup_steps (id, org_id, course_id, kind, title, description, offset_day, sort_order, created_by) values
+    (v_fu_hp_rem1,  v_org_a_id, v_course_a_id, 'reminder', 'Your 40-day practice starts today',
+     'Practise at the same time each day and check in here.', 1, 10, v_teacher_a1_id),
+    (v_fu_hp_call1, v_org_a_id, v_course_a_id, 'personal', 'Check-in call: how is the practice going?',
+     'A short call or message to every student.', 3, 20, v_teacher_a1_id),
+    (v_fu_hp_sess1, v_org_a_id, v_course_a_id, 'session', 'Week 1 follow-up session',
+     'Group practice and questions.', 8, 30, v_teacher_a1_id),
+    (v_fu_hp_call2, v_org_a_id, v_course_a_id, 'personal', 'Second check-in', null, 15, 40, v_teacher_a1_id),
+    (v_fu_hp_rem2,  v_org_a_id, v_course_a_id, 'reminder', 'Halfway there!',
+     'Twenty days of practice done. Keep going.', 21, 50, v_teacher_a1_id),
+    (v_fu_hp_sess2, v_org_a_id, v_course_a_id, 'session', 'Monthly follow-up session', null, 22, 60, v_teacher_a1_id),
+    (v_fu_aos_call, v_org_a_id, v_prog_silence_id, 'personal', 'How are you settling back in?', null, 4, 10, v_teacher_a2_id),
+    (v_fu_aos_sess, v_org_a_id, v_prog_silence_id, 'session', 'Silence follow-up satsang', null, 10, 20, v_teacher_a2_id);
+
+  -- Autumn Awakening (day 23): both sessions held, day-3 calls for 1-20, day-15 calls for 1-10
+  insert into public.followup_records (org_id, batch_id, step_id, student_id, status, scheduled_for, location, notes, updated_by) values
+    (v_org_a_id, v_batch_day23_id, v_fu_hp_sess1, null, 'done',
+     (v_today_a - 15)::timestamptz + time '19:00', 'Community centre, room 2', '22 students came.', v_teacher_a1_id),
+    (v_org_a_id, v_batch_day23_id, v_fu_hp_sess2, null, 'done',
+     (v_today_a - 1)::timestamptz + time '19:00', 'Online (video call)', null, v_teacher_a1_id);
+
+  for i in 1..20 loop
+    v_student_id := ('d0000000-0000-0000-0000-' || lpad(i::text, 12, '0'))::uuid;
+    insert into public.followup_records (org_id, batch_id, step_id, student_id, status, notes, updated_by)
+    values (v_org_a_id, v_batch_day23_id, v_fu_hp_call1, v_student_id, 'done',
+            case when i = 2 then 'Finding mornings hard; suggested an evening slot.' end, v_teacher_a1_id);
+    if i <= 10 then
+      insert into public.followup_records (org_id, batch_id, step_id, student_id, status, updated_by)
+      values (v_org_a_id, v_batch_day23_id, v_fu_hp_call2, v_student_id, 'done', v_teacher_a1_id);
     end if;
   end loop;
 end;
