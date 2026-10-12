@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { ProgrammesManager } from './ProgrammesManager';
-import { supabase } from '../lib/supabase';
+import { BatchSharePanel } from './BatchSharePanel';
+import { supabase, isDemoMode } from '../lib/supabase';
+import { FunnelReportPanel } from './FunnelReportPanel';
+import { ROLE_LABEL } from '../lib/roles';
 import {
   fetchCourses,
   fetchTeacherBatches,
@@ -20,7 +23,6 @@ import {
   getTodayInTimezone,
 } from '../lib/dateUtils';
 import type { Profile, RoleGrant, UserRole, Course, Batch } from '../types/database';
-import { QRCodeSVG } from 'qrcode.react';
 import {
   UserPlus,
   Settings,
@@ -38,12 +40,12 @@ import {
   ArrowRight,
   Search,
   X,
-  Zap,
+  BarChart3,
 } from 'lucide-react';
 
 export const AdminHome: React.FC = () => {
   const { organisation, profile: currentProfile } = useAuth();
-  const [activeTab, setActiveTab] = useState<'batches' | 'users' | 'courses' | 'system'>('batches');
+  const [activeTab, setActiveTab] = useState<'batches' | 'users' | 'courses' | 'reports' | 'system'>('batches');
 
   // Loading & general status
   const [loading, setLoading] = useState(false);
@@ -88,39 +90,34 @@ export const AdminHome: React.FC = () => {
         fetchTeacherBatches('', true),
       ]);
 
-      const adminUser: Profile = {
-        ...(currentProfile || DEMO_TEACHER_PROFILE),
-        email: 'annakhtoniv@gmail.com',
-        full_name: 'Vinoth Rajaasekaran',
-        role: 'admin',
-      };
-
-      if (profsRes.data && profsRes.data.length > 0) {
-        const rawProfs = profsRes.data as Profile[];
-        const filtered = rawProfs.filter(
-          (p) => p.email?.toLowerCase() !== 'annakhtoniv@gmail.com' && p.id !== adminUser.id
-        );
-        setProfiles([adminUser, ...filtered]);
+      // Sample data only in the 1-click demo; a real sign-in shows the database or an error
+      if (isDemoMode()) {
+        setProfiles([currentProfile || DEMO_TEACHER_PROFILE, ...DEMO_ROSTER_STUDENTS]);
       } else {
-        setProfiles([
-          adminUser,
-          ...DEMO_ROSTER_STUDENTS,
-        ]);
+        if (profsRes.error) throw new Error(profsRes.error.message);
+        const list = (profsRes.data as Profile[]) || [];
+        // You first, then by role and name
+        const rank: Record<UserRole, number> = { admin: 0, teacher: 1, volunteer: 2, student: 3 };
+        list.sort((a, b) =>
+          a.id === currentProfile?.id ? -1 : b.id === currentProfile?.id ? 1
+            : rank[a.role] - rank[b.role] || (a.full_name || a.email).localeCompare(b.full_name || b.email)
+        );
+        setProfiles(list);
       }
 
-      const safeCourses = courseList.length > 0 ? courseList : [DEMO_COURSE_40, DEMO_COURSE_21];
+      const safeCourses = courseList.length > 0 || !isDemoMode() ? courseList : [DEMO_COURSE_40, DEMO_COURSE_21];
       if (grantsRes.data) setRoleGrants(grantsRes.data as RoleGrant[]);
       setCourses(safeCourses);
       setAllBatches(batchList);
 
-      if (!batchCourseId) {
+      if (!batchCourseId && safeCourses[0]) {
         setBatchCourseId(safeCourses[0].id);
       }
       if (!batchStartDate) {
         setBatchStartDate(getTodayInTimezone(organisation.timezone));
       }
       if (!batchTeacherId) {
-        setBatchTeacherId(adminUser.id);
+        setBatchTeacherId(currentProfile?.id || DEMO_TEACHER_PROFILE.id);
       }
     } catch (err) {
       setStatusMessage(`Could not load data: ${err instanceof Error ? err.message : 'unknown error'}`);
@@ -244,8 +241,9 @@ export const AdminHome: React.FC = () => {
   };
 
   // Metrics for Sanctuary KPI Grid
-  const studentCount = profiles.filter((p) => p.role === 'student').length || DEMO_ROSTER_STUDENTS.length;
-  const teacherCount = profiles.filter((p) => p.role === 'teacher' || p.role === 'admin').length || 2;
+  const studentCount = profiles.filter((p) => p.role === 'student' || p.role === 'volunteer').length;
+  const teacherCount = profiles.filter((p) => p.role === 'teacher' || p.role === 'admin').length;
+  const volunteerCount = profiles.filter((p) => p.role === 'volunteer').length;
   const filteredBatches = allBatches.filter((b) =>
     b.name.toLowerCase().includes(batchSearch.toLowerCase()) ||
     b.join_code.toLowerCase().includes(batchSearch.toLowerCase()) ||
@@ -419,7 +417,7 @@ export const AdminHome: React.FC = () => {
             {allBatches.length}
           </div>
           <div className="text-[10px] text-[#8e6724] dark:text-[#e8b98a] font-semibold">
-            {allBatches.length > 0 ? 'Live in Dubai TZ' : 'Ready to create'}
+            {allBatches.length > 0 ? organisation.timezone : 'Ready to create'}
           </div>
         </div>
 
@@ -446,19 +444,18 @@ export const AdminHome: React.FC = () => {
           <div className="font-serif text-2xl font-bold text-[#17495e] dark:text-[#f2ede4]">
             {teacherCount}
           </div>
-          <div className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1">
-            <Zap className="w-3 h-3 fill-current" />
-            <span>2 quiet students flagged</span>
+          <div className="text-[10px] text-[#717e7a] dark:text-[#90a2ad]">
+            {volunteerCount} volunteer{volunteerCount === 1 ? '' : 's'}
           </div>
         </div>
       </div>
 
       {/* 4. HUMAN 2.0 SEGMENTED TAB PILLS */}
-      <div className="p-1.5 bg-white dark:bg-[#121e25] rounded-2xl border border-[#e6dccb] dark:border-[#1d2e38] shadow-xs flex gap-1">
+      <div className="p-1.5 bg-white dark:bg-[#121e25] rounded-2xl border border-[#e6dccb] dark:border-[#1d2e38] shadow-xs flex gap-1 overflow-x-auto">
         <button
           type="button"
           onClick={() => setActiveTab('batches')}
-          className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+          className={`flex-1 shrink-0 whitespace-nowrap px-2.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
             activeTab === 'batches'
               ? 'bg-[#17495e] dark:bg-[#e8b98a] text-white dark:text-[#0b1317] shadow-xs'
               : 'text-[#717e7a] dark:text-[#90a2ad] hover:text-[#17495e] dark:hover:text-[#e8b98a]'
@@ -471,20 +468,20 @@ export const AdminHome: React.FC = () => {
         <button
           type="button"
           onClick={() => setActiveTab('users')}
-          className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+          className={`flex-1 shrink-0 whitespace-nowrap px-2.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
             activeTab === 'users'
               ? 'bg-[#17495e] dark:bg-[#e8b98a] text-white dark:text-[#0b1317] shadow-xs'
               : 'text-[#717e7a] dark:text-[#90a2ad] hover:text-[#17495e] dark:hover:text-[#e8b98a]'
           }`}
         >
           <Users className="w-3.5 h-3.5" />
-          <span>Users & Roles ({profiles.length})</span>
+          <span>People ({profiles.length})</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('courses')}
-          className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+          className={`flex-1 shrink-0 whitespace-nowrap px-2.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
             activeTab === 'courses'
               ? 'bg-[#17495e] dark:bg-[#e8b98a] text-white dark:text-[#0b1317] shadow-xs'
               : 'text-[#717e7a] dark:text-[#90a2ad] hover:text-[#17495e] dark:hover:text-[#e8b98a]'
@@ -496,8 +493,21 @@ export const AdminHome: React.FC = () => {
 
         <button
           type="button"
+          onClick={() => setActiveTab('reports')}
+          className={`flex-1 shrink-0 whitespace-nowrap px-2.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+            activeTab === 'reports'
+              ? 'bg-[#17495e] dark:bg-[#e8b98a] text-white dark:text-[#0b1317] shadow-xs'
+              : 'text-[#717e7a] dark:text-[#90a2ad] hover:text-[#17495e] dark:hover:text-[#e8b98a]'
+          }`}
+        >
+          <BarChart3 className="w-3.5 h-3.5" />
+          <span>Reports</span>
+        </button>
+
+        <button
+          type="button"
           onClick={() => setActiveTab('system')}
-          className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+          className={`flex-1 shrink-0 whitespace-nowrap px-2.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
             activeTab === 'system'
               ? 'bg-[#17495e] dark:bg-[#e8b98a] text-white dark:text-[#0b1317] shadow-xs'
               : 'text-[#717e7a] dark:text-[#90a2ad] hover:text-[#17495e] dark:hover:text-[#e8b98a]'
@@ -660,7 +670,7 @@ export const AdminHome: React.FC = () => {
               </h2>
             </div>
             <p className="text-xs text-[#717e7a] dark:text-[#90a2ad]">
-              Assign teacher or admin rights to any email in advance. When the user signs in with Google, their elevated role is automatically activated.
+              Give a teacher, volunteer or admin role to an email in advance. When the person signs in with Google, the role is active at once. Volunteers use the Leads screen for their own leads.
             </p>
 
             <form onSubmit={handleAddRoleGrant} className="space-y-3">
@@ -682,9 +692,10 @@ export const AdminHome: React.FC = () => {
                     onChange={(e) => setNewRole(e.target.value as UserRole)}
                     className="w-full px-3.5 py-2.5 rounded-2xl border border-[#e6dccb] dark:border-[#1d2e38] bg-[#f7f3ec] dark:bg-[#0e161b] text-xs text-[#1f2a28] dark:text-[#f2ede4] focus:outline-none cursor-pointer"
                   >
-                    <option value="teacher">Teacher (Cohorts)</option>
-                    <option value="admin">Admin (Executive)</option>
-                    <option value="student">Student (Practitioner)</option>
+                    <option value="teacher">Teacher (batches)</option>
+                    <option value="volunteer">Volunteer (leads)</option>
+                    <option value="admin">Admin (everything)</option>
+                    <option value="student">Student</option>
                   </select>
                 </div>
               </div>
@@ -790,12 +801,14 @@ export const AdminHome: React.FC = () => {
                             ? 'bg-[#d9a44a]/15 text-[#8e6724] dark:text-[#e8b98a] border-[#d9a44a]/40'
                             : p.role === 'teacher'
                             ? 'bg-[#3ba2c7]/15 text-[#17495e] dark:text-[#3ba2c7] border-[#3ba2c7]/40'
+                            : p.role === 'volunteer'
+                            ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-emerald-300/50'
                             : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-700'
                         }`}
                       >
-                        <option value="student">Student</option>
-                        <option value="teacher">Teacher</option>
-                        <option value="admin">Admin</option>
+                        {(['student', 'volunteer', 'teacher', 'admin'] as UserRole[]).map((r) => (
+                          <option key={r} value={r}>{ROLE_LABEL[r]}</option>
+                        ))}
                       </select>
                     </div>
                   </div>
@@ -808,6 +821,9 @@ export const AdminHome: React.FC = () => {
 
       {/* 7. TAB CONTENT: COURSE CURRICULA */}
       {activeTab === 'courses' && <ProgrammesManager />}
+
+      {/* Phase 10: funnel report */}
+      {activeTab === 'reports' && <FunnelReportPanel />}
 
       {/* 8. TAB CONTENT: SYSTEM & GOVERNANCE PARAMETERS */}
       {activeTab === 'system' && (
@@ -930,20 +946,14 @@ export const AdminHome: React.FC = () => {
                   onChange={(e) => setBatchTeacherId(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-2xl border border-[#e6dccb] dark:border-[#1d2e38] bg-[#f7f3ec] dark:bg-[#121e25] text-xs text-[#1f2a28] dark:text-[#f2ede4] focus:outline-none cursor-pointer"
                 >
-                  <option value={currentProfile?.id || DEMO_TEACHER_PROFILE.id}>
-                    Vinoth Rajaasekaran (annakhtoniv@gmail.com) [Admin]
-                  </option>
+                  {isDemoMode() && (
+                    <option value={DEMO_TEACHER_PROFILE.id}>{DEMO_TEACHER_PROFILE.full_name} (admin)</option>
+                  )}
                   {profiles
-                    .filter(
-                      (p) =>
-                        (p.role === 'teacher' || p.role === 'admin') &&
-                        p.email?.toLowerCase() !== 'annakhtoniv@gmail.com' &&
-                        p.id !== currentProfile?.id &&
-                        p.id !== DEMO_TEACHER_PROFILE.id
-                    )
+                    .filter((p) => (p.role === 'teacher' || p.role === 'admin') && !(isDemoMode() && p.id === DEMO_TEACHER_PROFILE.id))
                     .map((t) => (
                       <option key={t.id} value={t.id}>
-                        {t.full_name || t.email} ({t.role})
+                        {t.full_name || t.email} ({t.role}){t.id === currentProfile?.id ? ' - you' : ''}
                       </option>
                     ))}
                 </select>
@@ -1026,51 +1036,16 @@ export const AdminHome: React.FC = () => {
               {qrBatch.name}
             </h3>
 
-            {/* QR Code Canvas */}
-            <div className="p-4 bg-white rounded-2xl inline-block shadow-inner mx-auto border border-stone-200">
-              <QRCodeSVG
-                value={
-                  typeof window !== 'undefined'
-                    ? `${window.location.origin}/?join=${qrBatch.join_code}`
-                    : `https://sadhana.zyxenai.com/?join=${qrBatch.join_code}`
-                }
-                size={180}
-                level="M"
+            <p className="text-xs text-[#717e7a] dark:text-[#90a2ad]">{qrBatch.course?.name}</p>
+
+            <div className="text-left">
+              <BatchSharePanel
+                batchName={qrBatch.name}
+                courseName={qrBatch.course?.name || ''}
+                joinCode={qrBatch.join_code}
+                appName={organisation.app_name}
               />
             </div>
-
-            <div className="space-y-1">
-              <span className="text-xs text-[#717e7a] dark:text-[#90a2ad]">Direct Join Code</span>
-              <div className="text-2xl font-mono font-bold tracking-widest text-[#17495e] dark:text-[#e8b98a]">
-                {qrBatch.join_code}
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                const url =
-                  typeof window !== 'undefined'
-                    ? `${window.location.origin}/?join=${qrBatch.join_code}`
-                    : `https://sadhana.zyxenai.com/?join=${qrBatch.join_code}`;
-                navigator.clipboard.writeText(url);
-                setCopiedCode(qrBatch.join_code);
-                setTimeout(() => setCopiedCode(null), 2500);
-              }}
-              className="w-full py-2.5 rounded-2xl bg-[#e8b98a] text-[#0b1317] font-bold text-xs shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              {copiedCode === qrBatch.join_code ? (
-                <>
-                  <Check className="w-4 h-4 text-[#4ba377]" />
-                  <span>Link Copied to Clipboard</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="w-4 h-4" />
-                  <span>Copy Onboarding Link</span>
-                </>
-              )}
-            </button>
           </div>
         </div>
       )}

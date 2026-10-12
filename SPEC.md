@@ -184,6 +184,30 @@ venue or online link, capacity, registration and attendance (QR check-in).
   links, (c) automatic sending, which needs a paid email or WhatsApp
   provider and comes last.
 
+- Volunteers see and manage only the leads they own; admins and teachers see
+  all leads, assign owners and see the reports. Each lead records whether
+  the person agreed to be contacted and whether they opted out; the app shows
+  no message buttons for people who opted out.
+- The stage moves forward by itself: attending an event -> Attended,
+  enrolling in a batch -> Registered. A lead who signs up with the same email
+  is linked to their account.
+
+### Batch QR join
+A batch QR code (or its link) opens the app with ?code=JOINCODE. A person
+with no account and no link beforehand scans it, sees which batch they are
+joining on the sign-in page, signs in with Google and is enrolled
+automatically. The code is kept on the device across the Google sign-in for
+up to a day. Teachers and admins can share the link (share sheet, WhatsApp,
+copy) or download a printable QR poster.
+
+### Reports (Phase 10)
+Funnel for admins and teachers: leads -> invited to an intro talk ->
+attended -> interested -> registered -> completed (each lead counted at the
+furthest stage it reached), and per programme with a practice track:
+enrolled -> practice period over -> completed the practice ("done" on at
+least 80% of its days) -> went on to a next programme. Per source and per
+volunteer. All time or the last 90 or 30 days.
+
 ### Data
 Dummy data only until the first real group. Before real people's data is
 added (especially CRM contacts who have not signed up), add a consent and
@@ -213,7 +237,12 @@ by the organisation.
    scanning the event's check-in QR at the event marks the member attended;
    members never see other attendees or the check-in code.
 9. CRM for volunteers: contacts, pipeline, conversion to event or
-   programme registration, invites (manual and one-tap links).
+   programme registration, invites (manual and one-tap links), and the
+   batch QR join for new students. Test: a volunteer sees only their own
+   leads; inviting a lead to an intro talk puts them on its guest list and
+   marking them attended moves the lead; registering a lead for a batch
+   enrols them when they sign in; scanning a batch QR, signing in with
+   Google enrols a brand-new student.
 10. Admin screens, funnel reports (leads, intro talk, Happiness Program,
     Sadhana completed, next programme), automatic invites, PWA install and
     final polish (replaces the old phases 6 and 7).

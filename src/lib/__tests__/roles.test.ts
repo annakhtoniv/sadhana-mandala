@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { allowedRoleViews } from '../roles';
+import { allowedRoleViews, canUseCrm, defaultRoleView, isStaffRole } from '../roles';
 
 describe('allowedRoleViews', () => {
   it('lets a student see only the student view', () => {
@@ -12,5 +12,21 @@ describe('allowedRoleViews', () => {
 
   it('lets an admin see every view', () => {
     expect(allowedRoleViews('admin')).toEqual(['student', 'teacher', 'admin']);
+  });
+});
+
+describe('volunteer role', () => {
+  it('uses the student home and the CRM, but not staff tools', () => {
+    expect(allowedRoleViews('volunteer')).toEqual(['student']);
+    expect(defaultRoleView('volunteer')).toBe('student');
+    expect(canUseCrm('volunteer')).toBe(true);
+    expect(isStaffRole('volunteer')).toBe(false);
+  });
+
+  it('keeps students out of the CRM', () => {
+    expect(canUseCrm('student')).toBe(false);
+    expect(canUseCrm(null)).toBe(false);
+    expect(canUseCrm('teacher')).toBe(true);
+    expect(defaultRoleView('admin')).toBe('admin');
   });
 });

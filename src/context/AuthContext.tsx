@@ -6,7 +6,8 @@ import { claimUserInvites, fetchUserEnrolments, joinBatchByCode } from '../lib/b
 import { pickDefaultEnrolment } from '../lib/programmeUtils';
 import { checkInToEvent } from '../lib/eventService';
 import { DEMO_TEACHER_PROFILE } from '../lib/mockData';
-import { allowedRoleViews } from '../lib/roles';
+import { PENDING_CHECKIN_KEY, PENDING_JOIN_KEY, readLinkParams, savePending, takePending } from '../lib/joinLink';
+import { allowedRoleViews, defaultRoleView } from '../lib/roles';
 import type { Organisation, Profile, UserRole, Enrolment } from '../types/database';
 
 interface AuthContextType {
@@ -38,20 +39,16 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// A batch QR code opens the app with ?code=JOINCODE. Keep the code across the
-// Google sign-in redirect and join the batch once the user is signed in.
-const PENDING_JOIN_KEY = 'sadhana_pending_join_code';
-// An event check-in QR opens the app with ?event=CHECKINCODE (Phase 8)
-const PENDING_CHECKIN_KEY = 'sadhana_pending_event_checkin';
+// A batch QR code opens the app with ?code=JOINCODE (older ones: ?join=), an
+// event check-in QR with ?event=CHECKINCODE (Phase 8). Keep the code on the
+// device across the Google sign-in redirect and use it once signed in.
 // The programme a student last opened on this device
 const SELECTED_ENROLMENT_KEY = 'sadhana_selected_enrolment';
 try {
-  const params = new URLSearchParams(window.location.search);
-  const codeFromUrl = params.get('code');
-  const eventFromUrl = params.get('event');
-  if (codeFromUrl) sessionStorage.setItem(PENDING_JOIN_KEY, codeFromUrl.trim().toUpperCase());
-  if (eventFromUrl) sessionStorage.setItem(PENDING_CHECKIN_KEY, eventFromUrl.trim().toUpperCase());
-  if (codeFromUrl || eventFromUrl) window.history.replaceState(null, '', window.location.pathname);
+  const { joinCode, eventCode } = readLinkParams(window.location.search);
+  if (joinCode) savePending(PENDING_JOIN_KEY, joinCode);
+  if (eventCode) savePending(PENDING_CHECKIN_KEY, eventCode);
+  if (joinCode || eventCode) window.history.replaceState(null, '', window.location.pathname);
 } catch {
   // ignore (non-browser environment)
 }
@@ -93,7 +90,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const applyRole = (actualRole: UserRole) => {
     const savedView = localStorage.getItem('sadhana_active_role') as UserRole | null;
-    const view = savedView && allowedRoleViews(actualRole).includes(savedView) ? savedView : actualRole;
+    const view = savedView && allowedRoleViews(actualRole).includes(savedView) ? savedView : defaultRoleView(actualRole);
     setActiveRoleState(view);
     localStorage.setItem('sadhana_active_role', view);
   };
@@ -141,20 +138,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         applyRole('student');
       }
 
-      const pendingCode = sessionStorage.getItem(PENDING_JOIN_KEY);
+      // Batch QR: enrol the person in the scanned batch
+      let joinedId: string | null = null;
+      const pendingCode = takePending(PENDING_JOIN_KEY);
       if (pendingCode) {
-        sessionStorage.removeItem(PENDING_JOIN_KEY);
         const res = await joinBatchByCode(pendingCode);
-        if (!res.success) {
-          console.warn('Join from QR code failed:', res.message);
+        if (res.success) {
+          joinedId = res.data?.enrolment_id || null;
+          if (joinedId) localStorage.setItem(SELECTED_ENROLMENT_KEY, joinedId);
+          setNotice({
+            tone: 'success',
+            text: `Welcome! You have joined ${res.data?.batch_name ? `"${res.data.batch_name}"` : 'the batch'}.`,
+          });
+        } else {
+          setNotice({
+            tone: 'error',
+            text: `We could not add you to the batch (${res.message || 'unknown error'}). Please ask your teacher for the join code.`,
+          });
         }
       }
 
-      await loadEnrolmentForUser(currentUser.id);
+      await loadEnrolmentForUser(currentUser.id, joinedId);
 
-      const pendingCheckin = sessionStorage.getItem(PENDING_CHECKIN_KEY);
+      const pendingCheckin = takePending(PENDING_CHECKIN_KEY);
       if (pendingCheckin) {
-        sessionStorage.removeItem(PENDING_CHECKIN_KEY);
         const res = await checkInToEvent(pendingCheckin);
         setNotice(
           res.success

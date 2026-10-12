@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { InstallAppCard } from './InstallAppCard';
+import { ROLE_LABEL } from '../lib/roles';
 import { User, Shield, CheckCircle2, AlertOctagon, LogOut, Trash2, ArrowLeft, Crown, GraduationCap } from 'lucide-react';
 
 interface ProfileScreenProps {
@@ -60,8 +62,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
             <span className="text-[10px] text-stone-400 uppercase tracking-wider block font-semibold">
               Role
             </span>
-            <span className="text-xs font-medium capitalize text-stone-800 dark:text-stone-200 mt-0.5 block">
-              {role}
+            <span className="text-xs font-medium text-stone-800 dark:text-stone-200 mt-0.5 block">
+              {ROLE_LABEL[role] || role}
             </span>
           </div>
 
@@ -108,6 +110,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
         </div>
         )}
       </div>
+
+      <InstallAppCard appName={organisation.app_name} />
 
       {/* Consent & Privacy Status */}
       <div className="bg-white dark:bg-stone-900 p-5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-3">

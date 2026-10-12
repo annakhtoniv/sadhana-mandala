@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
-import { allowedRoleViews } from '../lib/roles';
-import { Sparkles, User, HelpCircle, CalendarDays } from 'lucide-react';
+import { allowedRoleViews, canUseCrm } from '../lib/roles';
+import { Sparkles, User, HelpCircle, CalendarDays, Contact } from 'lucide-react';
 import type { UserRole } from '../types/database';
 
 interface HeaderProps {
@@ -22,6 +22,8 @@ export const Header: React.FC<HeaderProps> = ({
   const { organisation, user, activeRole, profile } = useAuth();
   const roleViews = allowedRoleViews(profile?.role ?? 'student');
   const currentRole = activeRoleView || activeRole;
+  // Leads (CRM): volunteers always; teachers and admins outside the Student preview
+  const showLeads = canUseCrm(profile?.role) && (profile?.role === 'volunteer' || currentRole !== 'student');
 
   return (
     <header className="w-full border-b border-stone-200 dark:border-stone-800 bg-white/80 dark:bg-stone-900/80 backdrop-blur sticky top-0 z-20">
@@ -84,6 +86,22 @@ export const Header: React.FC<HeaderProps> = ({
                 title="Guided Tour & Tooltips (Where to click & why)"
               >
                 <HelpCircle className="w-4 h-4" />
+              </button>
+            )}
+
+            {showLeads && (
+              <button
+                type="button"
+                onClick={() => onNavigate('leads')}
+                className={`p-2 rounded-xl transition-colors cursor-pointer ${
+                  currentTab === 'leads'
+                    ? 'bg-stone-200 dark:bg-stone-800 text-stone-900 dark:text-stone-100'
+                    : 'text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800'
+                }`}
+                title="Leads"
+                aria-label="Leads"
+              >
+                <Contact className="w-4 h-4" />
               </button>
             )}
 

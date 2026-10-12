@@ -1,4 +1,4 @@
-export type UserRole = 'student' | 'teacher' | 'admin';
+export type UserRole = 'student' | 'volunteer' | 'teacher' | 'admin';
 
 export interface Organisation {
   id: string;
@@ -241,5 +241,88 @@ export interface EventRegistration {
   status: RegistrationStatus;
   checked_in_at: string | null;
   created_at: string;
+  /** Phase 9: the CRM lead this registration was made for */
+  contact_id?: string | null;
   profile?: Pick<Profile, 'id' | 'full_name' | 'email'> | null;
+}
+
+export type CrmStage = 'new' | 'invited' | 'attended' | 'interested' | 'registered' | 'completed' | 'lost';
+export type CrmSource = 'friend' | 'walk_in' | 'social' | 'event' | 'website' | 'other';
+export type CrmActivityKind = 'note' | 'call' | 'whatsapp' | 'email' | 'meeting' | 'stage';
+
+/** Phase 9: a lead (a person who may not have an account yet) */
+export interface CrmContact {
+  id: string;
+  org_id: string;
+  full_name: string;
+  email: string | null;
+  phone: string | null;
+  source: CrmSource;
+  stage: CrmStage;
+  furthest_stage: Exclude<CrmStage, 'lost'>;
+  interest_course_id: string | null;
+  owner_id: string | null;
+  profile_id: string | null;
+  /** When the person agreed to be contacted (PDPL) */
+  consent_at: string | null;
+  opted_out: boolean;
+  next_action_on: string | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Phase 9: a note, call, message or stage change on a lead */
+export interface CrmActivity {
+  id: string;
+  org_id: string;
+  contact_id: string;
+  kind: CrmActivityKind;
+  body: string;
+  created_by: string | null;
+  created_at: string;
+}
+
+/** Phase 9: someone who can own leads */
+export interface CrmOwner {
+  id: string;
+  full_name: string | null;
+  email: string;
+  role: UserRole;
+}
+
+/** Phase 10: funnel report (crm_funnel_report) */
+export interface FunnelReport {
+  since: string | null;
+  leads: {
+    total: number;
+    invited: number;
+    attended: number;
+    interested: number;
+    registered: number;
+    completed: number;
+    lost: number;
+    signed_up: number;
+  };
+  sources: { source: CrmSource; leads: number; registered: number }[];
+  owners: { owner_id: string | null; name: string; leads: number; registered: number }[];
+  journey: {
+    course_id: string;
+    course_name: string;
+    practice_days: number;
+    enrolled: number;
+    track_over: number;
+    completed: number;
+    next_programme: number;
+  }[];
+}
+
+/** Batch QR: what the sign-in page shows before sign-in (batch_join_preview) */
+export interface BatchJoinPreview {
+  batch_name: string;
+  course_name: string;
+  start_date: string;
+  org_name: string;
+  org_slug: string;
 }
