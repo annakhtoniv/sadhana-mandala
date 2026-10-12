@@ -197,7 +197,10 @@ by the organisation.
    code changes; a student in three programmes sees all three; only the
    Happiness Program has the 40-day check-in.
 6. LMS: modules and lessons per programme, progress per student
-   (replaces the old "Lessons" phase).
+   (replaces the old "Lessons" phase). Test: a teacher adds a module and a
+   lesson without code changes; a student sees a locked module open on its
+   day or after finishing the previous one; the teacher sees each
+   student's lesson progress.
 7. Follow-ups per programme.
 8. Events: intro talks, registrations, attendance.
 9. CRM for volunteers: contacts, pipeline, conversion to event or

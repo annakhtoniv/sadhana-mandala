@@ -126,4 +126,36 @@ export interface Lesson {
   author_id?: string | null;
   created_at: string;
   updated_at: string;
+  /** Phase 6: the learning module this lesson belongs to (scope 'course') */
+  module_id?: string | null;
+  sort_order?: number;
+  estimated_minutes?: number | null;
+}
+
+export type ModuleUnlockRule = 'always' | 'day' | 'sequential';
+
+/** Phase 6: a learning module of a programme */
+export interface LessonModule {
+  id: string;
+  org_id: string;
+  course_id: string;
+  title: string;
+  description: string | null;
+  sort_order: number;
+  unlock_rule: ModuleUnlockRule;
+  unlock_day: number | null;
+  published: boolean;
+  created_at: string;
+  updated_at?: string;
+  /** Lessons of the module, in display order (filled in by the service) */
+  lessons?: Lesson[];
+}
+
+/** Phase 6: one completed lesson of a student */
+export interface LessonProgress {
+  id: string;
+  org_id: string;
+  student_id: string;
+  lesson_id: string;
+  completed_at: string;
 }

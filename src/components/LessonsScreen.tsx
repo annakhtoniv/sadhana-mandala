@@ -24,6 +24,8 @@ export const LessonsScreen: React.FC<LessonsScreenProps> = ({ onBack }) => {
           .select('*')
           .eq('org_id', organisation.id)
           .eq('published', true)
+          // Module lessons live in each programme's Learning section (Phase 6)
+          .is('module_id', null)
           .order('day_number', { ascending: true, nullsFirst: false });
 
         if (error) {

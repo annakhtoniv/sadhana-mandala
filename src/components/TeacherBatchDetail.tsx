@@ -4,6 +4,7 @@ import { fetchBatchEnrolments, fetchBatchInvites, addBatchInvites } from '../lib
 import { fetchBatchCheckins, calculateStreak, isStudentQuiet } from '../lib/checkinService';
 import { formatDateDisplay, calculateDayNumber } from '../lib/dateUtils';
 import { hasPracticeTrack, programmeRunStatus, RUN_STATUS_LABEL } from '../lib/programmeUtils';
+import { fetchProgrammeModules, fetchStudentsLessonProgress } from '../lib/lmsService';
 import type { Batch, Enrolment, BatchInvite, Organisation, Checkin } from '../types/database';
 import {
   ArrowLeft,
@@ -50,6 +51,9 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
   const [batchCheckins, setBatchCheckins] = useState<Checkin[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Phase 6: published lesson ids of this programme, and lessons completed per student
+  const [lessonIds, setLessonIds] = useState<string[]>([]);
+  const [lessonProgress, setLessonProgress] = useState<Map<string, Set<string>>>(new Map());
 
   // Invite modal state
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -85,6 +89,20 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
       setEnrolments(enrList);
       setInvites(invList);
       setBatchCheckins(checkinList);
+
+      // Learning progress is extra information: a failure here must not hide the roster
+      try {
+        const [modules, progress] = await Promise.all([
+          fetchProgrammeModules(batch.course_id),
+          fetchStudentsLessonProgress(enrList.map((e) => e.student_id)),
+        ]);
+        setLessonIds(
+          modules.filter((m) => m.published).flatMap((m) => (m.lessons || []).filter((l) => l.published).map((l) => l.id))
+        );
+        setLessonProgress(progress);
+      } catch (err) {
+        console.warn('Could not load lesson progress:', err);
+      }
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'Could not load this batch');
     } finally {
@@ -384,6 +402,11 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
                     )}
                   </div>
                   <div className="text-[11px] text-stone-500 truncate">{enr.student?.email}</div>
+                  {lessonIds.length > 0 && (
+                    <div className="text-[10px] text-stone-400">
+                      Lessons: {lessonIds.filter((id) => lessonProgress.get(enr.student_id)?.has(id)).length} of {lessonIds.length}
+                    </div>
+                  )}
                   {practice && (
                   <div className="text-[10px] text-stone-400 flex items-center gap-1.5 pt-0.5">
                     <span>
