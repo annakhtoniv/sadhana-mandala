@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { fetchMaterials, formatBytes, materialUrl } from '../lib/materialsService';
 import type { Course, MaterialKind, ProgrammeMaterial } from '../types/database';
+import { useT, type MsgKey } from '../i18n';
 import { ExternalLink, FileAudio, FileImage, FileText, FileVideo, Folder, Link2, Loader2, Paperclip } from 'lucide-react';
 
 const ICONS: Record<MaterialKind, { icon: React.ElementType; tone: string }> = {
@@ -23,6 +24,7 @@ export const MaterialIcon: React.FC<{ kind: MaterialKind }> = ({ kind }) => {
 
 /** Study materials of the student's programme: tap to open, audio and video play here. */
 export const ProgrammeMaterials: React.FC<{ course: Course }> = ({ course }) => {
+  const t = useT();
   const [items, setItems] = useState<ProgrammeMaterial[]>([]);
   const [playing, setPlaying] = useState<{ id: string; url: string } | null>(null);
   const [opening, setOpening] = useState<string | null>(null);
@@ -48,7 +50,7 @@ export const ProgrammeMaterials: React.FC<{ course: Course }> = ({ course }) => 
       const url = await materialUrl(m);
       setOpening(null);
       if (url) setPlaying({ id: m.id, url });
-      else setError('This file could not be opened. Please tell your teacher.');
+      else setError(t('materials.openFailed'));
       return;
     }
     // Open the tab first (phones block pop-ups opened after a wait), then point it at the file
@@ -62,7 +64,7 @@ export const ProgrammeMaterials: React.FC<{ course: Course }> = ({ course }) => 
     }
     else {
       tab?.close();
-      setError('This file could not be opened. Please tell your teacher.');
+      setError(t('materials.openFailed'));
     }
   };
 
@@ -70,7 +72,7 @@ export const ProgrammeMaterials: React.FC<{ course: Course }> = ({ course }) => 
     <section className="ui-card space-y-3">
       <div className="flex items-center gap-2">
         <Folder className="w-5 h-5 text-emerald-700" />
-        <h2 className="font-display text-lg font-semibold text-stone-950">Study materials</h2>
+        <h2 className="font-display text-lg font-semibold text-stone-950">{t('materials.title')}</h2>
         <span className="text-sm text-stone-600">({items.length})</span>
       </div>
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
@@ -84,12 +86,10 @@ export const ProgrammeMaterials: React.FC<{ course: Course }> = ({ course }) => 
             >
               <MaterialIcon kind={m.kind} />
               <span className="min-w-0 flex-1">
-                <span className="block text-base font-medium text-stone-900 truncate">{m.title}</span>
-                <span className="block text-sm text-stone-600 truncate">
+                <span className="block text-base font-medium text-stone-900 truncate user-text">{m.title}</span>
+                <span className="block text-sm text-stone-600 truncate user-text">
                   {m.description ||
-                    (m.kind === 'link'
-                      ? 'Link'
-                      : [m.kind === 'pdf' ? 'PDF' : m.kind.charAt(0).toUpperCase() + m.kind.slice(1), formatBytes(m.size_bytes)].filter(Boolean).join(' · '))}
+                    (m.kind === 'link' ? t('materials.kind.link') : [t(`materials.kind.${m.kind}` as MsgKey), formatBytes(m.size_bytes)].filter(Boolean).join(' · '))}
                 </span>
               </span>
               {opening === m.id ? (
@@ -109,7 +109,7 @@ export const ProgrammeMaterials: React.FC<{ course: Course }> = ({ course }) => 
       </ul>
       {items.length > 3 && (
         <button type="button" onClick={() => setShowAll((v) => !v)} aria-expanded={showAll} className="ui-btn-ghost w-full">
-          {showAll ? 'Show fewer' : `See all ${items.length} materials`}
+          {showAll ? t('materials.showFewer') : t('materials.seeAll', { count: items.length })}
         </button>
       )}
     </section>

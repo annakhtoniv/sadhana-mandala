@@ -1,10 +1,12 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
-import { allowedRoleViews, canUseCrm, ROLE_LABEL } from '../lib/roles';
+import { allowedRoleViews, canUseCrm } from '../lib/roles';
 import { HelpCircle, CalendarDays, Contact, Home, UserRound, ChevronDown } from 'lucide-react';
 import type { UserRole } from '../types/database';
 import { BrandMark } from './BrandMark';
 import { Avatar } from './Avatar';
+import { LanguageButton } from './LanguageSwitch';
+import { useT, type MsgKey } from '../i18n';
 
 interface HeaderProps {
   currentTab: string;
@@ -26,16 +28,17 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenTour,
 }) => {
   const { organisation, user, activeRole, profile } = useAuth();
+  const t = useT();
   const roleViews = allowedRoleViews(profile?.role ?? 'student');
   const currentRole = activeRoleView || activeRole;
   // Leads (CRM): volunteers always; teachers and admins outside the Student preview
   const showLeads = canUseCrm(profile?.role) && (profile?.role === 'volunteer' || currentRole !== 'student');
 
   const tabs = [
-    { id: 'home', label: 'Home', icon: Home },
-    { id: 'events', label: 'Events', icon: CalendarDays },
-    ...(showLeads ? [{ id: 'leads', label: 'Leads', icon: Contact }] : []),
-    { id: 'profile', label: 'Profile', icon: UserRound },
+    { id: 'home', label: t('nav.home'), icon: Home },
+    { id: 'events', label: t('nav.events'), icon: CalendarDays },
+    ...(showLeads ? [{ id: 'leads', label: t('nav.leads'), icon: Contact }] : []),
+    { id: 'profile', label: t('nav.profile'), icon: UserRound },
   ];
 
   return (
@@ -59,9 +62,9 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="flex items-center gap-1 shrink-0">
               {onRoleSwitch && roleViews.length > 1 && (
                 <label className="relative">
-                  <span className="sr-only">Which screen to show</span>
+                  <span className="sr-only">{t('nav.whichScreen')}</span>
                   <select
-                    aria-label="Which screen to show"
+                    aria-label={t('nav.whichScreen')}
                     value={currentRole}
                     onChange={(e) => {
                       const newRole = e.target.value as UserRole;
@@ -71,15 +74,16 @@ export const Header: React.FC<HeaderProps> = ({
                   >
                     {roleViews.map((r) => (
                       <option key={r} value={r}>
-                        {ROLE_LABEL[r]} view
+                        {t(`nav.view.${r}` as MsgKey)}
                       </option>
                     ))}
                   </select>
                   <ChevronDown className="w-3.5 h-3.5 text-stone-500 absolute end-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </label>
               )}
+              <LanguageButton />
               {onOpenTour && (
-                <button type="button" onClick={onOpenTour} className="ui-icon-btn" title="Guided tour" aria-label="Guided tour">
+                <button type="button" onClick={onOpenTour} className="ui-icon-btn" title={t('nav.tour')} aria-label={t('nav.tour')}>
                   <HelpCircle className="w-[18px] h-[18px]" />
                 </button>
               )}
@@ -103,7 +107,7 @@ export const Header: React.FC<HeaderProps> = ({
                   onClick={() => onNavigate(id)}
                   aria-label={label}
                   aria-current={active ? 'page' : undefined}
-                  title={label === 'Profile' ? 'Profile & Settings' : label}
+                  title={label}
                   className={`flex-1 h-12 rounded-full flex flex-col items-center justify-center gap-0.5 text-xs font-medium transition-all cursor-pointer ${
                     active ? 'bg-stone-900 text-white shadow-[0_8px_20px_-10px_rgba(24,24,27,0.7)]' : 'text-stone-500 hover:text-stone-900'
                   }`}
@@ -123,7 +127,7 @@ export const Header: React.FC<HeaderProps> = ({
       {user && (
         <aside className="hidden md:flex fixed inset-y-0 start-0 z-30 w-64 p-4">
           <div className="ui-glass rounded-[1.75rem] flex-1 flex flex-col p-4 gap-6">
-            <button type="button" onClick={() => onNavigate('home')} className="flex items-center gap-3 px-1 text-left cursor-pointer">
+            <button type="button" onClick={() => onNavigate('home')} className="flex items-center gap-3 px-1 text-start cursor-pointer">
               {organisation.logo_url ? (
                 <img src={organisation.logo_url} alt="" className="w-10 h-10 rounded-full object-cover" />
               ) : (
@@ -159,17 +163,17 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="mt-auto space-y-2">
               {onRoleSwitch && roleViews.length > 1 && (
                 <label className="block">
-                  <span className="block px-1 pb-1 text-xs font-medium uppercase tracking-[0.16em] text-stone-500">View</span>
+                  <span className="block px-1 pb-1 text-xs font-medium uppercase tracking-[0.16em] text-stone-500">{t('nav.view')}</span>
                   <span className="relative block">
                     <select
-                      aria-label="Which screen to show"
+                      aria-label={t('nav.whichScreen')}
                       value={currentRole}
                       onChange={(e) => onRoleSwitch(e.target.value as UserRole)}
                       className="appearance-none w-full h-10 ps-3.5 pe-8 rounded-full bg-stone-900/[0.04] hover:bg-stone-900/[0.07] text-xs font-medium text-stone-700 cursor-pointer focus:outline-none"
                     >
                       {roleViews.map((r) => (
                         <option key={r} value={r}>
-                          {ROLE_LABEL[r]} view
+                          {t(`nav.view.${r}` as MsgKey)}
                         </option>
                       ))}
                     </select>
@@ -177,9 +181,10 @@ export const Header: React.FC<HeaderProps> = ({
                   </span>
                 </label>
               )}
+              <LanguageButton withLabel className="w-full h-11 px-3.5 rounded-full text-sm font-medium text-stone-600 hover:bg-stone-900/5 hover:text-stone-900" />
               {onOpenTour && (
-                <button type="button" onClick={onOpenTour} className="w-full h-10 px-3.5 rounded-full flex items-center gap-3 text-xs font-medium text-stone-500 hover:bg-stone-900/5 hover:text-stone-900 cursor-pointer">
-                  <HelpCircle className="w-4 h-4" /> Guided tour
+                <button type="button" onClick={onOpenTour} className="w-full h-11 px-3.5 rounded-full flex items-center gap-3 text-sm font-medium text-stone-600 hover:bg-stone-900/5 hover:text-stone-900 cursor-pointer">
+                  <HelpCircle className="w-4 h-4" /> {t('nav.tour')}
                 </button>
               )}
             </div>

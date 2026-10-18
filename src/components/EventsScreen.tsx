@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { currentLocale } from '../i18n/locale';
 import { hasRole } from '../lib/roles';
 import { useAuth } from '../context/AuthContext';
 import { Sheet, useConfirm } from './Sheet';
@@ -13,17 +14,18 @@ import {
   registerForEvent,
   saveEvent,
 } from '../lib/eventService';
-import { EVENT_KIND_LABEL, eventTiming, placesLeft, REGISTRATION_STATUS_LABEL, validateEventInput, type EventInput } from '../lib/eventUtils';
+import { EVENT_KIND_LABEL, eventTiming, placesLeft, validateEventInput, type EventInput } from '../lib/eventUtils';
 import type { Course, EventKind, OrgEvent, RegistrationStatus } from '../types/database';
 import { EventManager } from './EventManager';
 import { CalendarDays, EyeOff, Globe, MapPin, PlusCircle, Users } from 'lucide-react';
+import { useT, type MsgKey } from '../i18n';
 
 const inputClass = 'ui-input';
 const labelClass = 'ui-label';
 
 export function formatEventDate(iso: string, timeZone: string, withTime = true): string {
   try {
-    return new Intl.DateTimeFormat('en-GB', {
+    return new Intl.DateTimeFormat(currentLocale(), {
       timeZone,
       weekday: 'short',
       day: 'numeric',
@@ -36,7 +38,7 @@ export function formatEventDate(iso: string, timeZone: string, withTime = true):
 }
 
 function dayBlock(iso: string, timeZone: string) {
-  const parts = new Intl.DateTimeFormat('en-GB', { timeZone, day: 'numeric', month: 'short' }).formatToParts(new Date(iso));
+  const parts = new Intl.DateTimeFormat(currentLocale(), { timeZone, day: 'numeric', month: 'short' }).formatToParts(new Date(iso));
   return {
     day: parts.find((p) => p.type === 'day')?.value || '',
     month: parts.find((p) => p.type === 'month')?.value || '',
@@ -50,6 +52,7 @@ function dayBlock(iso: string, timeZone: string) {
 export const EventsScreen: React.FC = () => {
   const { organisation, user, profile, activeRole } = useAuth();
   const confirm = useConfirm();
+  const t = useT();
   // Staff tools only in the Teacher or Admin view (an admin previewing the Student view sees what students see)
   const isStaff = (hasRole(profile, 'admin') || hasRole(profile, 'teacher')) && activeRole !== 'student';
   const [events, setEvents] = useState<OrgEvent[]>([]);
@@ -78,7 +81,7 @@ export const EventsScreen: React.FC = () => {
       setMine(myMap);
       setLoadError(null);
     } catch (err) {
-      setLoadError(err instanceof Error ? err.message : 'Could not load events');
+      setLoadError(err instanceof Error ? err.message : t('events.loadFailed'));
     }
   };
 
@@ -96,7 +99,7 @@ export const EventsScreen: React.FC = () => {
     setMessage(null);
     const res = await registerForEvent(e.id);
     setBusyId(null);
-    setMessage(res.success ? `You are registered for "${e.title}".` : res.message || 'Could not register.');
+    setMessage(res.success ? t('events.registered', { title: e.title }) : res.message || t('events.registerFailed'));
     await load();
   };
 
@@ -105,7 +108,7 @@ export const EventsScreen: React.FC = () => {
     setMessage(null);
     const res = await cancelMyRegistration(e.id);
     setBusyId(null);
-    setMessage(res.success ? `Your place for "${e.title}" is cancelled.` : res.message || 'Could not cancel.');
+    setMessage(res.success ? t('events.cancelled', { title: e.title }) : res.message || t('events.cancelFailed'));
     await load();
   };
 
@@ -166,74 +169,71 @@ export const EventsScreen: React.FC = () => {
     const holding = status === 'registered' || status === 'attended';
     const { day, month } = dayBlock(e.starts_at, organisation.timezone);
     return (
-      <div key={e.id} className={`bg-white p-4 rounded-2xl border border-stone-200 shadow-sm space-y-3 ${timing === 'past' ? 'opacity-70' : ''}`}>
+      <div key={e.id} className={`ui-card !p-4 space-y-3 ${timing === 'past' ? 'opacity-70' : ''}`}>
         <div className="flex gap-3">
-          <div className="w-12 shrink-0 rounded-xl bg-emerald-50 text-center py-1.5">
+          <div className="w-14 shrink-0 rounded-xl bg-emerald-50 text-center py-1.5">
             <div className="text-lg font-bold leading-none text-emerald-700">{day}</div>
-            <div className="text-xs uppercase text-emerald-700">{month}</div>
+            <div className="text-sm uppercase text-emerald-800">{month}</div>
           </div>
           <div className="flex-1 min-w-0 space-y-0.5">
-            <div className="flex items-center gap-1.5 flex-wrap text-xs font-semibold uppercase tracking-wide text-stone-500">
-              <span>{EVENT_KIND_LABEL[e.kind]}</span>
-              {timing === 'ongoing' && <span className="px-1.5 py-0.5 rounded-full bg-emerald-600 text-white normal-case tracking-normal">Happening now</span>}
+            <div className="flex items-center gap-1.5 flex-wrap text-xs font-semibold uppercase tracking-wide text-stone-600">
+              <span>{t(`events.kind.${e.kind}` as MsgKey)}</span>
+              {timing === 'ongoing' && <span className="px-1.5 py-0.5 rounded-full bg-emerald-600 text-white normal-case tracking-normal">{t('events.now')}</span>}
               {!e.published && (
                 <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-stone-200 normal-case tracking-normal">
-                  <EyeOff className="w-3 h-3" /> Draft
+                  <EyeOff className="w-3 h-3" /> {t('events.draft')}
                 </span>
               )}
             </div>
-            <div className="text-sm font-semibold text-stone-900">{e.title}</div>
-            <div className="text-xs text-stone-500">{formatEventDate(e.starts_at, organisation.timezone)}</div>
+            <div className="text-base font-semibold text-stone-900 user-text">{e.title}</div>
+            <div className="text-sm text-stone-700">{formatEventDate(e.starts_at, organisation.timezone)}</div>
             {e.venue && (
-              <div className="inline-flex items-center gap-1 text-xs text-stone-500 me-3"><MapPin className="w-3 h-3" />{e.venue}</div>
+              <div className="inline-flex items-center gap-1 text-sm text-stone-600 me-3"><MapPin className="w-3.5 h-3.5" /><span className="user-text">{e.venue}</span></div>
             )}
             {e.online_url && (
-              <div className="inline-flex items-center gap-1 text-xs text-stone-500">
-                <Globe className="w-3 h-3" />
+              <div className="inline-flex items-center gap-1 text-sm text-stone-600">
+                <Globe className="w-3.5 h-3.5" />
                 {holding ? (
-                  <a href={e.online_url} target="_blank" rel="noopener noreferrer" className="underline text-emerald-700">Join online</a>
+                  <a href={e.online_url} target="_blank" rel="noopener noreferrer" className="underline text-emerald-700">{t('followups.joinOnline')}</a>
                 ) : (
-                  'Online'
+                  t('events.online')
                 )}
               </div>
             )}
           </div>
         </div>
-        {e.description && <p className="text-xs text-stone-600">{e.description}</p>}
+        {e.description && <p className="text-sm text-stone-700 user-text">{e.description}</p>}
         <div className="flex items-center justify-between gap-2">
-          <span className="inline-flex items-center gap-1 text-xs text-stone-500">
-            <Users className="w-3.5 h-3.5" />
-            {left === null ? `${taken.get(e.id) || 0} registered` : left === 0 ? 'Full' : `${left} place${left === 1 ? '' : 's'} left`}
+          <span className="inline-flex items-center gap-1 text-sm text-stone-600">
+            <Users className="w-4 h-4" />
+            {left === null ? t('events.registeredCount', { n: taken.get(e.id) || 0 }) : left === 0 ? t('events.full') : left === 1 ? t('events.oneLeft') : t('events.placesLeft', { n: left })}
           </span>
           <div className="flex items-center gap-2">
             {status && status !== 'registered' && (
-              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-stone-100 text-stone-600">
-                {REGISTRATION_STATUS_LABEL[status]}
+              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-stone-100 text-stone-700">
+                {t(`events.status.${status}` as MsgKey)}
               </span>
             )}
             {isStaff && (
-              <button type="button" onClick={() => setManaging(e)}
-                className="px-3 py-1.5 rounded-xl border border-stone-200 text-xs font-medium text-stone-700 hover:bg-stone-100 cursor-pointer">
-                Manage
+              <button type="button" onClick={() => setManaging(e)} className="ui-btn-ghost !min-h-10 !py-2 !px-4">
+                {t('events.manage')}
               </button>
             )}
             {timing !== 'past' && e.published && (
               status === 'registered' ? (
-                <button type="button" disabled={busyId === e.id} onClick={() => cancel(e)}
-                  className="px-3 py-1.5 rounded-xl border border-stone-200 text-xs text-stone-600 disabled:opacity-50 cursor-pointer">
-                  Cancel my place
+                <button type="button" disabled={busyId === e.id} onClick={() => cancel(e)} className="ui-btn-ghost !min-h-10 !py-2 !px-4">
+                  {t('events.cancelPlace')}
                 </button>
               ) : status !== 'attended' && left !== 0 ? (
-                <button type="button" disabled={busyId === e.id} onClick={() => register(e)}
-                  className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-semibold disabled:opacity-50 cursor-pointer">
-                  {busyId === e.id ? 'Registering...' : 'Register'}
+                <button type="button" disabled={busyId === e.id} onClick={() => register(e)} className="ui-btn-primary !min-h-10 !py-2 !px-4">
+                  {busyId === e.id ? t('events.registering') : t('events.register')}
                 </button>
               ) : null
             )}
           </div>
         </div>
         {status === 'registered' && timing !== 'past' && (
-          <p className="text-xs text-emerald-700">You are registered. At the event, scan the check-in QR code.</p>
+          <p className="text-sm text-emerald-800">{t('events.registeredHelp')}</p>
         )}
       </div>
     );
@@ -333,34 +333,31 @@ export const EventsScreen: React.FC = () => {
   }
 
   return (
-    <div className="w-full space-y-5 animate-in fade-in duration-150">
-
-      <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm space-y-2">
-        <div className="flex items-center gap-2 text-xs font-medium text-emerald-600">
-          <CalendarDays className="w-4 h-4" />
-          <span>Events</span>
-        </div>
-        <h1 className="text-xl font-semibold text-stone-900">Coming up ({coming.length})</h1>
-        <p className="text-xs text-stone-500">Intro talks, satsangs, programmes and follow-up sessions. Times are in {organisation.timezone}.</p>
+    <div className="w-full space-y-5 animate-fade-up">
+      <section className="ui-card space-y-2">
+        <span className="ui-eyebrow">
+          <CalendarDays className="w-3.5 h-3.5" /> {t('nav.events')}
+        </span>
+        <h1 className="font-display text-2xl font-semibold text-stone-950 mt-2">{t('events.comingUp', { count: coming.length })}</h1>
+        <p className="text-base text-stone-600">{t('events.subtitle', { tz: organisation.timezone })}</p>
         {isStaff && (
-          <button type="button" onClick={openNew}
-            className="w-full mt-2 py-3 rounded-xl bg-stone-900 text-stone-100 text-xs font-semibold flex items-center justify-center gap-2 hover:opacity-90 cursor-pointer">
+          <button type="button" onClick={openNew} className="ui-btn-primary w-full mt-2">
             <PlusCircle className="w-4 h-4" />
-            <span>New event</span>
+            <span>{t('events.new')}</span>
           </button>
         )}
-      </div>
+      </section>
 
-      {message && <div role="status" className="p-3 rounded-xl bg-stone-100 text-xs text-stone-700">{message}</div>}
-      {loadError && <div className="p-3 rounded-xl bg-red-50 text-xs text-red-700">Could not load events: {loadError}</div>}
+      {message && <div role="status" className="p-3 rounded-xl bg-emerald-50 text-sm text-emerald-900">{message}</div>}
+      {loadError && <div role="alert" className="p-3 rounded-xl bg-red-50 text-sm text-red-700">{t('events.loadFailed')}: {loadError}</div>}
 
-      {coming.length === 0 && !loadError && <p className="text-xs text-stone-500 italic text-center">No events coming up.</p>}
+      {coming.length === 0 && !loadError && <p className="text-base text-stone-600 text-center">{t('events.none')}</p>}
       {coming.map(eventCard)}
 
       {past.length > 0 && (
         <div className="space-y-3">
-          <button type="button" onClick={() => setShowPast((v) => !v)} className="text-xs text-stone-500 hover:underline cursor-pointer">
-            {showPast ? 'Hide past events' : `Show past events (${past.length})`}
+          <button type="button" onClick={() => setShowPast((v) => !v)} aria-expanded={showPast} className="ui-btn-ghost w-full">
+            {showPast ? t('events.hidePast') : t('events.showPast', { count: past.length })}
           </button>
           {showPast && past.map(eventCard)}
         </div>

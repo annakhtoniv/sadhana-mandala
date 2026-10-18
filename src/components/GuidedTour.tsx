@@ -1,33 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, ArrowRight, X } from 'lucide-react';
-
-interface TourStep {
-  targetId: string;
-  title: string;
-  text: string;
-  tryIt: string;
-}
+import { useT, type MsgKey } from '../i18n';
 
 /** Three short steps about the daily practice (the old step 4, the view switcher, is gone). */
-const TOUR_STEPS: TourStep[] = [
-  {
-    targetId: 'tour-checkin-buttons',
-    title: "Today's check-in",
-    text: 'This card is where you check in each day. Tap Morning, Evening or both when you have practised. Tap again to undo.',
-    tryIt: 'Try it: tap Morning.',
-  },
-  {
-    targetId: 'tour-practice-trail',
-    title: '40-day trail and past days',
-    text: 'Each circle is one day. Green means both, half green means one, white means not ticked yet.',
-    tryIt: 'Forgot a day? Tap its circle. The card above switches to that day, so you can tick it.',
-  },
-  {
-    targetId: 'tour-streak-card',
-    title: 'Practice flame',
-    text: 'The flame counts the days in a row you have practised. Morning or Evening is enough for a day to count.',
-    tryIt: 'A day with no tick starts the count again. Filling in a missed day repairs it.',
-  },
+const TOUR_STEPS: Array<{ targetId: string; key: 'checkin' | 'trail' | 'flame' }> = [
+  { targetId: 'tour-checkin-buttons', key: 'checkin' },
+  { targetId: 'tour-practice-trail', key: 'trail' },
+  { targetId: 'tour-streak-card', key: 'flame' },
 ];
 
 const HIGHLIGHT = ['ring-2', 'ring-emerald-500', 'ring-offset-4', 'ring-offset-[#f7f7f8]', 'rounded-[1.25rem]', 'relative', 'z-40'];
@@ -44,6 +23,7 @@ interface GuidedTourProps {
  * that highlights one part of the practice at a time.
  */
 export const GuidedTour: React.FC<GuidedTourProps> = ({ isOpen, onClose, onShowPractice }) => {
+  const t = useT();
   const [index, setIndex] = useState(0);
   const [found, setFound] = useState(true);
   const step = TOUR_STEPS[index];
@@ -83,26 +63,26 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ isOpen, onClose, onShowP
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-700">
-              Step {index + 1} of {TOUR_STEPS.length}
+              {t('tour.step', { n: index + 1, total: TOUR_STEPS.length })}
             </div>
             <h3 id="tour-step-title" className="font-display text-base font-semibold text-stone-950">
-              {step.title}
+              {t(`tour.${step.key}.title` as MsgKey)}
             </h3>
           </div>
-          <button type="button" onClick={onClose} className="ui-icon-btn -mr-1 -mt-1 shrink-0" aria-label="Close the tour">
+          <button type="button" onClick={onClose} className="ui-icon-btn -me-1 -mt-1 shrink-0" aria-label={t('tour.close')}>
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <p className="mt-1 text-[13px] leading-relaxed text-stone-600">{step.text}</p>
+        <p className="mt-1 text-sm leading-relaxed text-stone-700">{t(`tour.${step.key}.text` as MsgKey)}</p>
         {found ? (
-          <p className="mt-1.5 text-[12px] font-medium text-stone-900">{step.tryIt}</p>
+          <p className="mt-1.5 text-sm font-medium text-stone-900">{t(`tour.${step.key}.try` as MsgKey)}</p>
         ) : (
-          <p className="mt-1.5 text-[12px] text-amber-700">
-            This is on your practice home.{' '}
+          <p className="mt-1.5 text-sm text-amber-800">
+            {t('tour.notHere')}{' '}
             {onShowPractice && (
               <button type="button" onClick={onShowPractice} className="underline font-medium cursor-pointer">
-                Show me
+                {t('tour.showMe')}
               </button>
             )}
           </p>
@@ -116,16 +96,16 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ isOpen, onClose, onShowP
           </div>
           <div className="flex items-center gap-1.5">
             {index > 0 && (
-              <button type="button" onClick={() => setIndex(index - 1)} className="ui-icon-btn" aria-label="Previous step">
-                <ArrowLeft className="w-4 h-4" />
+              <button type="button" onClick={() => setIndex(index - 1)} className="ui-icon-btn" aria-label={t('tour.previous')}>
+                <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
               </button>
             )}
             <button
               type="button"
               onClick={() => (last ? onClose() : setIndex(index + 1))}
-              className="ui-btn-primary !py-2 !px-4 !text-xs"
+              className="ui-btn-primary !py-2 !px-4"
             >
-              {last ? 'Done' : 'Next'} {!last && <ArrowRight className="w-3.5 h-3.5" />}
+              {last ? t('tour.done') : t('tour.next')} {!last && <ArrowRight className="w-4 h-4 rtl:rotate-180" />}
             </button>
           </div>
         </div>

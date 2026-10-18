@@ -3,6 +3,7 @@ import { recordCheckin } from '../lib/checkinService';
 import { queueTick } from '../lib/offlineTicks';
 import { calculateStreak, countPractisedDays, getTrailDayStatus, hasEvening, hasMorning } from '../lib/practiceUtils';
 import { formatDateDisplay } from '../lib/dateUtils';
+import { useI18n } from '../i18n';
 import type { Checkin } from '../types/database';
 import { Check, Flame, Loader2, Lock, Moon, Sparkles, Sun, History } from 'lucide-react';
 
@@ -55,6 +56,7 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
   loadError = null,
   onRetry,
 }) => {
+  const { t, lang } = useI18n();
   const lastOpenDay = Math.min(todayDay, durationDays);
   const [selectedDay, setSelectedDay] = useState<number>(Math.max(1, lastOpenDay));
 
@@ -112,10 +114,10 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
     } else if (res.offline) {
       // Keep the tick on this phone; it is sent when the connection is back
       queueTick({ orgId, batchId, studentId, day: selectedDay, slot, value });
-      setMessage('No connection: saved on this phone. It will be sent when you are back online.');
+      setMessage(t('checkin.savedOffline'));
     } else {
       onCheckinsChange(previous);
-      setMessage(`Not saved: ${res.error || 'please try again'}`);
+      setMessage(t('checkin.notSaved', { reason: res.error || t('common.tryAgainLower') }));
     }
   };
 
@@ -127,7 +129,7 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
         onClick={() => toggle(slot)}
         disabled={saving !== null || Boolean(loadError) || notStarted || selectedDay > lastOpenDay}
         aria-pressed={on}
-        className={`relative flex-1 rounded-[1.25rem] p-4 text-left transition-all active:scale-[0.98] disabled:opacity-60 cursor-pointer ${
+        className={`relative flex-1 rounded-[1.25rem] p-4 text-start transition-all active:scale-[0.98] disabled:opacity-60 cursor-pointer ${
           on
             ? slot === 'morning'
               ? 'bg-amber-400 text-stone-950 shadow-[0_14px_30px_-14px_rgba(245,158,11,0.9)]'
@@ -145,8 +147,8 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
             {saving === slot ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : on ? <Check className="w-3.5 h-3.5" /> : null}
           </span>
         </div>
-        <div className="mt-5 text-sm font-semibold">{slot === 'morning' ? 'Morning' : 'Evening'}</div>
-        <div className={`text-xs ${on ? 'opacity-80' : 'text-stone-500'}`}>{on ? 'Done' : 'Tap when done'}</div>
+        <div className="mt-5 text-base font-semibold">{slot === 'morning' ? t('checkin.morning') : t('checkin.evening')}</div>
+        <div className={`text-sm ${on ? 'opacity-90' : 'text-stone-600'}`}>{on ? t('checkin.done') : t('checkin.tapWhenDone')}</div>
       </button>
     );
   };
@@ -157,26 +159,26 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
       <section id="tour-checkin-card" className="ui-card space-y-4">
         <div className="flex items-center justify-between gap-2">
           <span className="ui-eyebrow">
-            {notStarted ? 'Starts soon' : finished && selectedDay === lastOpenDay ? 'Practice complete' : `Day ${selectedDay} of ${durationDays}`}
+            {notStarted ? t('checkin.startsSoon') : finished && selectedDay === lastOpenDay ? t('checkin.complete') : t('common.dayOf', { day: selectedDay, total: durationDays })}
           </span>
           {!notStarted && (
             <span className="text-xs text-stone-500">
-              {isToday ? 'Today' : dayDate(startDate, selectedDay, timeZone)}
+              {isToday ? t('common.today') : dayDate(startDate, selectedDay, timeZone)}
             </span>
           )}
         </div>
 
         <h2 className="font-display text-xl font-semibold text-stone-950 leading-snug">
           {notStarted
-            ? `Your ${practiceName} begins on ${formatDateDisplay(startDate, timeZone)}.`
+            ? t('checkin.beginsOn', { practice: practiceName, date: formatDateDisplay(startDate, timeZone) })
             : isToday
-            ? question
-            : `Did you practise on day ${selectedDay}?`}
+            ? lang === 'en' ? question : t('checkin.question')
+            : t('checkin.pastQuestion', { day: selectedDay })}
         </h2>
 
         {notStarted ? (
           <div className="p-4 rounded-2xl bg-stone-900/[0.03] text-xs text-stone-500 flex items-center gap-2">
-            <Lock className="w-4 h-4" /> Check-ins open on day 1.
+            <Lock className="w-4 h-4" /> {t('checkin.opensDay1')}
           </div>
         ) : (
           <>
@@ -187,10 +189,10 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
             <p className="text-xs text-stone-500 min-h-[16px]" aria-live="polite">
               {loadError ? (
                 <span className="text-red-600">
-                  Your ticks could not be loaded, so they are locked for now. {loadError}{' '}
+                  {t('checkin.loadFailed')} {loadError}{' '}
                   {onRetry && (
                     <button type="button" onClick={onRetry} className="underline font-medium cursor-pointer">
-                      Try again
+                      {t('common.tryAgain')}
                     </button>
                   )}
                 </span>
@@ -198,19 +200,19 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
                 <span className="text-red-600">{message}</span>
               ) : !isToday ? (
                 <>
-                  Filling in a past day. Your teacher sees it was added later.{' '}
+                  {t('checkin.pastDay')}{' '}
                   {lastOpenDay === todayDay && (
                     <button type="button" onClick={() => setSelectedDay(todayDay)} className="underline text-stone-700 cursor-pointer">
-                      Back to today
+                      {t('checkin.backToToday')}
                     </button>
                   )}
                 </>
               ) : morning && evening ? (
-                'Both done today. Beautiful.'
+                t('checkin.bothDone')
               ) : morning || evening ? (
-                'Today counts. Tick the other one too when you have done it.'
+                t('checkin.oneDone')
               ) : (
-                'Tick Morning, Evening or both. One is enough for the day to count.'
+                t('checkin.noneDone')
               )}
             </p>
           </>
@@ -228,18 +230,18 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
           </div>
           <div className="flex-1 min-w-0">
             <div className="font-display text-2xl font-semibold text-stone-950 leading-none">
-              {streak} <span className="text-base font-medium text-stone-500">day{streak === 1 ? '' : 's'} in a row</span>
+              {streak} <span className="text-base font-medium text-stone-500">{streak === 1 ? t('checkin.dayInRow') : t('checkin.daysInRow')}</span>
             </div>
             <p className="text-sm text-stone-600 mt-1">
-              Your practice flame. It grows each day you tick Morning or Evening, and starts again after a day with no tick.
+              {t('checkin.flameHelp')}
             </p>
           </div>
         </div>
 
         <div className="flex items-center justify-between text-sm">
-          <span className="font-semibold text-stone-900">{showAllDays ? `All ${durationDays} days` : 'This week'}</span>
+          <span className="font-semibold text-stone-900">{showAllDays ? t('checkin.allDays', { total: durationDays }) : t('checkin.thisWeek')}</span>
           <span className="text-stone-600 tabular-nums">
-            {practised} of {Math.max(0, lastOpenDay)} days practised
+            {t('checkin.practisedOf', { done: practised, total: Math.max(0, lastOpenDay) })}
           </span>
         </div>
 
@@ -255,8 +257,10 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
             const look =
               status === 'full'
                 ? 'bg-emerald-500 text-white'
-                : status === 'half'
-                ? 'text-emerald-900 bg-[linear-gradient(135deg,#34d399_50%,#d1fae5_50%)]'
+                : status === 'morning'
+                ? 'text-emerald-950 bg-[linear-gradient(to_bottom,#34d399_50%,#ecfdf5_50%)] ring-1 ring-emerald-500/40'
+                : status === 'evening'
+                ? 'text-emerald-950 bg-[linear-gradient(to_top,#34d399_50%,#ecfdf5_50%)] ring-1 ring-emerald-500/40'
                 : status === 'today'
                 ? 'bg-white text-emerald-700 ring-2 ring-emerald-500'
                 : status === 'missed'
@@ -272,7 +276,7 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
                   setMessage(null);
                   document.getElementById('tour-checkin-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }}
-                aria-label={`Day ${day}${status === 'full' ? ', morning and evening' : status === 'half' ? ', one practice' : status === 'missed' ? ', not ticked' : ''}`}
+                aria-label={`${t('common.day', { day })}${status === 'full' ? `, ${t('checkin.ariaBoth')}` : status === 'morning' ? `, ${t('checkin.ariaMorning')}` : status === 'evening' ? `, ${t('checkin.ariaEvening')}` : status === 'missed' ? `, ${t('checkin.ariaMissed')}` : ''}`}
                 className={`${base} ${look} ${open ? 'cursor-pointer hover:scale-105 active:scale-95' : 'cursor-default'} ${
                   isSelected ? 'outline outline-2 outline-offset-2 outline-stone-900' : ''
                 }`}
@@ -288,18 +292,19 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
 
         {durationDays > 7 && (
           <button type="button" onClick={() => setShowAllDays((v) => !v)} aria-expanded={showAllDays} className="ui-btn-ghost w-full">
-            {showAllDays ? 'Show this week only' : `Show all ${durationDays} days`}
+            {showAllDays ? t('checkin.showWeek') : t('checkin.showAll', { total: durationDays })}
           </button>
         )}
 
         <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-sm text-stone-600">
-          <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-emerald-500" /> Both</span>
-          <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-[linear-gradient(135deg,#34d399_50%,#d1fae5_50%)]" /> One</span>
-          <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-white ring-1 ring-stone-900/15" /> Not ticked</span>
-          <span className="flex items-center gap-1.5"><History className="w-3 h-3" /> Added later</span>
+          <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-emerald-500" /> {t('checkin.legendBoth')}</span>
+          <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full ring-1 ring-emerald-500/40 bg-[linear-gradient(to_bottom,#34d399_50%,#ecfdf5_50%)]" /> {t('checkin.morning')}</span>
+          <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full ring-1 ring-emerald-500/40 bg-[linear-gradient(to_top,#34d399_50%,#ecfdf5_50%)]" /> {t('checkin.evening')}</span>
+          <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-white ring-1 ring-stone-900/15" /> {t('checkin.legendMissed')}</span>
+          <span className="flex items-center gap-1.5"><History className="w-3 h-3" /> {t('checkin.legendLate')}</span>
         </div>
         <p className="text-sm text-center text-stone-600 flex items-center justify-center gap-1">
-          <Sparkles className="w-4 h-4" /> Forgot a day? Tap it to fill it in.
+          <Sparkles className="w-4 h-4" /> {t('checkin.forgotDay')}
         </p>
       </section>
     </>

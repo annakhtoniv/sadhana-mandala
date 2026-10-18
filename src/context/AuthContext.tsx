@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import { currentLang } from '../i18n/locale';
+import { translate } from '../i18n';
 import type { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { fetchOrganisation, getResolvedOrgSlug, DEFAULT_ORGANISATION } from '../lib/organisation';
@@ -129,7 +131,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) {
         // Keep whatever was shown before (an admin stays admin after a network blip)
-        setNotice({ tone: 'error', text: `Your profile could not be loaded. ${friendlyError(error)}` });
+        setNotice({ tone: 'error', text: `${translate('auth.profileFailed')} ${friendlyError(error)}` });
         return;
       }
 
@@ -174,12 +176,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (joinedId) localStorage.setItem(SELECTED_ENROLMENT_KEY, joinedId);
           setNotice({
             tone: 'success',
-            text: `Welcome! You have joined ${res.data?.batch_name ? `"${res.data.batch_name}"` : 'the batch'}.`,
+            text: res.data?.batch_name ? translate('auth.joinedNamed', { batch: res.data.batch_name }) : translate('auth.joined'),
           });
         } else {
           setNotice({
             tone: 'error',
-            text: `We could not add you to the batch (${res.message || 'unknown error'}). Please ask your teacher for the join code.`,
+            text: translate('auth.joinFailed', { reason: res.message || '?' }),
           });
         }
       }
@@ -191,8 +193,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const res = await checkInToEvent(pendingCheckin);
         setNotice(
           res.success
-            ? { tone: 'success', text: `You are checked in${res.title ? ` to "${res.title}"` : ''}. Welcome!` }
-            : { tone: 'error', text: res.message || 'Check-in did not work. Please ask the host.' }
+            ? { tone: 'success', text: res.title ? translate('auth.eventCheckedInNamed', { title: res.title }) : translate('auth.eventCheckedIn') }
+            : { tone: 'error', text: res.message || translate('auth.eventCheckinFailed') }
         );
       }
     } catch (err) {
@@ -320,7 +322,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Consent counts only once the database has recorded it (and the consent log has a row)
   const giveConsent = async (): Promise<{ success: boolean; error?: string }> => {
     if (!user) return { success: false, error: 'Please sign in first.' };
-    const { data, error } = await supabase.rpc('give_user_consent', { p_notice_version: CONSENT_NOTICE_VERSION });
+    // The notice version records the language it was read in, e.g. v2-2026-10-ar
+    const { data, error } = await supabase.rpc('give_user_consent', { p_notice_version: `${CONSENT_NOTICE_VERSION}-${currentLang()}` });
     if (error) return { success: false, error: friendlyError(error, 'Your consent could not be saved. Please try again.') };
     const at = (data as string) || new Date().toISOString();
     setProfile((prev) => (prev ? { ...prev, consent_at: at } : prev));

@@ -204,8 +204,21 @@
   - Words: "cohort", "Course Programme" and similar replaced by batch and programme; dates in day-month order everywhere.
   - Tried in a browser on a local copy (student, volunteer, teacher, admin; phone and computer). 118 unit tests, clean build.
 
+- Phases 14 to 16 SQL run on the live database on 2026-10-18 (phase14_safety, phase15_performance, seed, verify: 122 PASS).
+
+- Phase 17 built on 2026-10-18 (languages; app only, no SQL):
+  - English, Arabic and Hindi. Choose under Profile > Language, with the language button in the top bar, on the sign-in page or on the consent screen. The choice is remembered on the phone; a phone set to Arabic or Hindi starts in that language. Arabic turns the whole layout right to left.
+  - Translated: the sign-in page, consent, the student home (check-in, trail, flame, learning, study materials, follow-up sessions), general lessons, events, profile, the guided tour, messages and error messages, and the tab bar. Dates follow the language. Staff screens (admin, teacher, leads, editors) stay in English for now.
+  - Text typed by admins and teachers (programme names, lessons, reminders) shows as typed, in its own direction.
+  - Consent is logged with the language it was read in (for example v2-2026-10-ar).
+  - Arabic and Hindi fonts (Noto Sans) load only when needed.
+  - Trail (PM request): Morning only fills the top half of the day's circle, Evening only the bottom half, both the whole circle.
+  - Fix: since Phase 16 the bottom message bar appeared only on the sign-in page; it now shows everywhere.
+  - Tried in a browser on a local copy in all three languages. 121 unit tests (3 new: every translation keeps its placeholders), clean build. The Arabic and Hindi text should be read once by a native speaker.
+
 ## Next
-- PM: merge the pull request, then in the Supabase SQL editor run (from `main`), in this order: `supabase/phase14_safety.sql`, `supabase/phase15_performance.sql`, `supabase/seed_dummy_data.sql`, `supabase/verify.sql` (all 122 rows PASS). Until the SQL is run, un-ticking a tick can fail.
+- PM: have a native speaker read the Arabic and Hindi (Profile > Language), and send corrections.
+- Decide: translate the staff screens (admin, teacher, leads) too.
 - PM: test Phase 12: sign out and in (your Google photo appears); Profile > camera > pick a picture; Admin > tap each overview card; tap a batch card; Admin > Programmes > Happiness Program > Materials > upload a PDF and an MP3; as a student of that programme, see "Study materials" on the home screen.
 - Storage limits (Supabase free plan): 50 MB per file, about 1 GB in total. Long videos are better as YouTube (unlisted) links.
 - PM: test Phase 11: tick Morning and Evening today; tap an earlier circle and tick it (it gets the clock badge); try the guided tour (? button); open the site on a computer (side menu) and on the phone (bottom tabs); Admin > Batches > Open > Edit and rename a batch.

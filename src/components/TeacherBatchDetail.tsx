@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { currentLocale } from '../i18n/locale';
 import { fetchBatchEnrolments, fetchBatchInvites, addBatchInvites } from '../lib/batchService';
 import { fetchBatchCheckins, calculateStreak, isStudentQuiet } from '../lib/checkinService';
 import { hasEvening, hasMorning, isPractised } from '../lib/practiceUtils';
@@ -49,7 +50,7 @@ function ticksLabel(m: boolean, e: boolean): string {
 
 function formatShortDate(isoTimestamp: string, timeZone: string): string {
   try {
-    return new Intl.DateTimeFormat('en-GB', { timeZone, day: 'numeric', month: 'short' }).format(new Date(isoTimestamp));
+    return new Intl.DateTimeFormat(currentLocale(), { timeZone, day: 'numeric', month: 'short' }).format(new Date(isoTimestamp));
   } catch {
     return '';
   }

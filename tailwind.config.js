@@ -7,8 +7,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Geist', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        serif: ['"Instrument Serif"', 'ui-serif', 'Georgia', 'serif'],
+        sans: ['Geist', '"Noto Sans Arabic"', '"Noto Sans Devanagari"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        serif: ['"Instrument Serif"', '"Noto Sans Arabic"', '"Noto Sans Devanagari"', 'ui-serif', 'Georgia', 'serif'],
         mono: ['"Geist Mono"', 'ui-monospace', 'monospace'],
       },
       colors: {

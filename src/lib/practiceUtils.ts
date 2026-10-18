@@ -48,13 +48,15 @@ export function isPractised(c: PracticeMark | null | undefined): boolean {
  * full = morning and evening, half = one of them, missed = a passed day
  * without a tick, today = today without a tick yet, future = not reached.
  */
-export type DayTrailStatus = 'full' | 'half' | 'missed' | 'today' | 'future';
+/** morning / evening: only that practice was ticked (top / bottom half of the circle) */
+export type DayTrailStatus = 'full' | 'morning' | 'evening' | 'missed' | 'today' | 'future';
 
 export function getTrailDayStatus(dayNumber: number, currentDay: number, checkin?: PracticeMark | null): DayTrailStatus {
   const m = hasMorning(checkin);
   const e = hasEvening(checkin);
   if (m && e) return 'full';
-  if (m || e) return 'half';
+  if (m) return 'morning';
+  if (e) return 'evening';
   if (dayNumber === currentDay) return 'today';
   if (dayNumber < currentDay) return 'missed';
   return 'future';

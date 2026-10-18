@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { currentLocale } from '../i18n/locale';
 import { supabase } from '../lib/supabase';
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 
@@ -40,7 +41,7 @@ export const ClientErrorsPanel: React.FC<{ timeZone: string }> = ({ timeZone }) 
             <li key={r.id} className="py-2">
               <div className="text-sm text-stone-900 break-words">{r.message}</div>
               <div className="text-xs text-stone-500">
-                {new Date(r.created_at).toLocaleString('en-GB', { timeZone, dateStyle: 'medium', timeStyle: 'short' })}
+                {new Date(r.created_at).toLocaleString(currentLocale(), { timeZone, dateStyle: 'medium', timeStyle: 'short' })}
                 {r.page ? ` · ${r.page}` : ''}
                 {r.app_version ? ` · version ${r.app_version}` : ''}
               </div>

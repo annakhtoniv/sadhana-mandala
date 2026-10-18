@@ -4,6 +4,7 @@ import { fetchProgrammeModules, fetchMyLessonProgress, setLessonComplete } from 
 import { moduleStates, programmeProgress } from '../lib/lmsUtils';
 import { renderMarkdown } from '../lib/markdown';
 import type { Course, Lesson, LessonModule } from '../types/database';
+import { useT } from '../i18n';
 import { ArrowLeft, BookOpen, Check, CheckCircle2, ChevronDown, ChevronRight, Circle, Clock, Lock, Video } from 'lucide-react';
 
 interface ProgrammeLearningProps {
@@ -19,6 +20,7 @@ interface ProgrammeLearningProps {
  */
 export const ProgrammeLearning: React.FC<ProgrammeLearningProps> = ({ course, dayNumber }) => {
   const { organisation, profile } = useAuth();
+  const t = useT();
   const [modules, setModules] = useState<LessonModule[]>([]);
   const [completed, setCompleted] = useState<Set<string>>(new Set());
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -45,7 +47,7 @@ export const ProgrammeLearning: React.FC<ProgrammeLearningProps> = ({ course, da
         setModules(mods);
         setCompleted(done);
       })
-      .catch((err) => active && setLoadError(err instanceof Error ? err.message : 'Could not load lessons'))
+      .catch((err) => active && setLoadError(err instanceof Error ? err.message : t('learn.loadFailed')))
       .finally(() => active && setLoaded(true));
     return () => {
       active = false;
@@ -71,7 +73,7 @@ export const ProgrammeLearning: React.FC<ProgrammeLearningProps> = ({ course, da
     const res = await setLessonComplete(organisation.id, profile.id, lesson.id, done);
     setSaving(false);
     if (!res.success) {
-      setSaveError(res.error || 'Could not save. Please try again.');
+      setSaveError(res.error || t('common.saveFailed'));
       return;
     }
     setCompleted((prev) => {
@@ -98,14 +100,14 @@ export const ProgrammeLearning: React.FC<ProgrammeLearningProps> = ({ course, da
           className="ui-btn-ghost !min-h-10 !py-2 !px-4"
         >
           <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
-          <span>Back to lessons</span>
+          <span>{t('learn.back')}</span>
         </button>
         <div className="space-y-1">
-          <h2 className="text-lg font-semibold text-stone-900">{reading.title}</h2>
+          <h2 className="text-lg font-semibold text-stone-900 user-text">{reading.title}</h2>
           {reading.estimated_minutes ? (
             <div className="inline-flex items-center gap-1 text-xs text-stone-500">
               <Clock className="w-3 h-3" />
-              {reading.estimated_minutes} min
+              {t('learn.minutes', { n: reading.estimated_minutes })}
             </div>
           ) : null}
         </div>
@@ -117,11 +119,11 @@ export const ProgrammeLearning: React.FC<ProgrammeLearningProps> = ({ course, da
             className="flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-stone-200 text-sm font-medium text-stone-800 hover:bg-stone-50"
           >
             <Video className="w-4 h-4" />
-            <span>Watch the video</span>
+            <span>{t('learn.watchVideo')}</span>
           </a>
         )}
-        <div className="text-sm leading-relaxed text-stone-700 space-y-3">{renderMarkdown(reading.body || '')}</div>
-        {saveError && <p className="text-xs text-red-600">{saveError}</p>}
+        <div className="text-base leading-relaxed text-stone-700 space-y-3 user-text">{renderMarkdown(reading.body || '')}</div>
+        {saveError && <p role="alert" className="text-sm text-red-700">{saveError}</p>}
         <button
           type="button"
           onClick={() => toggleComplete(reading)}
@@ -133,7 +135,7 @@ export const ProgrammeLearning: React.FC<ProgrammeLearningProps> = ({ course, da
           }`}
         >
           <Check className="w-4 h-4" />
-          <span>{saving ? 'Saving...' : done ? 'Completed · tap to undo' : 'Mark as complete'}</span>
+          <span>{saving ? t('common.saving') : done ? t('learn.completedUndo') : t('learn.markComplete')}</span>
         </button>
       </div>
     );
@@ -145,18 +147,18 @@ export const ProgrammeLearning: React.FC<ProgrammeLearningProps> = ({ course, da
     <div id="tour-learning" ref={cardRef} className="scroll-mt-20 bg-white p-5 rounded-2xl border border-stone-200 shadow-sm space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <BookOpen className="w-4 h-4 text-emerald-600" />
-          <h2 className="text-sm font-semibold text-stone-900">Learning</h2>
+          <BookOpen className="w-5 h-5 text-emerald-700" />
+          <h2 className="font-display text-lg font-semibold text-stone-950">{t('learn.title')}</h2>
         </div>
-        <span className="text-xs text-stone-500">
-          {progress.done} of {progress.total} lessons
+        <span className="text-sm text-stone-600">
+          {t('learn.progress', { done: progress.done, total: progress.total })}
         </span>
       </div>
       <div className="h-2 rounded-full bg-stone-100 overflow-hidden" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}>
         <div className="h-full bg-emerald-600 transition-all" style={{ width: `${percent}%` }} />
       </div>
 
-      {loadError && <p className="text-xs text-red-600">Could not load lessons: {loadError}</p>}
+      {loadError && <p role="alert" className="text-sm text-red-700">{t('learn.loadFailed')}: {loadError}</p>}
 
       <div className="space-y-2">
         {published.map((m) => {
@@ -169,17 +171,17 @@ export const ProgrammeLearning: React.FC<ProgrammeLearningProps> = ({ course, da
                 onClick={() => state?.unlocked && setOpenModuleId(open ? null : m.id)}
                 disabled={!state?.unlocked}
                 aria-expanded={!!open}
-                className="w-full p-3 flex items-center justify-between gap-2 text-left disabled:cursor-default cursor-pointer"
+                className="w-full min-h-14 p-3 flex items-center justify-between gap-2 text-start disabled:cursor-default cursor-pointer"
               >
                 <div className="min-w-0">
-                  <div className={`text-sm font-medium ${state?.unlocked ? 'text-stone-900' : 'text-stone-500'}`}>
+                  <div className={`text-base font-medium user-text ${state?.unlocked ? 'text-stone-900' : 'text-stone-600'}`}>
                     {m.title}
                   </div>
-                  <div className="text-xs text-stone-500">
+                  <div className="text-sm text-stone-600 user-text">
                     {state?.unlocked
                       ? state.complete
-                        ? 'Completed'
-                        : `${state.completedCount} of ${state.totalCount} done`
+                        ? t('status.completed')
+                        : t('learn.moduleProgress', { done: state.completedCount, total: state.totalCount })
                       : state?.reason}
                   </div>
                 </div>
@@ -190,7 +192,7 @@ export const ProgrammeLearning: React.FC<ProgrammeLearningProps> = ({ course, da
                 ) : open ? (
                   <ChevronDown className="w-4 h-4 text-stone-500 shrink-0" />
                 ) : (
-                  <ChevronRight className="w-4 h-4 text-stone-500 shrink-0" />
+                  <ChevronRight className="w-4 h-4 text-stone-500 shrink-0 rtl:rotate-180" />
                 )}
               </button>
               {open && (
@@ -200,16 +202,16 @@ export const ProgrammeLearning: React.FC<ProgrammeLearningProps> = ({ course, da
                       key={l.id}
                       type="button"
                       onClick={() => setReading(l)}
-                      className="w-full px-3 py-2.5 flex items-center gap-2.5 text-left hover:bg-stone-50 cursor-pointer"
+                      className="w-full min-h-12 px-3 py-2.5 flex items-center gap-2.5 text-start hover:bg-stone-50 cursor-pointer"
                     >
                       {completed.has(l.id) ? (
                         <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                       ) : (
                         <Circle className="w-4 h-4 text-stone-300 shrink-0" />
                       )}
-                      <span className="flex-1 text-sm text-stone-800">{l.title}</span>
+                      <span className="flex-1 text-base text-stone-800 user-text">{l.title}</span>
                       {l.video_url && <Video className="w-3.5 h-3.5 text-stone-500" />}
-                      {l.estimated_minutes ? <span className="text-xs text-stone-500">{l.estimated_minutes} min</span> : null}
+                      {l.estimated_minutes ? <span className="text-sm text-stone-600">{t('learn.minutes', { n: l.estimated_minutes })}</span> : null}
                     </button>
                   ))}
                 </div>
