@@ -216,6 +216,12 @@
   - Fix: since Phase 16 the bottom message bar appeared only on the sign-in page; it now shows everywhere.
   - Tried in a browser on a local copy in all three languages. 121 unit tests (3 new: every translation keeps its placeholders), clean build. The Arabic and Hindi text should be read once by a native speaker.
 
+- Fix on 2026-10-18 (old version in normal browsers; app only, no SQL):
+  - Problem: in a normal browser the site kept showing an old version after an update (a private window was fine). The app keeps a saved copy for offline use, and a new version waited until every tab of the site was closed.
+  - Now a new version takes over at once. The app looks for an update when it opens and each time the person comes back to it, and reloads itself once when one is found. It never reloads while someone stays on the screen, so typing is not interrupted.
+  - Each browser that has the old version needs one more reload after this goes live; after that, updates arrive by themselves.
+  - Tested in a headless Chrome: published a new version while the old one was open; the first reload showed the new version (before: the second reload or later). 121 unit tests, clean build.
+
 ## Next
 - PM: have a native speaker read the Arabic and Hindi (Profile > Language), and send corrections.
 - Decide: translate the staff screens (admin, teacher, leads) too.
