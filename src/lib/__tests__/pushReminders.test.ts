@@ -1,4 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+// No real Supabase client in tests (it needs a WebSocket, which Node 20 lacks)
+vi.mock('../supabase', () => ({ supabase: {} }));
+
 import { urlBase64ToUint8Array } from '../pushReminders';
 
 describe('Practice reminders', () => {
