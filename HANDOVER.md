@@ -12,7 +12,7 @@ Sadhana Mandala is a white-label web app (installable PWA) for a meditation orga
 | --- | --- |
 | Live site | https://sadhana.zyxenai.com (GitHub Pages, deploys on every push to `main` via `.github/workflows/pages.yml`) |
 | Repository | `annakhtoniv/sadhana-mandala` |
-| Working branch | `claude/determined-ride-7rtoj9` (restart it from `main` after each merged PR; the PM deletes it after merging) |
+| Working branch | `claude/gifted-lovelace-1qlelj` (restart it from `main` after each merged PR; the PM deletes it after merging) |
 | Database | Supabase project `pshapxojprvgmwhdivim` (region ap-northeast-2, Seoul), free plan |
 | Organisations | Org A `sadhana-mandala` (the real one), Org B `prana-flow` (test second tenant) |
 | Real accounts | annakhtoniv@gmail.com (PM, admin); Shubham Ji blessedshubh@gmail.com (admin; teaches the real batch "Lotus"); the PM also has a real batch "AOS40" |
