@@ -60,6 +60,8 @@ export default defineConfig({
         // A new version takes over at once, instead of waiting until every tab of the site is closed
         skipWaiting: true,
         clientsClaim: true,
+        // Shows the daily practice reminders (Phase 18)
+        importScripts: ['push-handler.js'],
       },
     })
   ],

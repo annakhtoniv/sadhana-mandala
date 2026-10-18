@@ -25,7 +25,9 @@ interface OrganisationSettingsProps {
 const inputClass = 'ui-input';
 const labelClass = 'ui-label';
 
-/** Organisation settings (admins): name, app name, contact email, time zone, footer. */
+const hhmm = (time: string | undefined, fallback: string) => (time || fallback).slice(0, 5);
+
+/** Organisation settings (admins): name, app name, contact email, time zone, footer, daily reminders. */
 export const OrganisationSettings: React.FC<OrganisationSettingsProps> = ({ organisation, onClose, onSaved }) => {
   const [form, setForm] = useState({
     name: organisation.name || '',
@@ -33,7 +35,12 @@ export const OrganisationSettings: React.FC<OrganisationSettingsProps> = ({ orga
     support_email: organisation.support_email || '',
     timezone: organisation.timezone || 'Asia/Dubai',
     footer_text: organisation.footer_text || '',
+    reminder_morning_time: hhmm(organisation.reminder_morning_time, '06:00'),
+    reminder_morning_text: organisation.reminder_morning_text || 'Good morning. Time for your morning practice.',
+    reminder_evening_time: hhmm(organisation.reminder_evening_time, '19:00'),
+    reminder_evening_text: organisation.reminder_evening_text || 'Time for your evening practice.',
   });
+  const [remindersOn, setRemindersOn] = useState(organisation.reminders_enabled !== false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const set = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }));
@@ -50,6 +57,10 @@ export const OrganisationSettings: React.FC<OrganisationSettingsProps> = ({ orga
       setError('The contact email does not look right.');
       return;
     }
+    if (!form.reminder_morning_text.trim() || !form.reminder_evening_text.trim()) {
+      setError('Both reminder texts are needed.');
+      return;
+    }
     setSaving(true);
     const { data, error: err } = await supabase
       .from('organisations')
@@ -59,6 +70,11 @@ export const OrganisationSettings: React.FC<OrganisationSettingsProps> = ({ orga
         support_email: form.support_email.trim(),
         timezone: form.timezone,
         footer_text: form.footer_text.trim(),
+        reminders_enabled: remindersOn,
+        reminder_morning_time: form.reminder_morning_time,
+        reminder_morning_text: form.reminder_morning_text.trim(),
+        reminder_evening_time: form.reminder_evening_time,
+        reminder_evening_text: form.reminder_evening_text.trim(),
       })
       .eq('id', organisation.id)
       .select()
@@ -104,6 +120,36 @@ export const OrganisationSettings: React.FC<OrganisationSettingsProps> = ({ orga
           <label className={labelClass} htmlFor="org-footer">Footer text</label>
           <input id="org-footer" className={inputClass} value={form.footer_text} onChange={(e) => set('footer_text', e.target.value)} />
         </div>
+
+        <fieldset className="space-y-3 rounded-2xl ring-1 ring-stone-200 p-4">
+          <legend className="px-1 text-sm font-semibold text-stone-800">Daily practice reminders</legend>
+          <label className="flex items-center gap-2 text-sm text-stone-800 cursor-pointer">
+            <input type="checkbox" className="w-5 h-5 accent-emerald-600" checked={remindersOn} onChange={(e) => setRemindersOn(e.target.checked)} />
+            Send reminders
+          </label>
+          <p className="text-xs text-stone-500">
+            A notification to everyone in a running batch with a daily practice who turned reminders on, in the time zone above.
+          </p>
+          <div className="grid grid-cols-[7rem_1fr] gap-2 items-end">
+            <div>
+              <label className={labelClass} htmlFor="org-rem-m-time">Morning</label>
+              <input id="org-rem-m-time" type="time" className={inputClass} disabled={!remindersOn} value={form.reminder_morning_time} onChange={(e) => set('reminder_morning_time', e.target.value)} />
+            </div>
+            <div>
+              <label className={labelClass} htmlFor="org-rem-m-text">Morning text</label>
+              <input id="org-rem-m-text" className={inputClass} maxLength={200} disabled={!remindersOn} value={form.reminder_morning_text} onChange={(e) => set('reminder_morning_text', e.target.value)} />
+            </div>
+            <div>
+              <label className={labelClass} htmlFor="org-rem-e-time">Evening</label>
+              <input id="org-rem-e-time" type="time" className={inputClass} disabled={!remindersOn} value={form.reminder_evening_time} onChange={(e) => set('reminder_evening_time', e.target.value)} />
+            </div>
+            <div>
+              <label className={labelClass} htmlFor="org-rem-e-text">Evening text</label>
+              <input id="org-rem-e-text" className={inputClass} maxLength={200} disabled={!remindersOn} value={form.reminder_evening_text} onChange={(e) => set('reminder_evening_text', e.target.value)} />
+            </div>
+          </div>
+        </fieldset>
+
         <p className="text-xs text-stone-500">Web address name: {organisation.slug} (fixed)</p>
 
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}

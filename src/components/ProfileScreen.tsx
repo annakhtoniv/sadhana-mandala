@@ -4,6 +4,7 @@ import { useT, type MsgKey } from '../i18n';
 import { useAuth } from '../context/AuthContext';
 import { Sheet } from './Sheet';
 import { InstallAppCard } from './InstallAppCard';
+import { RemindersCard } from './RemindersCard';
 import { LanguageChoices } from './LanguageSwitch';
 import { Avatar } from './Avatar';
 import { uploadAvatar, switchToGoogleAvatar } from '../lib/avatarService';
@@ -157,6 +158,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
         </h2>
         <LanguageChoices />
       </section>
+
+      <RemindersCard />
 
       <InstallAppCard appName={organisation.app_name} />
 

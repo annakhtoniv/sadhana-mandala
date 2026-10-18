@@ -23,6 +23,13 @@ once. `verify.sql` must end with every row saying PASS.
 12. `phase15_performance.sql` (faster access rules, indexes, error log)
 13. `seed_dummy_data.sql` (resets the sample data; real accounts are never touched)
 14. `verify.sql` (every row PASS)
+15. `phase18_reminders.sql` (daily practice reminders), then `verify.sql` again
+16. Deploy the Edge Function `functions/send-reminders` and set its secrets
+    (Supabase > Edge Functions > Secrets): `VAPID_PUBLIC_KEY`,
+    `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (`mailto:` the support email). The
+    public key is also in `.github/workflows/pages.yml`; the private key is
+    never put in the repository.
+17. `phase18_schedule.sql` (starts the sender every 5 minutes; live project only)
 
 ## Automatic checks (GitHub)
 

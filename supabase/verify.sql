@@ -1,11 +1,11 @@
 -- ============================================================================
--- Sadhana Mandala: verification (phases 4 to 15)
+-- Sadhana Mandala: verification (phases 4 to 18)
 --
 -- Run in the Supabase SQL editor after phase4_security.sql,
 -- phase5_programmes.sql, phase6_lms.sql, phase7_followups.sql,
 -- phase8_events.sql, phase9_crm.sql, phase11_checkins.sql, phase12_media.sql,
--- phase13_roles.sql, phase14_safety.sql, phase15_performance.sql and
--- seed_dummy_data.sql. It signs in as the fictional seed users one at a time
+-- phase13_roles.sql, phase14_safety.sql, phase15_performance.sql,
+-- phase18_reminders.sql and seed_dummy_data.sql. It signs in as the fictional seed users one at a time
 -- (by setting the same JWT claims Supabase sets for a real sign-in) and checks
 -- what each of them can see and change. Nothing is saved: every write attempt
 -- is rolled back immediately.
@@ -805,6 +805,81 @@ begin
   select count(*) into v_n from pg_policies
   where schemaname = 'public' and tablename <> 'organisations' and (qual = 'true' or with_check = 'true') and permissive = 'PERMISSIVE';
   r := r || array['Rules|open "true" policies outside organisations|0', v_n::text];
+
+  -- ------------------------------------------------------------------ Daily reminders (phase 18)
+  v_txt := 'https://fcm.googleapis.com/fcm/send/verify-student01';
+  perform set_config('request.jwt.claims', json_build_object('sub', v_student01, 'email', 'student01@example.com', 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  perform public.save_push_subscription(v_txt, 'verify-p256dh', 'verify-auth');
+  perform public.save_push_subscription(v_txt, 'verify-p256dh-renewed', 'verify-auth');
+  select count(*) into v_n from public.push_subscriptions;
+  r := r || array['Student 01|turns reminders on twice on one phone: own phones visible|1', v_n::text];
+  begin
+    perform public.save_push_subscription('https://evil.example.com/collect', 'k', 'a');
+    v_n := 1;
+  exception when others then v_n := 0; end;
+  r := r || array['Student 01|reminder address outside the push services|blocked', case when v_n = 0 then 'blocked' else 'allowed' end];
+  begin
+    perform * from public.claim_due_reminders();
+    v_n := 1;
+  exception when others then v_n := 0; end;
+  r := r || array['Student 01|send the reminders (sender only)|blocked', case when v_n = 0 then 'blocked' else 'allowed' end];
+  begin
+    select count(*) into v_n from public.reminder_sends;
+  exception when others then v_n := 0; end;
+  r := r || array['Student 01|reminders sent (admin list) visible|0', v_n::text];
+  reset role;
+
+  perform set_config('request.jwt.claims', json_build_object('sub', v_ananda, 'email', 'teacher.ananda@example.com', 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  select count(*) into v_n from public.push_subscriptions;
+  r := r || array['Teacher A (Ananda)|students'' phones visible|0', v_n::text];
+  perform public.save_push_subscription('https://fcm.googleapis.com/fcm/send/verify-ananda', 'verify-p256dh', 'verify-auth');
+  reset role;
+
+  perform set_config('request.jwt.claims', json_build_object('sub', v_admin_a, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  begin
+    update public.organisations set reminder_morning_time = '05:30', reminder_morning_text = 'Rise and shine.' where id = v_org_a;
+    get diagnostics v_n = row_count;
+  exception when others then v_n := 0; end;
+  r := r || array['Admin A|changes the reminder time and text|1', v_n::text];
+  reset role;
+
+  perform set_config('request.jwt.claims', '', true);
+  set local role anon;
+  begin
+    select count(*) into v_n from public.push_subscriptions;
+    v_txt := v_n::text;
+  exception when others then v_txt := 'blocked'; end;
+  r := r || array['Anonymous visitor|phones with reminders visible|blocked', v_txt];
+  reset role;
+
+  -- The sender: Org A's morning reminder is due from now (its time set to this minute)
+  update public.organisations
+  set reminders_enabled = true,
+      reminder_morning_time = date_trunc('minute', (now() at time zone timezone)::time)
+  where id = v_org_a;
+  delete from public.reminder_sends where org_id = v_org_a;
+  select count(*) into v_n from public.claim_due_reminders() d where d.org_id = v_org_a and d.slot = 'morning';
+  r := r || array['Sender|Org A morning reminder due now|1', v_n::text];
+  select count(*) into v_n from public.claim_due_reminders() d where d.org_id = v_org_a and d.slot = 'morning';
+  r := r || array['Sender|same reminder a second time (runs every 5 minutes)|0', v_n::text];
+  select count(*) into v_n from public.reminder_recipients(v_org_a) x where x.endpoint like '%/verify-student01';
+  r := r || array['Sender|student in a running batch gets it (once, with the renewed key)|1', v_n::text];
+  select x.p256dh into v_txt from public.reminder_recipients(v_org_a) x where x.endpoint like '%/verify-student01';
+  r := r || array['Sender|uses the renewed key|verify-p256dh-renewed', coalesce(v_txt, 'none')];
+  select count(*) into v_n from public.reminder_recipients(v_org_a) x where x.endpoint like '%/verify-ananda';
+  r := r || array['Sender|teacher not in a batch as a student gets none|0', v_n::text];
+  select count(*) into v_n from public.reminder_recipients(v_org_b) x where x.endpoint like '%/verify-%';
+  r := r || array['Sender|Org A phones in Org B''s reminders|0', v_n::text];
+  update public.organisations set reminders_enabled = false where id = v_org_a;
+  delete from public.reminder_sends where org_id = v_org_a;
+  select count(*) into v_n from public.claim_due_reminders() d where d.org_id = v_org_a;
+  r := r || array['Sender|admin turned reminders off: nothing due|0', v_n::text];
+  perform public.finish_reminder_send(v_org_a, 'morning', 1, array['https://fcm.googleapis.com/fcm/send/verify-student01']);
+  select count(*) into v_n from public.push_subscriptions where endpoint like '%/verify-student01';
+  r := r || array['Sender|phone that no longer exists is removed|0', v_n::text];
 
   raise exception 'VERIFY_UNDO';
   exception when others then

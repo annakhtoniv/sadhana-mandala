@@ -11,6 +11,7 @@ import { removeMyAvatarFiles, syncGoogleAvatar } from '../lib/avatarService';
 import { friendlyError } from '../lib/errors';
 import { PENDING_CHECKIN_KEY, PENDING_JOIN_KEY, readLinkParams, savePending, takePending } from '../lib/joinLink';
 import { allowedRoleViews, defaultRoleView } from '../lib/roles';
+import { forgetRemindersOnThisPhone } from '../lib/pushReminders';
 import type { Organisation, Profile, UserRole, Enrolment } from '../types/database';
 
 interface AuthContextType {
@@ -354,6 +355,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.removeItem('sadhana_active_role');
       loadedUserRef.current = null;
       localStorage.removeItem('sadhana_demo_enrolment');
+      // This phone stops getting this person's practice reminders
+      await forgetRemindersOnThisPhone().catch(() => {});
     }
     await supabase.auth.signOut();
     setSession(null);
