@@ -106,6 +106,8 @@ export const TeacherHome: React.FC = () => {
       <TeacherBatchDetail
         batch={selectedBatch}
         organisation={organisation}
+        canChangeTeacher={profile?.role === 'admin'}
+        onBatchUpdated={setSelectedBatch}
         onBack={() => {
           setSelectedBatch(null);
           loadData();

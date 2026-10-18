@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { fetchBatchEnrolments, fetchBatchInvites, addBatchInvites } from '../lib/batchService';
 import { fetchBatchCheckins, calculateStreak, isStudentQuiet } from '../lib/checkinService';
+import { hasEvening, hasMorning, isPractised } from '../lib/practiceUtils';
 import { formatDateDisplay, calculateDayNumber } from '../lib/dateUtils';
 import { hasPracticeTrack, programmeRunStatus, RUN_STATUS_LABEL } from '../lib/programmeUtils';
 import { fetchProgrammeModules, fetchStudentsLessonProgress } from '../lib/lmsService';
 import { BatchFollowups } from './BatchFollowups';
 import { BatchSharePanel } from './BatchSharePanel';
+import { BatchEditor } from './BatchEditor';
 import type { Batch, Enrolment, BatchInvite, Organisation, Checkin } from '../types/database';
 import {
   ArrowLeft,
@@ -20,19 +22,29 @@ import {
   Flame,
   AlertTriangle,
   Moon,
-  X,
+  Sun,
   ArrowUpDown,
+  Pencil,
 } from 'lucide-react';
 
 interface TeacherBatchDetailProps {
   batch: Batch;
   organisation: Organisation;
   onBack: () => void;
+  /** Called after the batch was edited */
+  onBatchUpdated?: (batch: Batch) => void;
+  /** Admins can give the batch to another teacher */
+  canChangeTeacher?: boolean;
+  backLabel?: string;
 }
 
 type SortField = 'name' | 'streak' | 'status' | 'quiet';
 
-const STATUS_ORDER: Record<string, number> = { done: 0, rest: 1, not_yet: 2, none: 3 };
+/** Sort order for today's ticks: both first, then one, then none */
+const TICKS_ORDER: Record<string, number> = { both: 0, morning: 1, evening: 1, none: 2 };
+function ticksLabel(m: boolean, e: boolean): string {
+  return m && e ? 'morning and evening' : m ? 'morning' : e ? 'evening' : 'no tick';
+}
 
 function formatShortDate(isoTimestamp: string, timeZone: string): string {
   try {
@@ -46,7 +58,11 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
   batch,
   organisation,
   onBack,
+  onBatchUpdated,
+  canChangeTeacher = false,
+  backLabel = 'Back to My Batches',
 }) => {
+  const [editing, setEditing] = useState(false);
   const [enrolments, setEnrolments] = useState<Enrolment[]>([]);
   const [invites, setInvites] = useState<BatchInvite[]>([]);
   const [batchCheckins, setBatchCheckins] = useState<Checkin[]>([]);
@@ -161,16 +177,23 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
       const streak = calculateStreak(studentChecks, currentDay, durationDays);
       const isQuiet = practice && isStudentQuiet(studentChecks, currentDay, 4, durationDays);
 
-      // Find last check-in
-      const lastCheckin = studentChecks.length > 0 ? studentChecks[studentChecks.length - 1] : null;
+      // Last day with a tick
+      const practisedDays = studentChecks.filter(isPractised);
+      const lastCheckin = practisedDays.length > 0 ? practisedDays[practisedDays.length - 1] : null;
+      const todayMorning = hasMorning(todayCheck);
+      const todayEvening = hasEvening(todayCheck);
 
       return {
         enrolment: enr,
-        todayStatus: todayCheck?.status || 'none',
+        todayStatus: todayMorning && todayEvening ? 'both' : todayMorning ? 'morning' : todayEvening ? 'evening' : 'none',
+        todayMorning,
+        todayEvening,
         streak,
         isQuiet,
+        practisedCount: practisedDays.length,
+        lateCount: studentChecks.filter((c) => c.late).length,
         lastCheckinDay: lastCheckin?.day_number || null,
-        lastCheckinStatus: lastCheckin?.status || null,
+        lastCheckinStatus: lastCheckin ? ticksLabel(hasMorning(lastCheckin), hasEvening(lastCheckin)) : null,
         lastCheckinAt: lastCheckin?.updated_at || null,
       };
     });
@@ -178,21 +201,21 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
 
   // Today's summary counts
   const summaryCounts = useMemo(() => {
-    let done = 0;
-    let rest = 0;
-    let notYet = 0;
+    let morning = 0;
+    let evening = 0;
+    let both = 0;
     let none = 0;
     let quiet = 0;
 
     for (const s of studentMetrics) {
       if (s.isQuiet) quiet++;
-      if (s.todayStatus === 'done') done++;
-      else if (s.todayStatus === 'rest') rest++;
-      else if (s.todayStatus === 'not_yet') notYet++;
-      else none++;
+      if (s.todayMorning) morning++;
+      if (s.todayEvening) evening++;
+      if (s.todayMorning && s.todayEvening) both++;
+      if (!s.todayMorning && !s.todayEvening) none++;
     }
 
-    return { done, rest, notYet, none, quiet, total: studentMetrics.length };
+    return { morning, evening, both, none, quiet, total: studentMetrics.length };
   }, [studentMetrics]);
 
   // Sorted roster
@@ -208,7 +231,7 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
         return b.streak - a.streak;
       }
       if (sortBy === 'status') {
-        return STATUS_ORDER[a.todayStatus] - STATUS_ORDER[b.todayStatus];
+        return TICKS_ORDER[a.todayStatus] - TICKS_ORDER[b.todayStatus];
       }
       const nameA = a.enrolment.student?.full_name || a.enrolment.student?.email || '';
       const nameB = b.enrolment.student?.full_name || b.enrolment.student?.email || '';
@@ -226,7 +249,7 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
         className="inline-flex items-center gap-1.5 text-xs text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 transition-colors cursor-pointer"
       >
         <ArrowLeft className="w-3.5 h-3.5" />
-        <span>Back to My Batches</span>
+        <span>{backLabel}</span>
       </button>
 
       {/* Batch Header */}
@@ -256,6 +279,10 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
             </p>
           </div>
 
+          <div className="flex items-center gap-1 shrink-0">
+          <button type="button" onClick={() => setEditing(true)} className="ui-btn-ghost !py-1.5 !px-3.5 !text-xs" title="Edit batch">
+            <Pencil className="w-3.5 h-3.5" /> Edit
+          </button>
           <button
             type="button"
             onClick={loadData}
@@ -265,6 +292,7 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
+          </div>
         </div>
       </div>
 
@@ -284,12 +312,11 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
             ? `Final day · Day ${durationDays}`
             : `Today · Day ${currentDay}`}
         </div>
-        <div className="grid grid-cols-5 gap-1.5">
+        <div className="grid grid-cols-4 gap-1.5">
           {[
-            { label: 'Done', value: summaryCounts.done, tone: 'text-emerald-600 dark:text-emerald-400' },
-            { label: 'Rest', value: summaryCounts.rest, tone: 'text-indigo-600 dark:text-indigo-400' },
-            { label: 'Not yet', value: summaryCounts.notYet, tone: 'text-amber-600 dark:text-amber-400' },
-            { label: 'No answer', value: summaryCounts.none, tone: 'text-stone-500 dark:text-stone-400' },
+            { label: 'Morning', value: summaryCounts.morning, tone: 'text-amber-600 dark:text-amber-400' },
+            { label: 'Evening', value: summaryCounts.evening, tone: 'text-indigo-600 dark:text-indigo-400' },
+            { label: 'No tick', value: summaryCounts.none, tone: 'text-stone-500 dark:text-stone-400' },
             { label: 'Quiet', value: summaryCounts.quiet, tone: 'text-red-600 dark:text-red-400' },
           ].map((card) => (
             <div
@@ -387,7 +414,7 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
           <p className="text-xs text-stone-400 italic py-2">No students enrolled in this batch yet.</p>
         ) : (
           <div className="divide-y divide-stone-100 dark:divide-stone-800">
-            {sortedRoster.map(({ enrolment: enr, todayStatus, streak, isQuiet, lastCheckinDay, lastCheckinStatus, lastCheckinAt }) => (
+            {sortedRoster.map(({ enrolment: enr, todayMorning, todayEvening, streak, isQuiet, practisedCount, lateCount, lastCheckinDay, lastCheckinStatus, lastCheckinAt }) => (
               <div key={enr.id} className="py-3.5 flex items-center justify-between text-xs gap-2">
                 <div className="space-y-0.5 min-w-0">
                   <div className="flex items-center gap-2">
@@ -410,12 +437,15 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
                   {practice && (
                   <div className="text-[10px] text-stone-400 flex items-center gap-1.5 pt-0.5">
                     <span>
-                      Last check-in:{' '}
+                      Last practice:{' '}
                       {lastCheckinDay
-                        ? `Day ${lastCheckinDay} (${lastCheckinStatus?.replace('_', ' ')})${
+                        ? `Day ${lastCheckinDay} (${lastCheckinStatus})${
                             lastCheckinAt ? ` · ${formatShortDate(lastCheckinAt, organisation.timezone)}` : ''
                           }`
                         : 'None yet'}
+                      {' · '}
+                      {practisedCount} day{practisedCount === 1 ? '' : 's'}
+                      {lateCount > 0 ? ` (${lateCount} added later)` : ''}
                     </span>
                   </div>
                   )}
@@ -425,26 +455,14 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
                 <div className="text-right space-y-1 shrink-0">
                   {/* Today's Status Badge */}
                   <div>
-                    {todayStatus === 'done' ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-                        <Check className="w-3 h-3" />
-                        <span>Done</span>
+                    <span className="inline-flex items-center gap-1" aria-label={`Today: ${ticksLabel(todayMorning, todayEvening)}`}>
+                      <span className={`w-6 h-6 rounded-full flex items-center justify-center ${todayMorning ? 'bg-amber-400 text-stone-900' : 'bg-stone-100 text-stone-300'}`} title="Morning">
+                        <Sun className="w-3.5 h-3.5" />
                       </span>
-                    ) : todayStatus === 'rest' ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
-                        <Moon className="w-3 h-3" />
-                        <span>Rest Day</span>
+                      <span className={`w-6 h-6 rounded-full flex items-center justify-center ${todayEvening ? 'bg-indigo-600 text-white' : 'bg-stone-100 text-stone-300'}`} title="Evening">
+                        <Moon className="w-3.5 h-3.5" />
                       </span>
-                    ) : todayStatus === 'not_yet' ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
-                        <X className="w-3 h-3" />
-                        <span>Not Yet</span>
-                      </span>
-                    ) : (
-                      <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-medium bg-stone-100 dark:bg-stone-800 text-stone-500">
-                        Pending
-                      </span>
-                    )}
+                    </span>
                   </div>
 
                   {/* Streak */}
@@ -545,6 +563,18 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
             </form>
           </div>
         </div>
+      )}
+      {editing && (
+        <BatchEditor
+          batch={batch}
+          orgId={organisation.id}
+          canChangeTeacher={canChangeTeacher}
+          onClose={() => setEditing(false)}
+          onSaved={(updated) => {
+            setEditing(false);
+            onBatchUpdated?.(updated);
+          }}
+        />
       )}
     </div>
   );

@@ -60,8 +60,10 @@ change their own role or organisation.
   unique(batch_id, email)
 - enrolments: batch_id, student_id, source (invite | code | manual),
   joined_at; unique(batch_id, student_id)
-- checkins: student_id, batch_id, day_number, status (done | not_yet | rest),
-  updated_at; unique(student_id, batch_id, day_number)
+- checkins: student_id, batch_id, day_number, morning, evening (ticks),
+  morning_at, evening_at, late (written after its day), status (kept in step:
+  done when a tick is set; 'rest' only on old rows), updated_at;
+  unique(student_id, batch_id, day_number)
 - lessons: title, body (markdown), video_url (optional), scope
   (general | course | batch), course_id, batch_id, day_number (optional),
   published, author_id
@@ -88,12 +90,17 @@ change their own role or organisation.
 - A user with no batch can still sign in. They see general lessons and a
   "You are not in a batch yet" panel with a join code field. Nothing else.
 - Day number comes from the batch start_date in the organisation timezone.
-  Day 1 is the start date. A student can check in for today only and can
-  change today's answer. A second tap updates the row, never duplicates it.
+  Day 1 is the start date. Each day has two ticks, Morning and Evening (no
+  rest days; PM decision 2026-10-18). A student can tick today or any past
+  day of the batch, never a future day; a tick written after its day is
+  marked late and teachers see it. Tapping again changes the tick and updates
+  the one row of that day, never duplicates it.
 - Nothing in the code assumes a fixed programme length. Use duration_days.
-- Streak: consecutive "done" days. A rest day neither adds to nor breaks the
-  streak. A passed day with "not_yet" or no answer breaks it.
-- Quiet: no check-in of any kind for 4 consecutive days.
+- A day counts (streak, trail, reports) when at least one tick is set.
+- Streak (the practice flame): consecutive days that count, ending today, or
+  yesterday while today has no tick yet. A passed day without a tick breaks
+  it; filling the day in later repairs it.
+- Quiet: no tick for 4 consecutive days.
 - Consent: at first sign-in the user accepts a screen stating what is stored
   (name, email, daily answers, times) and that the teacher sees it. Store
   consent_at.
@@ -101,8 +108,10 @@ change their own role or organisation.
   check-ins for real. Confirm before deleting.
 
 ## Screens
-Student: Home (today's question from checkin_question with Done / Not yet /
-Rest day, streak, a trail of all days in rows of seven), Lessons (My batch,
+Student: Home (today's question from checkin_question with Morning and
+Evening ticks, the practice flame, a trail of all days in rows of seven where
+both ticks show a full circle, one tick a half circle, and tapping a past day
+opens it for check-in), Lessons (My batch,
 General), Profile (consent date, leave batch, delete account).
 Teacher: My batches; Batch detail (counts for today, roster with today's
 status, streak, last check-in and a Quiet flag, sortable; add emails; join

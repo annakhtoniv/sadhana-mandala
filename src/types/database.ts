@@ -97,6 +97,7 @@ export interface Enrolment {
   student?: Profile;
 }
 
+/** Kept in step by the database: 'done' when morning or evening is ticked. 'rest' only on old rows. */
 export type CheckinStatus = 'done' | 'not_yet' | 'rest';
 
 export interface Checkin {
@@ -106,6 +107,13 @@ export interface Checkin {
   student_id: string;
   day_number: number;
   status: CheckinStatus;
+  /** Phase 11: Morning and Evening ticks */
+  morning?: boolean;
+  evening?: boolean;
+  morning_at?: string | null;
+  evening_at?: string | null;
+  /** Written after its day */
+  late?: boolean;
   created_at: string;
   updated_at: string;
 }

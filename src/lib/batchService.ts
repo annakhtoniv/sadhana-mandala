@@ -231,6 +231,42 @@ export async function createBatch(params: {
 }
 
 /**
+ * Edits a batch. Admins may change everything; a teacher only their own
+ * batches (enforced by the database). Changing the start date moves every
+ * day number of the batch.
+ */
+export async function updateBatch(
+  batchId: string,
+  changes: { name: string; courseId: string; teacherId: string; startDate: string; joinCode: string }
+): Promise<{ success: boolean; data?: Batch; error?: string }> {
+  const joinCode = changes.joinCode.trim().toUpperCase();
+  if (!changes.name.trim()) return { success: false, error: 'Please enter a batch name.' };
+  if (!/^[A-Z0-9-]{3,12}$/.test(joinCode)) return { success: false, error: 'The join code needs 3 to 12 letters or numbers.' };
+  if (!changes.startDate) return { success: false, error: 'Please choose a start date.' };
+  if (isDemoMode()) return { success: false, error: 'Batches cannot be changed with sample data.' };
+
+  const { data, error } = await supabase
+    .from('batches')
+    .update({
+      name: changes.name.trim(),
+      course_id: changes.courseId,
+      teacher_id: changes.teacherId,
+      start_date: changes.startDate,
+      join_code: joinCode,
+    })
+    .eq('id', batchId)
+    .select(BATCH_SELECT)
+    .single();
+
+  if (error) {
+    if (error.code === '23505') return { success: false, error: `The join code ${joinCode} is already taken. Try another.` };
+    if (error.code === 'PGRST116') return { success: false, error: 'You can only change batches you teach.' };
+    return { success: false, error: error.message };
+  }
+  return { success: true, data: data as unknown as Batch };
+}
+
+/**
  * Teacher invites students by pasting an email list.
  * Auto-enrols matching accounts immediately.
  */

@@ -130,7 +130,7 @@ export const FunnelReportPanel: React.FC = () => {
               <div>
                 <h3 className="text-sm font-semibold text-stone-900 dark:text-stone-100">{j.course_name}: student journey</h3>
                 <p className="text-[11px] text-stone-500">
-                  All students, from the app. "Completed" means the {j.practice_days}-day practice is over and they checked in "done" on at
+                  All students, from the app. "Completed" means the {j.practice_days}-day practice is over and they ticked Morning or Evening on at
                   least 80% of the days.
                 </p>
               </div>

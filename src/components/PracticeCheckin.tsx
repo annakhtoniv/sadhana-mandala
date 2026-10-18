@@ -1,0 +1,262 @@
+import React, { useMemo, useState } from 'react';
+import { recordCheckin, upsertCheckinInMemory } from '../lib/checkinService';
+import { calculateStreak, countPractisedDays, getTrailDayStatus, hasEvening, hasMorning } from '../lib/practiceUtils';
+import { formatDateDisplay } from '../lib/dateUtils';
+import type { Checkin } from '../types/database';
+import { Check, Flame, Loader2, Lock, Moon, Sparkles, Sun, History } from 'lucide-react';
+
+interface PracticeCheckinProps {
+  orgId: string;
+  batchId: string;
+  studentId: string;
+  startDate: string;
+  timeZone: string;
+  todayDay: number;
+  durationDays: number;
+  practiceName: string;
+  question: string;
+  checkins: Checkin[];
+  onCheckinsChange: (next: Checkin[]) => void;
+}
+
+/** The date of a day of the batch, e.g. "Mon 12 Oct". */
+function dayDate(startDate: string, day: number, timeZone: string): string {
+  const d = new Date(`${startDate}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + day - 1);
+  return formatDateDisplay(d.toISOString().slice(0, 10), timeZone);
+}
+
+/**
+ * Daily practice (PM decision 2026-10-18): Morning and Evening ticks, no rest
+ * days. A day counts when at least one is ticked. Any past day of the batch
+ * can be filled in from the trail.
+ */
+export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
+  orgId,
+  batchId,
+  studentId,
+  startDate,
+  timeZone,
+  todayDay,
+  durationDays,
+  practiceName,
+  question,
+  checkins,
+  onCheckinsChange,
+}) => {
+  const lastOpenDay = Math.min(todayDay, durationDays);
+  const [selectedDay, setSelectedDay] = useState<number>(Math.max(1, lastOpenDay));
+  const [saving, setSaving] = useState<'morning' | 'evening' | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const byDay = useMemo(() => new Map(checkins.map((c) => [c.day_number, c])), [checkins]);
+  const streak = calculateStreak(checkins, todayDay, durationDays);
+  const practised = countPractisedDays(checkins, lastOpenDay);
+  const selected = byDay.get(selectedDay);
+  const morning = hasMorning(selected);
+  const evening = hasEvening(selected);
+  const isToday = selectedDay === todayDay;
+  const notStarted = todayDay < 1;
+  const finished = todayDay > durationDays;
+
+  const toggle = async (slot: 'morning' | 'evening') => {
+    if (saving || selectedDay < 1 || selectedDay > lastOpenDay) return;
+    const next = { morning, evening, [slot]: !(slot === 'morning' ? morning : evening) };
+    setSaving(slot);
+    setMessage(null);
+
+    const previous = checkins;
+    const optimistic: Checkin = {
+      id: selected?.id || `temp-${selectedDay}`,
+      org_id: orgId,
+      batch_id: batchId,
+      student_id: studentId,
+      day_number: selectedDay,
+      status: next.morning || next.evening ? 'done' : 'not_yet',
+      morning: next.morning,
+      evening: next.evening,
+      late: selected?.late || selectedDay < todayDay,
+      created_at: selected?.created_at || new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    onCheckinsChange(upsertCheckinInMemory(checkins, optimistic));
+
+    const res = await recordCheckin(orgId, batchId, studentId, selectedDay, next);
+    setSaving(null);
+    if (res.success && res.checkin) {
+      onCheckinsChange(upsertCheckinInMemory(upsertCheckinInMemory(previous, optimistic), res.checkin));
+    } else {
+      onCheckinsChange(previous);
+      setMessage(`Not saved: ${res.error || 'please try again'}`);
+    }
+  };
+
+  const tile = (slot: 'morning' | 'evening', on: boolean) => {
+    const Icon = slot === 'morning' ? Sun : Moon;
+    return (
+      <button
+        type="button"
+        onClick={() => toggle(slot)}
+        disabled={saving !== null || notStarted || selectedDay > lastOpenDay}
+        aria-pressed={on}
+        className={`relative flex-1 rounded-[1.25rem] p-4 text-left transition-all active:scale-[0.98] disabled:opacity-60 cursor-pointer ${
+          on
+            ? slot === 'morning'
+              ? 'bg-amber-400 text-stone-950 shadow-[0_14px_30px_-14px_rgba(245,158,11,0.9)]'
+              : 'bg-indigo-600 text-white shadow-[0_14px_30px_-14px_rgba(79,70,229,0.9)]'
+            : 'bg-stone-900/[0.03] text-stone-700 ring-1 ring-stone-900/[0.07] hover:bg-stone-900/[0.05]'
+        }`}
+      >
+        <div className="flex items-center justify-between">
+          <Icon className="w-5 h-5" />
+          <span
+            className={`w-6 h-6 rounded-full flex items-center justify-center transition-all ${
+              on ? 'bg-white/90 text-stone-900 scale-100' : 'ring-1 ring-stone-900/15 scale-90'
+            }`}
+          >
+            {saving === slot ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : on ? <Check className="w-3.5 h-3.5" /> : null}
+          </span>
+        </div>
+        <div className="mt-5 text-sm font-semibold">{slot === 'morning' ? 'Morning' : 'Evening'}</div>
+        <div className={`text-[11px] ${on ? 'opacity-80' : 'text-stone-500'}`}>{on ? 'Done' : 'Tap when done'}</div>
+      </button>
+    );
+  };
+
+  return (
+    <>
+      {/* 1. Check in (today, or the day picked on the trail) */}
+      <section id="tour-checkin-card" className="ui-card space-y-4">
+        <div className="flex items-center justify-between gap-2">
+          <span className="ui-eyebrow">
+            {notStarted ? 'Starts soon' : finished && selectedDay === lastOpenDay ? 'Practice complete' : `Day ${selectedDay} of ${durationDays}`}
+          </span>
+          {!notStarted && (
+            <span className="text-[11px] text-stone-500">
+              {isToday ? 'Today' : dayDate(startDate, selectedDay, timeZone)}
+            </span>
+          )}
+        </div>
+
+        <h2 className="font-display text-xl font-semibold text-stone-950 leading-snug">
+          {notStarted
+            ? `Your ${practiceName} begins on ${formatDateDisplay(startDate, timeZone)}.`
+            : isToday
+            ? question
+            : `Did you practise on day ${selectedDay}?`}
+        </h2>
+
+        {notStarted ? (
+          <div className="p-4 rounded-2xl bg-stone-900/[0.03] text-xs text-stone-500 flex items-center gap-2">
+            <Lock className="w-4 h-4" /> Check-ins open on day 1.
+          </div>
+        ) : (
+          <>
+            <div id="tour-checkin-buttons" className="flex gap-3">
+              {tile('morning', morning)}
+              {tile('evening', evening)}
+            </div>
+            <p className="text-[11px] text-stone-500 min-h-[16px]">
+              {message ? (
+                <span className="text-red-600">{message}</span>
+              ) : !isToday ? (
+                <>
+                  Filling in a past day. Your teacher sees it was added later.{' '}
+                  {lastOpenDay === todayDay && (
+                    <button type="button" onClick={() => setSelectedDay(todayDay)} className="underline text-stone-700 cursor-pointer">
+                      Back to today
+                    </button>
+                  )}
+                </>
+              ) : morning && evening ? (
+                'Both done today. Beautiful.'
+              ) : morning || evening ? (
+                'Today counts. Tick the other one too when you have done it.'
+              ) : (
+                'Tick Morning, Evening or both. One is enough for the day to count.'
+              )}
+            </p>
+          </>
+        )}
+      </section>
+
+      {/* 2. Streak (the flame) and the trail */}
+      <section className="ui-card space-y-4">
+        <div id="tour-streak-card" className="flex items-center gap-4">
+          <div className="relative w-14 h-14 shrink-0">
+            <div className={`absolute inset-0 rounded-full blur-xl ${streak > 0 ? 'bg-amber-400/50' : 'bg-stone-300/40'}`} />
+            <div className={`relative w-14 h-14 rounded-full flex items-center justify-center ${streak > 0 ? 'bg-gradient-to-b from-amber-300 to-orange-500' : 'bg-stone-200'}`}>
+              <Flame className={`w-7 h-7 ${streak > 0 ? 'text-white fill-white/30' : 'text-stone-400'}`} />
+            </div>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-display text-2xl font-semibold text-stone-950 leading-none">
+              {streak} <span className="text-base font-medium text-stone-500">day{streak === 1 ? '' : 's'} in a row</span>
+            </div>
+            <p className="text-[11px] text-stone-500 mt-1">
+              Your practice flame. It grows each day you tick Morning or Evening, and starts again after a day with no tick.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between text-xs">
+          <span className="font-semibold text-stone-900">{durationDays}-day trail</span>
+          <span className="text-stone-500 tabular-nums">
+            {practised} of {Math.max(0, lastOpenDay)} days practised
+          </span>
+        </div>
+
+        <div id="tour-practice-trail" className="grid grid-cols-7 gap-1.5">
+          {Array.from({ length: durationDays }).map((_, idx) => {
+            const day = idx + 1;
+            const status = getTrailDayStatus(day, todayDay, byDay.get(day));
+            const open = day <= lastOpenDay;
+            const isSelected = open && day === selectedDay;
+            const base = 'aspect-square rounded-full flex items-center justify-center text-[11px] font-medium transition-all relative';
+            const look =
+              status === 'full'
+                ? 'bg-emerald-500 text-white'
+                : status === 'half'
+                ? 'text-emerald-900 bg-[linear-gradient(135deg,#34d399_50%,#d1fae5_50%)]'
+                : status === 'today'
+                ? 'bg-white text-emerald-700 ring-2 ring-emerald-500'
+                : status === 'missed'
+                ? 'bg-white text-stone-400 ring-1 ring-stone-900/10'
+                : 'text-stone-300';
+            return (
+              <button
+                key={day}
+                type="button"
+                disabled={!open}
+                onClick={() => {
+                  setSelectedDay(day);
+                  setMessage(null);
+                  document.getElementById('tour-checkin-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }}
+                aria-label={`Day ${day}${status === 'full' ? ', morning and evening' : status === 'half' ? ', one practice' : status === 'missed' ? ', not ticked' : ''}`}
+                className={`${base} ${look} ${open ? 'cursor-pointer hover:scale-105 active:scale-95' : 'cursor-default'} ${
+                  isSelected ? 'outline outline-2 outline-offset-2 outline-stone-900' : ''
+                }`}
+              >
+                {status === 'full' ? <Check className="w-3.5 h-3.5" /> : day}
+                {byDay.get(day)?.late && status !== 'missed' && (
+                  <History className="absolute -top-0.5 -right-0.5 w-3 h-3 p-[1px] rounded-full bg-white text-stone-500" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-[10.5px] text-stone-500">
+          <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-emerald-500" /> Both</span>
+          <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-[linear-gradient(135deg,#34d399_50%,#d1fae5_50%)]" /> One</span>
+          <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-white ring-1 ring-stone-900/15" /> Not ticked</span>
+          <span className="flex items-center gap-1.5"><History className="w-3 h-3" /> Added later</span>
+        </div>
+        <p className="text-[11px] text-center text-stone-400 flex items-center justify-center gap-1">
+          <Sparkles className="w-3 h-3" /> Tap any past day to fill it in.
+        </p>
+      </section>
+    </>
+  );
+};

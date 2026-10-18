@@ -136,8 +136,20 @@
 
 - 2026-10-18: full visual redesign (inspired by 21st.dev; the earlier "Human 2.0" style is gone): Geist type with an Instrument Serif accent, quiet zinc neutrals, white cards with hairline rings and soft shadows on a faint dot grid, pill buttons, a floating glass top bar, a floating bottom tab bar (Home, Events, Leads, Profile), a new sign-in page (mandala hero, Google button, batch-join card, feature tiles) and a plain-language admin overview (stats, quick actions, tabs). No behaviour changed.
 
+- Phase 11 built on 2026-10-18 (PM requests after the redesign), waiting for the PM to merge, run the SQL and test:
+  - Check-ins are now two ticks a day, Morning and Evening; Rest day is gone. A day counts when at least one is ticked (PM choice). Students can tick any past day of the batch (PM choice: no limit); a tick added after its day is marked "added later" and teachers see it. Future days stay locked.
+  - [supabase/phase11_checkins.sql](supabase/phase11_checkins.sql): `checkins` gains morning, evening, morning_at, evening_at and late; a trigger keeps the old status column in step (done = a tick is set) and turns old "done" rows into Morning ticks; two added policies let students write any day from 1 to today of their own batch. Nothing dropped; safe to re-run. The funnel report needs no change.
+  - App: new check-in card (Morning and Evening tiles), the practice flame with a plain explanation, a 40-day trail of circles (full = both, half = one, white = not ticked, clock badge = added later); tapping a past circle switches the card to that day. Teacher batch screen counts Morning / Evening / No tick / Quiet and shows each student's ticks for today, days practised and how many were added later.
+  - Guided tour rebuilt: a small card above the tab bar (no longer a full-screen box), three steps (today's check-in, 40-day trail and past days, practice flame) that highlight the real element and say how to use it; step 4 (view switcher) removed. Teachers and admins get a "Show me" link to the practice home.
+  - Desktop: a left side menu and wider pages (web app); phones keep the floating bottom tab bar (mobile app). The sign-in page uses two columns on a computer.
+  - Batches can be edited (name, programme, start date, join code; admins also the teacher) from the batch screen; admin batch cards have an Open button. Fixed: pop-up windows opened off-screen because of the page fade-in animation.
+  - Seed: the old answers become ticks (done and rest = Morning; some done days also Evening). Autumn today: 8 Morning, 4 Evening, 2 with no tick, 20 no answer.
+  - [supabase/verify.sql](supabase/verify.sql): 89 checks (6 new: today's ticks, change a past day and it is marked late, no future day, not another student's day, teacher edits own batch but not another teacher's), all PASS on a local copy; the seed runs twice cleanly.
+  - 102 unit tests (the old rest-day tests were replaced by tests for the new rules), clean build.
+
 ## Next
-- PM: confirm the site stays on HTTPS without a warning (phone on Wi-Fi and on mobile data).
+- PM: merge the Phase 11 pull request, then in the Supabase SQL editor run (from `main`): `supabase/phase11_checkins.sql`, `supabase/seed_dummy_data.sql`, `supabase/verify.sql` (all 89 rows PASS). Until the SQL is run, ticking Morning or Evening shows an error.
+- PM: test Phase 11: tick Morning and Evening today; tap an earlier circle and tick it (it gets the clock badge); try the guided tour (? button); open the site on a computer (side menu) and on the phone (bottom tabs); Admin > Batches > Open > Edit and rename a batch.
 - PM: test Phases 9 and 10 (sign in with Google):
   1. Admin > Cohorts > QR icon on a batch: Share / WhatsApp / Copy link / Download QR poster. Scan the QR with a phone that is signed out (or a private window): the sign-in page names the batch; sign in with Google and you are in the batch with a welcome banner. Not yet tried with a real Google sign-in on a phone.
   2. Leads icon (next to the calendar): 11 leads. Open Joel Mathew > Invite to an event > Register and write the invitation > WhatsApp. Then Events > Manage the intro talk: Joel is on the guest list; mark him Attended and see his stage change to Attended.
