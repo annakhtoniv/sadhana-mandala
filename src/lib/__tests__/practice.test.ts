@@ -78,9 +78,14 @@ describe('streak (the practice flame)', () => {
 
 describe('quiet students', () => {
   it('flags 4 days in a row without a tick', () => {
-    expect(isQuietStudent([day(1, true)], 5)).toBe(true);
-    expect(isQuietStudent([day(1, true), day(3, true)], 5)).toBe(false);
-    expect(isQuietStudent([day(1, true), day(2), day(3), day(4), day(5)], 5)).toBe(true);
+    // Days 2 to 5 without a tick, on the morning of day 6: quiet
+    expect(isQuietStudent([day(1, true)], 6)).toBe(true);
+    // On the morning of day 5 only days 2 to 4 are over: not quiet yet (same rule as the streak)
+    expect(isQuietStudent([day(1, true)], 5)).toBe(false);
+    expect(isQuietStudent([day(1, true), day(3, true)], 6)).toBe(false);
+    expect(isQuietStudent([day(1, true), day(2), day(3), day(4), day(5)], 6)).toBe(true);
+    // Ticked today: never quiet
+    expect(isQuietStudent([day(6, true)], 6)).toBe(false);
     expect(isQuietStudent([], 3)).toBe(false);
   });
 });
@@ -98,7 +103,7 @@ describe('in-memory upsert', () => {
 describe('recordCheckin', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('upserts the ticks on the one row per day', async () => {
+  it('saves only the tapped tick, so a tick from another device is kept', async () => {
     const single = vi.fn().mockResolvedValue({
       data: { id: 'c1', day_number: 5, morning: true, evening: false, status: 'done' },
       error: null,
@@ -106,12 +111,15 @@ describe('recordCheckin', () => {
     const upsert = vi.fn().mockReturnValue({ select: vi.fn().mockReturnValue({ single }) });
     (supabase.from as unknown as ReturnType<typeof vi.fn>).mockReturnValue({ upsert });
 
-    const res = await recordCheckin('org-1', 'batch-1', 'student-1', 5, { morning: true, evening: false });
+    const res = await recordCheckin('org-1', 'batch-1', 'student-1', 5, 'morning', true);
     expect(res.success).toBe(true);
     expect(upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ day_number: 5, morning: true, evening: false, status: 'done' }),
+      { org_id: 'org-1', batch_id: 'batch-1', student_id: 'student-1', day_number: 5, morning: true },
       { onConflict: 'student_id,batch_id,day_number' }
     );
+    const sent = upsert.mock.calls[0][0];
+    expect('evening' in sent).toBe(false);
+    expect('status' in sent).toBe(false);
   });
 
   it('reports a refused save', async () => {
@@ -119,8 +127,8 @@ describe('recordCheckin', () => {
     const upsert = vi.fn().mockReturnValue({ select: vi.fn().mockReturnValue({ single }) });
     (supabase.from as unknown as ReturnType<typeof vi.fn>).mockReturnValue({ upsert });
 
-    const res = await recordCheckin('org-1', 'batch-1', 'student-1', 9, { morning: false, evening: true });
+    const res = await recordCheckin('org-1', 'batch-1', 'student-1', 9, 'evening', true);
     expect(res.success).toBe(false);
-    expect(res.error).toContain('row-level security');
+    expect(res.error).toBe('You do not have permission to do that.');
   });
 });

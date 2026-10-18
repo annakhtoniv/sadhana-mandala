@@ -1,10 +1,10 @@
-import { supabase, isDemoMode } from './supabase';
+import { friendlyError } from './errors';
+import { supabase } from './supabase';
 import type { MaterialKind, ProgrammeMaterial } from '../types/database';
 
 const BUCKET = 'materials';
-/** The bucket accepts files up to 50 MB (Supabase free plan limit). */
-export const MAX_MATERIAL_BYTES = 50 * 1024 * 1024;
-const DEMO_ERROR = 'Not available with sample data.';
+/** The bucket accepts files up to 20 MB (Phase 14: keeps the 1 GB free storage from filling up). */
+export const MAX_MATERIAL_BYTES = 20 * 1024 * 1024;
 
 export function kindForMime(mime: string, fileName = ''): MaterialKind {
   if (mime === 'application/pdf' || fileName.toLowerCase().endsWith('.pdf')) return 'pdf';
@@ -36,7 +36,6 @@ export function titleFromFileName(name: string): string {
 
 /** Materials of a programme (staff: all; students: published, programmes they are in). */
 export async function fetchMaterials(courseId: string): Promise<ProgrammeMaterial[]> {
-  if (isDemoMode()) return [];
   const { data, error } = await supabase
     .from('programme_materials')
     .select('*')
@@ -57,13 +56,16 @@ export async function uploadMaterial(
   title: string,
   sortOrder: number
 ): Promise<Result> {
-  if (isDemoMode()) return { success: false, error: DEMO_ERROR };
   if (file.size > MAX_MATERIAL_BYTES) {
-    return { success: false, error: `"${file.name}" is ${formatBytes(file.size)}. The limit is 50 MB; for longer videos add a YouTube link instead.` };
+    return { success: false, error: `"${file.name}" is ${formatBytes(file.size)}. The limit is 20 MB; for longer videos add a YouTube link instead.` };
+  }
+  // SVG pictures can carry scripts, so they are not accepted
+  if (file.type === 'image/svg+xml' || /\.svg$/i.test(file.name)) {
+    return { success: false, error: `"${file.name}" is an SVG picture, which cannot be uploaded. Please use JPEG or PNG.` };
   }
   const path = `${orgId}/${courseId}/${Date.now()}-${safeFileName(file.name)}`;
   const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type || undefined });
-  if (upErr) return { success: false, error: upErr.message };
+  if (upErr) return { success: false, error: friendlyError(upErr) };
   const { error } = await supabase.from('programme_materials').insert({
     org_id: orgId,
     course_id: courseId,
@@ -77,7 +79,7 @@ export async function uploadMaterial(
   });
   if (error) {
     await supabase.storage.from(BUCKET).remove([path]);
-    return { success: false, error: error.message };
+    return { success: false, error: friendlyError(error) };
   }
   return { success: true };
 }
@@ -90,7 +92,6 @@ export async function addMaterialLink(
   url: string,
   sortOrder: number
 ): Promise<Result> {
-  if (isDemoMode()) return { success: false, error: DEMO_ERROR };
   if (!title.trim()) return { success: false, error: 'Please enter a title.' };
   if (!/^https:\/\/\S+$/i.test(url.trim())) return { success: false, error: 'Links must start with https://' };
   const { error } = await supabase.from('programme_materials').insert({
@@ -102,27 +103,29 @@ export async function addMaterialLink(
     sort_order: sortOrder,
     created_by: userId,
   });
-  return error ? { success: false, error: error.message } : { success: true };
+  return error ? { success: false, error: friendlyError(error) } : { success: true };
 }
 
 export async function updateMaterial(id: string, patch: Partial<Pick<ProgrammeMaterial, 'title' | 'description' | 'published' | 'sort_order'>>): Promise<Result> {
-  if (isDemoMode()) return { success: false, error: DEMO_ERROR };
   const { error } = await supabase.from('programme_materials').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id);
-  return error ? { success: false, error: error.message } : { success: true };
+  return error ? { success: false, error: friendlyError(error) } : { success: true };
 }
 
 export async function deleteMaterial(m: ProgrammeMaterial): Promise<Result> {
-  if (isDemoMode()) return { success: false, error: DEMO_ERROR };
   const { error } = await supabase.from('programme_materials').delete().eq('id', m.id);
-  if (error) return { success: false, error: error.message };
-  if (m.storage_path) await supabase.storage.from(BUCKET).remove([m.storage_path]);
+  if (error) return { success: false, error: friendlyError(error) };
+  if (m.storage_path) {
+    const { error: rmErr } = await supabase.storage.from(BUCKET).remove([m.storage_path]);
+    // The list entry is gone; tell the person the file itself may still take space
+    if (rmErr) return { success: true, error: 'Removed from the list, but the file could not be deleted from storage.' };
+  }
   return { success: true };
 }
 
 /** A temporary link (1 hour) to open or play a file. */
 export async function materialUrl(m: ProgrammeMaterial): Promise<string | null> {
   if (m.kind === 'link') return m.url;
-  if (!m.storage_path || isDemoMode()) return null;
+  if (!m.storage_path) return null;
   const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(m.storage_path, 3600);
   if (error) return null;
   return data.signedUrl;

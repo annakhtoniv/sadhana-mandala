@@ -1,16 +1,14 @@
-import { useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { ConsentModal } from './components/ConsentModal';
 import { StudentHome } from './components/StudentHome';
-import { TeacherHome } from './components/TeacherHome';
-import { AdminHome } from './components/AdminHome';
 import { ProfileScreen } from './components/ProfileScreen';
 import { LessonsScreen } from './components/LessonsScreen';
 import { EventsScreen } from './components/EventsScreen';
-import { CrmScreen } from './components/CrmScreen';
 import { GuidedTour } from './components/GuidedTour';
+import { ConfirmProvider } from './components/Sheet';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { clearPending, peekPending, PENDING_JOIN_KEY } from './lib/joinLink';
 import { fetchBatchJoinPreview } from './lib/batchService';
@@ -18,6 +16,17 @@ import { formatDateDisplay } from './lib/dateUtils';
 import type { BatchJoinPreview } from './types/database';
 import { AlertCircle, Loader2, ArrowUpRight, Flame, BookOpen, CalendarDays, HeartHandshake, QrCode } from 'lucide-react';
 import { BrandMark } from './components/BrandMark';
+
+// Staff screens load only when opened, so students download less (Phase 15)
+const AdminHome = lazy(() => import('./components/AdminHome').then((m) => ({ default: m.AdminHome })));
+const TeacherHome = lazy(() => import('./components/TeacherHome').then((m) => ({ default: m.TeacherHome })));
+const CrmScreen = lazy(() => import('./components/CrmScreen').then((m) => ({ default: m.CrmScreen })));
+
+const ScreenLoading = () => (
+  <div role="status" className="w-full flex items-center justify-center gap-2 py-16 text-sm text-stone-500">
+    <Loader2 className="w-4 h-4 animate-spin" /> Loading...
+  </div>
+);
 
 const GoogleIcon = () => (
   <svg viewBox="0 0 48 48" className="w-5 h-5" aria-hidden="true">
@@ -31,8 +40,16 @@ const GoogleIcon = () => (
 type Tab = 'home' | 'lessons' | 'profile' | 'events' | 'leads';
 
 function MainApp() {
-  const { user, activeRole, setActiveRole, hasConsent, isLoading, organisation, notice, clearNotice } = useAuth();
+  const { user, profile, activeRole, setActiveRole, hasConsent, isLoading, organisation, notice, clearNotice } = useAuth();
   const [currentTab, setCurrentTab] = useState<Tab>('home');
+  // Volunteers come here for their leads: open on Leads once after sign-in
+  const openedLeadsFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (profile && profile.role === 'volunteer' && openedLeadsFor.current !== profile.id) {
+      openedLeadsFor.current = profile.id;
+      setCurrentTab('leads');
+    }
+  }, [profile]);
   const [authError, setAuthError] = useState<string | null>(null);
   const [isSigningIn, setIsSigningIn] = useState(false);
   // Batch QR scanned before sign-in: show which batch the person is joining
@@ -49,12 +66,9 @@ function MainApp() {
       cancelled = true;
     };
   }, [user, pendingJoin]);
-  const [showTour, setShowTour] = useState(() => {
-    return (
-      localStorage.getItem('sadhana_tour_completed') !== 'true' &&
-      localStorage.getItem('sadhana_navigation_mastered') !== 'true'
-    );
-  });
+  // The guided tour opens only from the ? button (Phase 14): never by itself, so it
+  // can never cover the consent screen or appear for people it does not fit
+  const [showTour, setShowTour] = useState(false);
 
   const handleGoogleSignIn = async () => {
     if (!isSupabaseConfigured) {
@@ -140,7 +154,7 @@ function MainApp() {
           <div className="space-y-8">
           {pendingJoin && (
             <section className="ui-card !p-4 space-y-2 animate-fade-up" role="status">
-              <div className="flex items-center gap-2 text-[10px] font-medium uppercase tracking-[0.18em] text-emerald-700">
+              <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-emerald-700">
                 <QrCode className="w-3.5 h-3.5" /> You are joining a batch
               </div>
               {joinPreview && joinPreview !== 'unknown' ? (
@@ -166,7 +180,7 @@ function MainApp() {
                     clearPending(PENDING_JOIN_KEY);
                     setPendingJoin(null);
                   }}
-                  className="text-[11px] text-stone-400 hover:text-stone-700 shrink-0 cursor-pointer"
+                  className="text-xs text-stone-500 hover:text-stone-700 shrink-0 cursor-pointer"
                 >
                   Not now
                 </button>
@@ -179,7 +193,7 @@ function MainApp() {
               type="button"
               onClick={handleGoogleSignIn}
               disabled={isSigningIn}
-              className="group w-full ui-btn-primary !py-2 !pl-2 !pr-2 justify-between"
+              className="group w-full ui-btn-primary !py-2 !ps-2 !pe-2 justify-between"
             >
               <span className="w-10 h-10 rounded-full bg-white flex items-center justify-center shrink-0">
                 <GoogleIcon />
@@ -191,7 +205,7 @@ function MainApp() {
                 <ArrowUpRight className="w-4 h-4" />
               </span>
             </button>
-            <p className="text-center text-[11px] text-stone-400">No password. No app store. Just your Google account.</p>
+            <p className="text-center text-xs text-stone-500">No password. No app store. Just your Google account.</p>
             {authError && (
               <div role="alert" className="p-3 bg-red-50 rounded-2xl text-xs text-red-600 flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
@@ -216,6 +230,23 @@ function MainApp() {
           </div>
         </main>
 
+      {/* Messages appear at the bottom, above the tab bar, and are read aloud */}
+      <div aria-live="polite" className="fixed inset-x-0 bottom-24 md:bottom-6 z-40 px-4 pointer-events-none flex justify-center">
+        {notice && (
+          <div
+            role={notice.tone === 'success' ? 'status' : 'alert'}
+            className={`pointer-events-auto w-full max-w-md p-4 rounded-2xl text-base flex items-start justify-between gap-3 shadow-xl animate-fade-up ${
+              notice.tone === 'success' ? 'bg-emerald-900 text-white' : 'bg-red-700 text-white'
+            }`}
+          >
+            <span>{notice.text}</span>
+            <button type="button" onClick={clearNotice} className="min-h-11 -my-2 px-2 text-sm font-semibold underline shrink-0 cursor-pointer">
+              Close
+            </button>
+          </div>
+        )}
+      </div>
+
         <Footer />
       </div>
     );
@@ -223,7 +254,7 @@ function MainApp() {
 
   // Signed in
   return (
-    <div className="flex flex-col min-h-[100dvh] text-stone-900 md:pl-64">
+    <div className="flex flex-col min-h-[100dvh] text-stone-900 md:ps-64">
       {!hasConsent && <ConsentModal />}
 
       {/* Navigation Header */}
@@ -250,25 +281,11 @@ function MainApp() {
 
       {/* Main Container */}
       <main className="flex-1 w-full max-w-md md:max-w-3xl lg:max-w-4xl mx-auto px-4 md:px-8 pt-5 md:pt-10 pb-4 animate-fade-up">
-        {notice && (
-          <div
-            role="status"
-            className={`mb-4 p-3.5 rounded-2xl text-sm flex items-start justify-between gap-3 ring-1 ${
-              notice.tone === 'success'
-                ? 'bg-emerald-50 ring-emerald-600/15 text-emerald-900'
-                : 'bg-red-50 ring-red-600/15 text-red-700'
-            }`}
-          >
-            <span>{notice.text}</span>
-            <button type="button" onClick={clearNotice} className="text-xs underline shrink-0 cursor-pointer">
-              Close
-            </button>
-          </div>
-        )}
+        <Suspense fallback={<ScreenLoading />}>
         {currentTab === 'leads' ? (
-          <CrmScreen onBack={() => setCurrentTab('home')} />
+          <CrmScreen />
         ) : currentTab === 'events' ? (
-          <EventsScreen onBack={() => setCurrentTab('home')} />
+          <EventsScreen />
         ) : currentTab === 'profile' ? (
           <ProfileScreen onBack={() => setCurrentTab('home')} />
         ) : currentTab === 'lessons' ? (
@@ -283,6 +300,7 @@ function MainApp() {
             <StudentHome onNavigateLessons={() => setCurrentTab('lessons')} />
           )
         )}
+        </Suspense>
       </main>
 
       <Footer withNav />
@@ -293,7 +311,9 @@ function MainApp() {
 export default function App() {
   return (
     <AuthProvider>
-      <MainApp />
+      <ConfirmProvider>
+        <MainApp />
+      </ConfirmProvider>
     </AuthProvider>
   );
 }

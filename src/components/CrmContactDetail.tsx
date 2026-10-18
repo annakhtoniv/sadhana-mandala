@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useConfirm } from './Sheet';
 import {
   addActivity,
   deleteContact,
@@ -41,11 +42,10 @@ interface CrmContactDetailProps {
   onChanged: () => Promise<void>;
 }
 
-const inputClass =
-  'w-full px-3 py-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-sm text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-stone-500';
-const card = 'bg-white dark:bg-stone-900 p-5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-3';
+const inputClass = 'ui-input';
+const card = 'ui-card space-y-3';
 const actionClass =
-  'flex-1 py-2.5 rounded-xl border border-stone-200 dark:border-stone-700 text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 flex items-center justify-center gap-1.5 cursor-pointer';
+  'flex-1 py-2.5 rounded-xl border border-stone-200 text-xs font-medium text-stone-700 hover:bg-stone-100 flex items-center justify-center gap-1.5 cursor-pointer';
 
 type Draft = { subject: string; text: string } | null;
 
@@ -61,6 +61,7 @@ export const CrmContactDetail: React.FC<CrmContactDetailProps> = ({
   onChanged,
 }) => {
   const { organisation, user, profile } = useAuth();
+  const confirm = useConfirm();
   const [activities, setActivities] = useState<CrmActivity[]>([]);
   const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -153,7 +154,7 @@ export const CrmContactDetail: React.FC<CrmContactDetailProps> = ({
       appName: organisation.app_name,
     });
     if (!res.success) {
-      setMessage({ tone: 'error', text: res.message || 'Could not register them.' });
+      setMessage({ tone: res.join_code ? 'ok' : 'error', text: res.message || 'Could not register them.' });
       // Without an email they can still join themselves with the batch link
       if (res.join_code) setDraft({ subject: batch.course_name, text });
       return;
@@ -179,7 +180,7 @@ export const CrmContactDetail: React.FC<CrmContactDetailProps> = ({
   };
 
   const remove = async () => {
-    if (!window.confirm(`Delete ${contact.full_name} and their history? This cannot be undone.`)) return;
+    if (!(await confirm({ title: `Delete ${contact.full_name}?`, message: 'Their history is deleted too. This cannot be undone.', confirmLabel: 'Delete', danger: true }))) return;
     const res = await deleteContact(contact.id);
     if (!res.success) {
       setMessage({ tone: 'error', text: res.error || 'Could not delete.' });
@@ -191,18 +192,18 @@ export const CrmContactDetail: React.FC<CrmContactDetailProps> = ({
 
   return (
     <div className="w-full space-y-4 animate-in fade-in duration-150">
-      <button type="button" onClick={onBack} className="inline-flex items-center gap-1.5 text-xs text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 cursor-pointer">
-        <ArrowLeft className="w-3.5 h-3.5" />
+      <button type="button" onClick={onBack} className="ui-btn-ghost !min-h-10 !py-2 !px-4">
+        <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
         <span>Back to Leads</span>
       </button>
 
       <div className={card}>
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 space-y-1">
-            <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${STAGE_CLASS[contact.stage]}`}>
+            <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${STAGE_CLASS[contact.stage]}`}>
               {STAGE_LABEL[contact.stage]}
             </span>
-            <h1 className="text-lg font-semibold text-stone-900 dark:text-stone-100">{contact.full_name}</h1>
+            <h1 className="text-lg font-semibold text-stone-900">{contact.full_name}</h1>
             <div className="text-xs text-stone-500 space-y-0.5">
               <div>
                 {SOURCE_LABEL[contact.source]}
@@ -212,30 +213,30 @@ export const CrmContactDetail: React.FC<CrmContactDetailProps> = ({
               {contact.next_action_on && <div>Next follow-up: {formatDateDisplay(contact.next_action_on, organisation.timezone)}</div>}
             </div>
             {contact.profile_id && (
-              <div className="inline-flex items-center gap-1 text-[11px] text-emerald-700 dark:text-emerald-400">
+              <div className="inline-flex items-center gap-1 text-xs text-emerald-700">
                 <UserCheck className="w-3.5 h-3.5" /> Has signed up in the app
               </div>
             )}
           </div>
           <div className="flex gap-1 shrink-0">
-            <button type="button" onClick={onEdit} aria-label="Edit lead" className="p-2 rounded-lg text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800 cursor-pointer">
+            <button type="button" onClick={onEdit} aria-label="Edit lead" className="p-2 rounded-lg text-stone-500 hover:bg-stone-100 cursor-pointer">
               <Pencil className="w-4 h-4" />
             </button>
-            <button type="button" onClick={remove} aria-label="Delete lead" className="p-2 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 cursor-pointer">
+            <button type="button" onClick={remove} aria-label="Delete lead" className="p-2 rounded-lg text-red-500 hover:bg-red-50 cursor-pointer">
               <Trash2 className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        {contact.notes && <p className="text-xs text-stone-600 dark:text-stone-300 whitespace-pre-line">{contact.notes}</p>}
+        {contact.notes && <p className="text-xs text-stone-600 whitespace-pre-line">{contact.notes}</p>}
 
         {contact.opted_out ? (
-          <div className="p-2.5 rounded-xl bg-red-50 dark:bg-red-950/40 text-[11px] text-red-700 dark:text-red-300 flex gap-2">
+          <div className="p-2.5 rounded-xl bg-red-50 text-xs text-red-700 flex gap-2">
             <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
             <span>Opted out: do not contact this person.</span>
           </div>
         ) : !contact.consent_at ? (
-          <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-[11px] text-amber-800 dark:text-amber-300 flex gap-2">
+          <div className="p-2.5 rounded-xl bg-amber-50 text-xs text-amber-800 flex gap-2">
             <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
             <span>Consent not recorded. Ask if they are happy to hear from us, then tick it in Edit.</span>
           </div>
@@ -264,10 +265,10 @@ export const CrmContactDetail: React.FC<CrmContactDetailProps> = ({
             </a>
           )}
         </div>
-        <div className="text-[11px] text-stone-500 break-all">
+        <div className="text-xs text-stone-500 break-all">
           {[contact.phone, contact.email].filter(Boolean).join(' · ')}
           {contact.phone && !looksInternational(contact.phone) && (
-            <span className="block text-amber-700 dark:text-amber-400">
+            <span className="block text-amber-700">
               Add the country code (e.g. +971) to the phone number so WhatsApp opens the right chat.
             </span>
           )}
@@ -277,7 +278,7 @@ export const CrmContactDetail: React.FC<CrmContactDetailProps> = ({
       {message && (
         <div
           role="status"
-          className={`p-3 rounded-xl text-xs ${message.tone === 'ok' ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300' : 'bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400'}`}
+          className={`p-3 rounded-xl text-xs ${message.tone === 'ok' ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-600'}`}
         >
           {message.text}
         </div>
@@ -285,8 +286,8 @@ export const CrmContactDetail: React.FC<CrmContactDetailProps> = ({
 
       {draft && (
         <div className={card}>
-          <h2 className="text-sm font-semibold text-stone-900 dark:text-stone-100">Message to send</h2>
-          <p className="text-[11px] text-stone-500">Edit it if you like, then send it from your own WhatsApp or email.</p>
+          <h2 className="text-sm font-semibold text-stone-900">Message to send</h2>
+          <p className="text-xs text-stone-500">Edit it if you like, then send it from your own WhatsApp or email.</p>
           <textarea className={`${inputClass} min-h-[150px]`} value={draft.text} onChange={(e) => setDraft({ ...draft, text: e.target.value })} />
           {canMessage ? (
             <div className="flex gap-2">
@@ -324,13 +325,13 @@ export const CrmContactDetail: React.FC<CrmContactDetailProps> = ({
               </button>
             </div>
           ) : (
-            <p className="text-[11px] text-red-600">This person opted out. Do not send messages.</p>
+            <p className="text-xs text-red-600">This person opted out. Do not send messages.</p>
           )}
         </div>
       )}
 
       <div className={card}>
-        <h2 className="text-sm font-semibold text-stone-900 dark:text-stone-100">Stage</h2>
+        <h2 className="text-sm font-semibold text-stone-900">Stage</h2>
         <div className="flex flex-wrap gap-1.5">
           {ALL_STAGES.map((s) => (
             <button
@@ -339,15 +340,15 @@ export const CrmContactDetail: React.FC<CrmContactDetailProps> = ({
               disabled={busy}
               onClick={() => changeStage(s)}
               title={STAGE_HINT[s]}
-              className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border cursor-pointer disabled:opacity-50 ${
-                s === contact.stage ? `${STAGE_CLASS[s]} border-transparent ring-2 ring-stone-400` : 'border-stone-200 dark:border-stone-700 text-stone-500'
+              className={`px-2.5 py-1 rounded-full text-xs font-semibold border cursor-pointer disabled:opacity-50 ${
+                s === contact.stage ? `${STAGE_CLASS[s]} border-transparent ring-2 ring-stone-400` : 'border-stone-200 text-stone-500'
               }`}
             >
               {STAGE_LABEL[s]}
             </button>
           ))}
         </div>
-        <p className="text-[11px] text-stone-500">
+        <p className="text-xs text-stone-500">
           {STAGE_HINT[contact.stage]}. The stage also moves by itself when they attend an event or enrol in a programme.
         </p>
       </div>
@@ -355,7 +356,7 @@ export const CrmContactDetail: React.FC<CrmContactDetailProps> = ({
       <div className={card}>
         <div className="flex items-center gap-2">
           <CalendarPlus className="w-4 h-4 text-indigo-500" />
-          <h2 className="text-sm font-semibold text-stone-900 dark:text-stone-100">Invite to an event</h2>
+          <h2 className="text-sm font-semibold text-stone-900">Invite to an event</h2>
         </div>
         {events.length === 0 ? (
           <p className="text-xs text-stone-500">No upcoming events. A teacher can add an intro talk under Events.</p>
@@ -372,11 +373,11 @@ export const CrmContactDetail: React.FC<CrmContactDetailProps> = ({
               type="button"
               disabled={busy || !eventId || contact.opted_out}
               onClick={inviteToEvent}
-              className="w-full py-2.5 rounded-xl bg-stone-900 dark:bg-stone-100 text-stone-100 dark:text-stone-900 text-xs font-semibold disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-2.5 rounded-xl bg-stone-900 text-stone-100 text-xs font-semibold disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
             >
               <Send className="w-3.5 h-3.5" /> Register and write the invitation
             </button>
-            <p className="text-[11px] text-stone-500">They are added to the event's guest list, and the host can tick them off at the door.</p>
+            <p className="text-xs text-stone-500">They are added to the event's guest list, and the host can tick them off at the door.</p>
           </>
         )}
       </div>
@@ -384,7 +385,7 @@ export const CrmContactDetail: React.FC<CrmContactDetailProps> = ({
       <div className={card}>
         <div className="flex items-center gap-2">
           <GraduationCap className="w-4 h-4 text-emerald-600" />
-          <h2 className="text-sm font-semibold text-stone-900 dark:text-stone-100">Register for a programme</h2>
+          <h2 className="text-sm font-semibold text-stone-900">Register for a programme</h2>
         </div>
         {batches.length === 0 ? (
           <p className="text-xs text-stone-500">No batch starting soon. A teacher or admin creates batches.</p>
@@ -405,7 +406,7 @@ export const CrmContactDetail: React.FC<CrmContactDetailProps> = ({
             >
               <GraduationCap className="w-3.5 h-3.5" /> Register and write the message
             </button>
-            <p className="text-[11px] text-stone-500">
+            <p className="text-xs text-stone-500">
               The message includes the batch link. When they open it and sign in with Google, they are in the batch.
             </p>
           </>
@@ -413,7 +414,7 @@ export const CrmContactDetail: React.FC<CrmContactDetailProps> = ({
       </div>
 
       <div className={card}>
-        <h2 className="text-sm font-semibold text-stone-900 dark:text-stone-100">History</h2>
+        <h2 className="text-sm font-semibold text-stone-900">History</h2>
         <form onSubmit={saveNote} className="space-y-2">
           <div className="flex gap-2">
             <select
@@ -430,19 +431,19 @@ export const CrmContactDetail: React.FC<CrmContactDetailProps> = ({
             </select>
             <input className={inputClass} placeholder="What happened?" value={noteText} onChange={(e) => setNoteText(e.target.value)} />
           </div>
-          <button type="submit" disabled={busy || !noteText.trim()} className="w-full py-2 rounded-xl border border-stone-200 dark:border-stone-700 text-xs font-medium disabled:opacity-50 cursor-pointer">
+          <button type="submit" disabled={busy || !noteText.trim()} className="w-full py-2 rounded-xl border border-stone-200 text-xs font-medium disabled:opacity-50 cursor-pointer">
             Add to history
           </button>
         </form>
-        {activities.length === 0 && <p className="text-xs text-stone-400 italic">Nothing yet.</p>}
-        <ul className="divide-y divide-stone-100 dark:divide-stone-800">
+        {activities.length === 0 && <p className="text-xs text-stone-500 italic">Nothing yet.</p>}
+        <ul className="divide-y divide-stone-100">
           {activities.map((a) => (
             <li key={a.id} className="py-2 text-xs">
-              <div className="flex justify-between gap-2 text-[10px] uppercase font-semibold text-stone-500">
+              <div className="flex justify-between gap-2 text-xs uppercase font-semibold text-stone-500">
                 <span>{ACTIVITY_LABEL[a.kind]}</span>
                 <span>{formatEventDate(a.created_at, organisation.timezone)}</span>
               </div>
-              <div className="text-stone-800 dark:text-stone-200 whitespace-pre-line">{a.body}</div>
+              <div className="text-stone-800 whitespace-pre-line">{a.body}</div>
             </li>
           ))}
         </ul>

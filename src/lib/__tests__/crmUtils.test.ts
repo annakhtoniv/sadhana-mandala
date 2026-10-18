@@ -69,6 +69,7 @@ describe('one-tap invite links', () => {
   it('builds WhatsApp links with the international number only', () => {
     expect(phoneDigits('+971 50 000 0001')).toBe('971500000001');
     expect(phoneDigits('00971 50 000 0001')).toBe('971500000001');
+    expect(phoneDigits('+٩٧١ ٥٠ ٠٠٠ ٠٠٠١')).toBe('971500000001');
     expect(whatsappUrl('+971 50 000 0001', 'Hi there')).toBe('https://wa.me/971500000001?text=Hi%20there');
     expect(whatsappUrl('050 000 0001', 'Hi')).toBe('https://wa.me/?text=Hi');
     expect(whatsappUrl(null, 'Hi')).toBe('https://wa.me/?text=Hi');

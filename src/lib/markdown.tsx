@@ -22,7 +22,7 @@ function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
     if (link) {
       const [, label, href] = link;
       return /^https:\/\//i.test(href) ? (
-        <a key={key} href={href} target="_blank" rel="noopener noreferrer" className="underline text-emerald-700 dark:text-emerald-400">
+        <a key={key} href={href} target="_blank" rel="noopener noreferrer" className="underline text-emerald-700">
           {label}
         </a>
       ) : (
@@ -63,7 +63,7 @@ export function renderMarkdown(source: string): React.ReactNode[] {
         items.push(<li key={`${key}-${items.length}`}>{renderInline(lines[i].replace(/^\s*[-*]\s+/, ''), `${key}-${items.length}`)}</li>);
         i++;
       }
-      blocks.push(<ul key={key} className="list-disc pl-5 space-y-1">{items}</ul>);
+      blocks.push(<ul key={key} className="list-disc ps-5 space-y-1">{items}</ul>);
       continue;
     }
 
@@ -73,7 +73,7 @@ export function renderMarkdown(source: string): React.ReactNode[] {
         items.push(<li key={`${key}-${items.length}`}>{renderInline(lines[i].replace(/^\s*\d+[.)]\s+/, ''), `${key}-${items.length}`)}</li>);
         i++;
       }
-      blocks.push(<ol key={key} className="list-decimal pl-5 space-y-1">{items}</ol>);
+      blocks.push(<ol key={key} className="list-decimal ps-5 space-y-1">{items}</ol>);
       continue;
     }
 

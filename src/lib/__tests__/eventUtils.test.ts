@@ -110,3 +110,20 @@ describe('validateEventInput', () => {
     expect(validateEventInput(input({ capacity: 0 }))).toHaveLength(1);
   });
 });
+
+describe('zonedInputToIso around daylight saving', () => {
+  it('round-trips ordinary times in Dubai and New York', async () => {
+    const { zonedInputToIso, isoToZonedInput } = await import('../dateUtils');
+    for (const [t, tz] of [['2026-10-18T07:30', 'Asia/Dubai'], ['2026-07-01T09:00', 'America/New_York'], ['2026-01-15T18:45', 'Europe/London']] as const) {
+      expect(isoToZonedInput(zonedInputToIso(t, tz) as string, tz)).toBe(t);
+    }
+  });
+
+  it('moves a skipped spring hour forward and keeps the first of a repeated autumn hour', async () => {
+    const { zonedInputToIso, isoToZonedInput } = await import('../dateUtils');
+    // 02:30 does not exist in New York on 8 March 2026 (clocks jump 02:00 -> 03:00)
+    expect(isoToZonedInput(zonedInputToIso('2026-03-08T02:30', 'America/New_York') as string, 'America/New_York')).toBe('2026-03-08T03:30');
+    // 01:30 happens twice on 1 November 2026; the first one is daylight time (UTC-4)
+    expect(zonedInputToIso('2026-11-01T01:30', 'America/New_York')).toBe('2026-11-01T05:30:00.000Z');
+  });
+});

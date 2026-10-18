@@ -34,12 +34,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # A broken change never reaches the live site: the tests must pass first
+      - name: Unit tests
+        run: npx vitest run
+
+      # Settings come from the repository's Actions variables when set
+      # (Settings > Secrets and variables > Actions > Variables), so a staging
+      # project can use its own; the live values are the fallback.
+      # The anon key is public by design (row level security protects the data).
       - name: Build Production Website
         env:
           VITE_BASE: '/'
-          VITE_SUPABASE_URL: 'https://pshapxojprvgmwhdivim.supabase.co'
-          VITE_SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBzaGFweG9qcHJ2Z213aGRpdmltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEyMDc0MTYsImV4cCI6MjEwNjc4MzQxNn0.-GOesOz0tkg7ZOp_Xxr1cs6ZEnD7v-DOCXshBL_c9lA'
-          VITE_ORG_SLUG: 'sadhana-mandala'
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || 'https://pshapxojprvgmwhdivim.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBzaGFweG9qcHJ2Z213aGRpdmltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEyMDc0MTYsImV4cCI6MjEwNjc4MzQxNn0.-GOesOz0tkg7ZOp_Xxr1cs6ZEnD7v-DOCXshBL_c9lA' }}
+          VITE_ORG_SLUG: ${{ vars.VITE_ORG_SLUG || 'sadhana-mandala' }}
         run: npm run build
 
       - name: Upload GitHub Pages artifact

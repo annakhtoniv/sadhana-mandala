@@ -1,0 +1,76 @@
+name: Checks
+
+# Runs on every pull request: the app (types, unit tests, build) and the
+# database (the live schema rebuilt from the repository, the new SQL files,
+# the sample data and every verify.sql check). A red check means: do not merge.
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  app:
+    name: App (types, tests, build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - run: npm ci
+      - name: Type check
+        run: npx tsc --noEmit -p .
+      - name: Unit tests
+        run: npx vitest run
+      - name: Build
+        env:
+          VITE_SUPABASE_URL: https://pshapxojprvgmwhdivim.supabase.co
+          VITE_SUPABASE_ANON_KEY: ci-placeholder
+        run: npm run build
+
+  database:
+    name: Database (verify.sql)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rebuild the live schema and apply the newer SQL files
+        # Order: supabase/README.md. A new phase file is added to this list.
+        run: |
+          set -e
+          for f in ci/00_roles ci/01_baseline_after_phase13 phase12_media phase14_safety phase15_performance seed_dummy_data; do
+            echo "::group::$f.sql"
+            psql -v ON_ERROR_STOP=1 -q -f "supabase/$f.sql"
+            echo "::endgroup::"
+          done
+      - name: Run every verify.sql check (twice, to prove it leaves nothing behind)
+        run: |
+          for run in 1 2; do
+            psql -v ON_ERROR_STOP=1 -At -F '|' -f supabase/verify.sql > verify.out
+            passed=$(grep -c '|PASS$' verify.out || true)
+            failed=$(grep -c '|FAIL$' verify.out || true)
+            echo "Run $run: $passed PASS, $failed FAIL"
+            if [ "$failed" != "0" ] || [ "$passed" -lt 100 ]; then
+              grep '|FAIL$' verify.out || true
+              exit 1
+            fi
+          done

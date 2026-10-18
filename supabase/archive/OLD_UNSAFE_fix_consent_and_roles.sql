@@ -1,3 +1,11 @@
+-- ============================================================================
+-- ARCHIVED, DO NOT RUN (Phase 14, 2026-10-18).
+-- This old script makes people admin or removes security rules. It stops at
+-- the first line below on purpose, so nothing in it can run by accident.
+-- The setup order lives in supabase/README.md.
+-- ============================================================================
+do $$ begin raise exception 'This file is archived and unsafe. Do not run it. See supabase/README.md.'; end $$;
+
 -- Fix Consent Persistence and Create Admin / Teacher Accounts
 -- Run this in your Supabase SQL Editor
 

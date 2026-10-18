@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { supabase, isDemoMode } from '../lib/supabase';
-import { fetchCourses, updateBatch } from '../lib/batchService';
+import { supabase } from '../lib/supabase';
+import { fetchCourses, generateJoinCode, updateBatch } from '../lib/batchService';
 import type { Batch, Course, Profile } from '../types/database';
-import { AlertTriangle, X } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
+import { Sheet } from './Sheet';
 
 interface BatchEditorProps {
   batch: Batch;
@@ -13,9 +14,8 @@ interface BatchEditorProps {
   onSaved: (batch: Batch) => void;
 }
 
-const inputClass =
-  'w-full px-3.5 py-2.5 rounded-xl border border-stone-200 bg-white text-sm text-stone-900 focus:outline-none';
-const labelClass = 'block text-xs font-medium text-stone-600 mb-1';
+const inputClass = 'ui-input';
+const labelClass = 'ui-label';
 
 /** Edit a batch: name, programme, teacher (admins), start date and join code. */
 export const BatchEditor: React.FC<BatchEditorProps> = ({ batch, orgId, canChangeTeacher, onClose, onSaved }) => {
@@ -33,7 +33,7 @@ export const BatchEditor: React.FC<BatchEditorProps> = ({ batch, orgId, canChang
 
   useEffect(() => {
     fetchCourses(orgId).then(setCourses).catch(() => setCourses([]));
-    if (canChangeTeacher && !isDemoMode()) {
+    if (canChangeTeacher) {
       supabase
         .from('profiles')
         .select('id, full_name, email, role')
@@ -60,18 +60,20 @@ export const BatchEditor: React.FC<BatchEditorProps> = ({ batch, orgId, canChang
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-3 bg-stone-950/40 backdrop-blur-sm animate-fade-up">
-      <form onSubmit={save} className="ui-card w-full max-w-md space-y-3.5 max-h-[90dvh] overflow-y-auto">
-        <div className="flex items-start justify-between">
-          <div>
-            <span className="ui-eyebrow">Edit batch</span>
-            <h2 className="font-display text-lg font-semibold text-stone-950 mt-2">{batch.name}</h2>
-          </div>
-          <button type="button" onClick={onClose} className="ui-icon-btn" aria-label="Close">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
+    <Sheet
+      open
+      onClose={onClose}
+      title="Edit batch"
+      description={batch.name}
+      busy={saving}
+      footer={
+        <>
+          <button type="button" onClick={onClose} className="ui-btn-ghost">Cancel</button>
+          <button type="submit" form="batch-editor" disabled={saving} className="ui-btn-primary">{saving ? 'Saving...' : 'Save changes'}</button>
+        </>
+      }
+    >
+      <form id="batch-editor" onSubmit={save} className="space-y-3.5">
         <div>
           <label className={labelClass} htmlFor="be-name">Batch name</label>
           <input id="be-name" className={inputClass} value={form.name} onChange={(e) => set('name', e.target.value)} />
@@ -107,35 +109,39 @@ export const BatchEditor: React.FC<BatchEditorProps> = ({ batch, orgId, canChang
           </div>
           <div>
             <label className={labelClass} htmlFor="be-code">Join code</label>
-            <input
-              id="be-code"
-              className={`${inputClass} font-mono uppercase tracking-wider`}
-              value={form.joinCode}
-              maxLength={12}
-              onChange={(e) => set('joinCode', e.target.value.toUpperCase())}
-            />
+            <div className="flex gap-1.5">
+              <input
+                id="be-code"
+                className={`${inputClass} font-mono uppercase tracking-wider bg-stone-50`}
+                value={form.joinCode}
+                readOnly
+              />
+              <button
+                type="button"
+                onClick={() => set('joinCode', generateJoinCode())}
+                className="ui-btn-ghost !px-3 shrink-0"
+                title="Make a new random code (the old QR and links stop working)"
+              >
+                New code
+              </button>
+            </div>
           </div>
         </div>
 
         {form.startDate !== batch.start_date && (
-          <p className="text-[11px] text-amber-700 flex gap-1.5">
+          <p className="text-xs text-amber-700 flex gap-1.5">
             <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" />
-            A new start date moves every day of the batch: check-ins stay on their day numbers, so day 1 becomes the new date.
+            A new start date moves every day of the batch. This is only possible before anyone has checked in.
           </p>
         )}
         {form.joinCode !== batch.join_code && (
-          <p className="text-[11px] text-amber-700 flex gap-1.5">
+          <p className="text-xs text-amber-700 flex gap-1.5">
             <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" />
             Printed QR codes and shared links with the old code stop working.
           </p>
         )}
-        {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
-
-        <div className="flex justify-end gap-2 pt-1">
-          <button type="button" onClick={onClose} className="ui-btn-ghost !py-2.5">Cancel</button>
-          <button type="submit" disabled={saving} className="ui-btn-primary !py-2.5">{saving ? 'Saving...' : 'Save changes'}</button>
-        </div>
+        {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       </form>
-    </div>
+    </Sheet>
   );
 };

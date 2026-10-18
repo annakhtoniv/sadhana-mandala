@@ -26,15 +26,15 @@ const FunnelBars: React.FC<{ steps: { label: string; value: number }[]; tone: st
       {steps.map((step, i) => (
         <div key={step.label} className="space-y-0.5">
           <div className="flex items-baseline justify-between text-xs">
-            <span className="text-stone-700 dark:text-stone-300">{step.label}</span>
-            <span className="font-semibold text-stone-900 dark:text-stone-100">
+            <span className="text-stone-700">{step.label}</span>
+            <span className="font-semibold text-stone-900">
               {step.value}
               {i > 0 && (
-                <span className="ml-1.5 text-[10px] font-normal text-stone-500">{pct(step.value, steps[i - 1].value)} of previous</span>
+                <span className="ms-1.5 text-xs font-normal text-stone-500">{pct(step.value, steps[i - 1].value)} of previous</span>
               )}
             </span>
           </div>
-          <div className="h-2.5 rounded-full bg-stone-100 dark:bg-stone-800 overflow-hidden">
+          <div className="h-2.5 rounded-full bg-stone-100 overflow-hidden">
             <div className={`h-full rounded-full ${tone}`} style={{ width: `${Math.round((step.value / top) * 100)}%` }} />
           </div>
         </div>
@@ -67,40 +67,40 @@ export const FunnelReportPanel: React.FC = () => {
     load();
   }, [period]);
 
-  const card = 'bg-white dark:bg-stone-900 p-5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-3';
+  const card = 'ui-card space-y-3';
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <BarChart3 className="w-4 h-4 text-emerald-600" />
-          <h2 className="text-sm font-semibold text-stone-900 dark:text-stone-100">Funnel report</h2>
+          <h2 className="text-sm font-semibold text-stone-900">Funnel report</h2>
         </div>
         <div className="flex items-center gap-1.5">
           <select
             aria-label="Period"
             value={period}
             onChange={(e) => setPeriod(e.target.value as Period)}
-            className="text-xs px-2 py-1.5 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-300"
+            className="text-xs px-2 py-1.5 rounded-lg border border-stone-200 bg-white text-stone-700"
           >
             <option value="all">All time</option>
             <option value="90">Last 90 days</option>
             <option value="30">Last 30 days</option>
           </select>
-          <button type="button" onClick={load} aria-label="Refresh report" className="p-1.5 rounded-lg text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800 cursor-pointer">
+          <button type="button" onClick={load} aria-label="Refresh report" className="p-1.5 rounded-lg text-stone-500 hover:bg-stone-100 cursor-pointer">
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
 
-      {error && <div role="alert" className="p-3 rounded-xl bg-red-50 dark:bg-red-950/50 text-xs text-red-600 dark:text-red-400">{error}</div>}
+      {error && <div role="alert" className="p-3 rounded-xl bg-red-50 text-xs text-red-600">{error}</div>}
 
       {report && (
         <>
           <div className={card}>
             <div>
-              <h3 className="text-sm font-semibold text-stone-900 dark:text-stone-100">Leads (CRM)</h3>
-              <p className="text-[11px] text-stone-500">Each lead counts at the furthest stage it reached, even if it was later marked lost.</p>
+              <h3 className="text-sm font-semibold text-stone-900">Leads (CRM)</h3>
+              <p className="text-xs text-stone-500">Each lead counts at the furthest stage it reached, even if it was later marked lost.</p>
             </div>
             <FunnelBars
               tone="bg-indigo-500"
@@ -114,13 +114,13 @@ export const FunnelReportPanel: React.FC = () => {
               ]}
             />
             <div className="grid grid-cols-2 gap-2 text-center pt-1">
-              <div className="p-2 rounded-xl border border-stone-200 dark:border-stone-800">
-                <div className="text-[10px] uppercase font-semibold text-stone-500">Signed up in the app</div>
-                <div className="text-lg font-bold text-stone-900 dark:text-stone-100">{report.leads.signed_up}</div>
+              <div className="p-2 rounded-xl border border-stone-200">
+                <div className="text-xs uppercase font-semibold text-stone-500">Signed up in the app</div>
+                <div className="text-lg font-bold text-stone-900">{report.leads.signed_up}</div>
               </div>
-              <div className="p-2 rounded-xl border border-stone-200 dark:border-stone-800">
-                <div className="text-[10px] uppercase font-semibold text-stone-500">Lost</div>
-                <div className="text-lg font-bold text-stone-900 dark:text-stone-100">{report.leads.lost}</div>
+              <div className="p-2 rounded-xl border border-stone-200">
+                <div className="text-xs uppercase font-semibold text-stone-500">Lost</div>
+                <div className="text-lg font-bold text-stone-900">{report.leads.lost}</div>
               </div>
             </div>
           </div>
@@ -128,8 +128,8 @@ export const FunnelReportPanel: React.FC = () => {
           {report.journey.map((j) => (
             <div key={j.course_id} className={card}>
               <div>
-                <h3 className="text-sm font-semibold text-stone-900 dark:text-stone-100">{j.course_name}: student journey</h3>
-                <p className="text-[11px] text-stone-500">
+                <h3 className="text-sm font-semibold text-stone-900">{j.course_name}: student journey</h3>
+                <p className="text-xs text-stone-500">
                   All students, from the app. "Completed" means the {j.practice_days}-day practice is over and they ticked Morning or Evening on at
                   least 80% of the days.
                 </p>
@@ -142,10 +142,10 @@ export const FunnelReportPanel: React.FC = () => {
                   { label: 'Completed the practice', value: j.completed },
                 ]}
               />
-              <div className="flex items-baseline justify-between text-xs pt-1 border-t border-stone-100 dark:border-stone-800">
-                <span className="text-stone-700 dark:text-stone-300">Went on to a next programme</span>
-                <span className="font-semibold text-stone-900 dark:text-stone-100">
-                  {j.next_programme} <span className="text-[10px] font-normal text-stone-500">({pct(j.next_programme, j.enrolled)} of enrolled)</span>
+              <div className="flex items-baseline justify-between text-xs pt-1 border-t border-stone-100">
+                <span className="text-stone-700">Went on to a next programme</span>
+                <span className="font-semibold text-stone-900">
+                  {j.next_programme} <span className="text-xs font-normal text-stone-500">({pct(j.next_programme, j.enrolled)} of enrolled)</span>
                 </span>
               </div>
             </div>
@@ -157,10 +157,10 @@ export const FunnelReportPanel: React.FC = () => {
           )}
 
           <div className={card}>
-            <h3 className="text-sm font-semibold text-stone-900 dark:text-stone-100">Where leads come from</h3>
+            <h3 className="text-sm font-semibold text-stone-900">Where leads come from</h3>
             <table className="w-full text-xs">
               <thead>
-                <tr className="text-left text-[10px] uppercase text-stone-500">
+                <tr className="text-left text-xs uppercase text-stone-500">
                   <th className="py-1 font-semibold">Source</th>
                   <th className="py-1 font-semibold text-right">Leads</th>
                   <th className="py-1 font-semibold text-right">Registered</th>
@@ -168,8 +168,8 @@ export const FunnelReportPanel: React.FC = () => {
               </thead>
               <tbody>
                 {report.sources.map((s) => (
-                  <tr key={s.source} className="border-t border-stone-100 dark:border-stone-800">
-                    <td className="py-1.5 text-stone-700 dark:text-stone-300">{SOURCE_LABEL[s.source] || s.source}</td>
+                  <tr key={s.source} className="border-t border-stone-100">
+                    <td className="py-1.5 text-stone-700">{SOURCE_LABEL[s.source] || s.source}</td>
                     <td className="py-1.5 text-right">{s.leads}</td>
                     <td className="py-1.5 text-right">{s.registered}</td>
                   </tr>
@@ -179,10 +179,10 @@ export const FunnelReportPanel: React.FC = () => {
           </div>
 
           <div className={card}>
-            <h3 className="text-sm font-semibold text-stone-900 dark:text-stone-100">Leads per volunteer</h3>
+            <h3 className="text-sm font-semibold text-stone-900">Leads per volunteer</h3>
             <table className="w-full text-xs">
               <thead>
-                <tr className="text-left text-[10px] uppercase text-stone-500">
+                <tr className="text-left text-xs uppercase text-stone-500">
                   <th className="py-1 font-semibold">Owner</th>
                   <th className="py-1 font-semibold text-right">Leads</th>
                   <th className="py-1 font-semibold text-right">Registered</th>
@@ -190,8 +190,8 @@ export const FunnelReportPanel: React.FC = () => {
               </thead>
               <tbody>
                 {report.owners.map((o) => (
-                  <tr key={o.owner_id || 'none'} className="border-t border-stone-100 dark:border-stone-800">
-                    <td className="py-1.5 text-stone-700 dark:text-stone-300">{o.name}</td>
+                  <tr key={o.owner_id || 'none'} className="border-t border-stone-100">
+                    <td className="py-1.5 text-stone-700">{o.name}</td>
                     <td className="py-1.5 text-right">{o.leads}</td>
                     <td className="py-1.5 text-right">{o.registered}</td>
                   </tr>

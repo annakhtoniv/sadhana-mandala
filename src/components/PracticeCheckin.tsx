@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from 'react';
-import { recordCheckin, upsertCheckinInMemory } from '../lib/checkinService';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { recordCheckin } from '../lib/checkinService';
+import { queueTick } from '../lib/offlineTicks';
 import { calculateStreak, countPractisedDays, getTrailDayStatus, hasEvening, hasMorning } from '../lib/practiceUtils';
 import { formatDateDisplay } from '../lib/dateUtils';
 import type { Checkin } from '../types/database';
@@ -17,6 +18,14 @@ interface PracticeCheckinProps {
   question: string;
   checkins: Checkin[];
   onCheckinsChange: (next: Checkin[]) => void;
+  /** Set when the saved ticks could not be loaded: the tiles stay locked so nothing is overwritten */
+  loadError?: string | null;
+  onRetry?: () => void;
+}
+
+/** The list with this day's row replaced (or added). */
+function withDay(list: Checkin[], row: Checkin): Checkin[] {
+  return [...list.filter((c) => c.day_number !== row.day_number), row].sort((a, b) => a.day_number - b.day_number);
 }
 
 /** The date of a day of the batch, e.g. "Mon 12 Oct". */
@@ -43,11 +52,24 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
   question,
   checkins,
   onCheckinsChange,
+  loadError = null,
+  onRetry,
 }) => {
   const lastOpenDay = Math.min(todayDay, durationDays);
   const [selectedDay, setSelectedDay] = useState<number>(Math.max(1, lastOpenDay));
+
+  // A new day began while the app was open: follow "today" unless a past day was picked
+  const shownToday = useRef(todayDay);
+  useEffect(() => {
+    if (shownToday.current !== todayDay) {
+      setSelectedDay((day) => (day === Math.min(shownToday.current, durationDays) ? Math.max(1, lastOpenDay) : day));
+      shownToday.current = todayDay;
+    }
+  }, [todayDay, durationDays, lastOpenDay]);
   const [saving, setSaving] = useState<'morning' | 'evening' | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  // The trail shows this week only until the person asks for every day
+  const [showAllDays, setShowAllDays] = useState(false);
 
   const byDay = useMemo(() => new Map(checkins.map((c) => [c.day_number, c])), [checkins]);
   const streak = calculateStreak(checkins, todayDay, durationDays);
@@ -60,8 +82,9 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
   const finished = todayDay > durationDays;
 
   const toggle = async (slot: 'morning' | 'evening') => {
-    if (saving || selectedDay < 1 || selectedDay > lastOpenDay) return;
-    const next = { morning, evening, [slot]: !(slot === 'morning' ? morning : evening) };
+    if (saving || loadError || selectedDay < 1 || selectedDay > lastOpenDay) return;
+    const value = !(slot === 'morning' ? morning : evening);
+    const next = { morning, evening, [slot]: value };
     setSaving(slot);
     setMessage(null);
 
@@ -79,12 +102,17 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
       created_at: selected?.created_at || new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    onCheckinsChange(upsertCheckinInMemory(checkins, optimistic));
+    onCheckinsChange(withDay(checkins, optimistic));
 
-    const res = await recordCheckin(orgId, batchId, studentId, selectedDay, next);
+    // Only the tapped tick is saved; the saved row (with its real id) replaces the guess
+    const res = await recordCheckin(orgId, batchId, studentId, selectedDay, slot, value);
     setSaving(null);
     if (res.success && res.checkin) {
-      onCheckinsChange(upsertCheckinInMemory(upsertCheckinInMemory(previous, optimistic), res.checkin));
+      onCheckinsChange(withDay(previous, res.checkin));
+    } else if (res.offline) {
+      // Keep the tick on this phone; it is sent when the connection is back
+      queueTick({ orgId, batchId, studentId, day: selectedDay, slot, value });
+      setMessage('No connection: saved on this phone. It will be sent when you are back online.');
     } else {
       onCheckinsChange(previous);
       setMessage(`Not saved: ${res.error || 'please try again'}`);
@@ -97,7 +125,7 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
       <button
         type="button"
         onClick={() => toggle(slot)}
-        disabled={saving !== null || notStarted || selectedDay > lastOpenDay}
+        disabled={saving !== null || Boolean(loadError) || notStarted || selectedDay > lastOpenDay}
         aria-pressed={on}
         className={`relative flex-1 rounded-[1.25rem] p-4 text-left transition-all active:scale-[0.98] disabled:opacity-60 cursor-pointer ${
           on
@@ -118,7 +146,7 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
           </span>
         </div>
         <div className="mt-5 text-sm font-semibold">{slot === 'morning' ? 'Morning' : 'Evening'}</div>
-        <div className={`text-[11px] ${on ? 'opacity-80' : 'text-stone-500'}`}>{on ? 'Done' : 'Tap when done'}</div>
+        <div className={`text-xs ${on ? 'opacity-80' : 'text-stone-500'}`}>{on ? 'Done' : 'Tap when done'}</div>
       </button>
     );
   };
@@ -132,7 +160,7 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
             {notStarted ? 'Starts soon' : finished && selectedDay === lastOpenDay ? 'Practice complete' : `Day ${selectedDay} of ${durationDays}`}
           </span>
           {!notStarted && (
-            <span className="text-[11px] text-stone-500">
+            <span className="text-xs text-stone-500">
               {isToday ? 'Today' : dayDate(startDate, selectedDay, timeZone)}
             </span>
           )}
@@ -156,8 +184,17 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
               {tile('morning', morning)}
               {tile('evening', evening)}
             </div>
-            <p className="text-[11px] text-stone-500 min-h-[16px]">
-              {message ? (
+            <p className="text-xs text-stone-500 min-h-[16px]" aria-live="polite">
+              {loadError ? (
+                <span className="text-red-600">
+                  Your ticks could not be loaded, so they are locked for now. {loadError}{' '}
+                  {onRetry && (
+                    <button type="button" onClick={onRetry} className="underline font-medium cursor-pointer">
+                      Try again
+                    </button>
+                  )}
+                </span>
+              ) : message ? (
                 <span className="text-red-600">{message}</span>
               ) : !isToday ? (
                 <>
@@ -186,22 +223,22 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
           <div className="relative w-14 h-14 shrink-0">
             <div className={`absolute inset-0 rounded-full blur-xl ${streak > 0 ? 'bg-amber-400/50' : 'bg-stone-300/40'}`} />
             <div className={`relative w-14 h-14 rounded-full flex items-center justify-center ${streak > 0 ? 'bg-gradient-to-b from-amber-300 to-orange-500' : 'bg-stone-200'}`}>
-              <Flame className={`w-7 h-7 ${streak > 0 ? 'text-white fill-white/30' : 'text-stone-400'}`} />
+              <Flame className={`w-7 h-7 ${streak > 0 ? 'text-white fill-white/30' : 'text-stone-500'}`} />
             </div>
           </div>
           <div className="flex-1 min-w-0">
             <div className="font-display text-2xl font-semibold text-stone-950 leading-none">
               {streak} <span className="text-base font-medium text-stone-500">day{streak === 1 ? '' : 's'} in a row</span>
             </div>
-            <p className="text-[11px] text-stone-500 mt-1">
+            <p className="text-sm text-stone-600 mt-1">
               Your practice flame. It grows each day you tick Morning or Evening, and starts again after a day with no tick.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center justify-between text-xs">
-          <span className="font-semibold text-stone-900">{durationDays}-day trail</span>
-          <span className="text-stone-500 tabular-nums">
+        <div className="flex items-center justify-between text-sm">
+          <span className="font-semibold text-stone-900">{showAllDays ? `All ${durationDays} days` : 'This week'}</span>
+          <span className="text-stone-600 tabular-nums">
             {practised} of {Math.max(0, lastOpenDay)} days practised
           </span>
         </div>
@@ -209,10 +246,12 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
         <div id="tour-practice-trail" className="grid grid-cols-7 gap-1.5">
           {Array.from({ length: durationDays }).map((_, idx) => {
             const day = idx + 1;
+            const weekStart = Math.floor((Math.min(Math.max(todayDay, 1), durationDays) - 1) / 7) * 7 + 1;
+            if (!showAllDays && (day < weekStart || day > weekStart + 6)) return null;
             const status = getTrailDayStatus(day, todayDay, byDay.get(day));
             const open = day <= lastOpenDay;
             const isSelected = open && day === selectedDay;
-            const base = 'aspect-square rounded-full flex items-center justify-center text-[11px] font-medium transition-all relative';
+            const base = 'aspect-square min-h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all relative';
             const look =
               status === 'full'
                 ? 'bg-emerald-500 text-white'
@@ -221,7 +260,7 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
                 : status === 'today'
                 ? 'bg-white text-emerald-700 ring-2 ring-emerald-500'
                 : status === 'missed'
-                ? 'bg-white text-stone-400 ring-1 ring-stone-900/10'
+                ? 'bg-white text-stone-500 ring-1 ring-stone-900/10'
                 : 'text-stone-300';
             return (
               <button
@@ -240,21 +279,27 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
               >
                 {status === 'full' ? <Check className="w-3.5 h-3.5" /> : day}
                 {byDay.get(day)?.late && status !== 'missed' && (
-                  <History className="absolute -top-0.5 -right-0.5 w-3 h-3 p-[1px] rounded-full bg-white text-stone-500" />
+                  <History className="absolute -top-0.5 -end-0.5 w-3 h-3 p-[1px] rounded-full bg-white text-stone-500" />
                 )}
               </button>
             );
           })}
         </div>
 
-        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-[10.5px] text-stone-500">
+        {durationDays > 7 && (
+          <button type="button" onClick={() => setShowAllDays((v) => !v)} aria-expanded={showAllDays} className="ui-btn-ghost w-full">
+            {showAllDays ? 'Show this week only' : `Show all ${durationDays} days`}
+          </button>
+        )}
+
+        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-sm text-stone-600">
           <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-emerald-500" /> Both</span>
           <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-[linear-gradient(135deg,#34d399_50%,#d1fae5_50%)]" /> One</span>
           <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-white ring-1 ring-stone-900/15" /> Not ticked</span>
           <span className="flex items-center gap-1.5"><History className="w-3 h-3" /> Added later</span>
         </div>
-        <p className="text-[11px] text-center text-stone-400 flex items-center justify-center gap-1">
-          <Sparkles className="w-3 h-3" /> Tap any past day to fill it in.
+        <p className="text-sm text-center text-stone-600 flex items-center justify-center gap-1">
+          <Sparkles className="w-4 h-4" /> Forgot a day? Tap it to fill it in.
         </p>
       </section>
     </>

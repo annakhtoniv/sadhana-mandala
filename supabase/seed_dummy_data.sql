@@ -44,7 +44,7 @@
 -- Run supabase/phase4_security.sql, supabase/phase5_programmes.sql,
 -- supabase/phase6_lms.sql, supabase/phase7_followups.sql and
 -- supabase/phase8_events.sql, supabase/phase9_crm.sql, supabase/phase11_checkins.sql and
--- supabase/phase12_media.sql and supabase/phase13_roles.sql first,
+-- supabase/phase12_media.sql, supabase/phase13_roles.sql and supabase/phase14_safety.sql first,
 -- and supabase/verify.sql after.
 --
 -- Expected teacher dashboard for "Autumn Awakening" (day 23 of 40):
@@ -163,8 +163,16 @@ begin
   select (now() at time zone timezone)::date into v_today_b from public.organisations where id = v_org_b_id;
 
   -- --------------------------------------------------------------------------
-  -- Reset earlier dummy data (cascades to enrolments, check-ins, invites)
+  -- Reset earlier dummy data. Check-ins go first: since Phase 14 a batch that
+  -- still has check-ins cannot be deleted (enrolments and invites cascade).
   -- --------------------------------------------------------------------------
+  delete from public.checkins
+  where batch_id in (v_batch_day23_id, v_batch_day40_id, v_batch_day2_id, v_batch_old_day1, v_batch_b_id,
+                     v_batch_silence_id, v_batch_vtp_id);
+  delete from public.checkins c
+  using public.batches b, public.profiles p
+  where b.id = c.batch_id and p.id = b.teacher_id and p.org_id in (v_org_a_id, v_org_b_id) and p.email like '%example.com';
+
   delete from public.batches
   where id in (v_batch_day23_id, v_batch_day40_id, v_batch_day2_id, v_batch_old_day1, v_batch_b_id,
                v_batch_silence_id, v_batch_vtp_id);

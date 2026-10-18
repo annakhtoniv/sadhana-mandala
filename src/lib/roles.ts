@@ -53,3 +53,8 @@ export function rolesOf(p: { role: UserRole; roles?: UserRole[] | null }): UserR
 export function primaryRole(roles: UserRole[]): UserRole {
   return [...ALL_ROLES].reverse().find((r) => roles.includes(r)) ?? 'student';
 }
+
+/** Whether a person holds a role (looks at the full list, not only the highest role). */
+export function hasRole(p: { role: UserRole; roles?: UserRole[] | null } | null | undefined, role: UserRole): boolean {
+  return Boolean(p) && rolesOf(p as { role: UserRole; roles?: UserRole[] | null }).includes(role);
+}

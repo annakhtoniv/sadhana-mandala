@@ -23,14 +23,9 @@ import { CrmContactDetail } from './CrmContactDetail';
 import { FunnelReportPanel } from './FunnelReportPanel';
 import { AlertTriangle, ArrowLeft, BarChart3, Clock, Contact, PlusCircle, Search, UserCheck } from 'lucide-react';
 
-interface CrmScreenProps {
-  onBack: () => void;
-}
-
-const inputClass =
-  'w-full px-3 py-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-sm text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-stone-500';
-const labelClass = 'block text-xs font-medium text-stone-600 dark:text-stone-300 mb-1';
-const card = 'bg-white dark:bg-stone-900 p-5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm';
+const inputClass = 'ui-input';
+const labelClass = 'ui-label';
+const card = 'ui-card';
 
 type View = { kind: 'list' } | { kind: 'detail'; id: string } | { kind: 'form'; id: string | null } | { kind: 'reports' };
 
@@ -68,7 +63,7 @@ function toInput(c: CrmContact): ContactInput {
  * Leads (SPEC "CRM for volunteers"): volunteers manage their own leads;
  * admins and teachers see every lead, assign owners and see the funnel.
  */
-export const CrmScreen: React.FC<CrmScreenProps> = ({ onBack }) => {
+export const CrmScreen: React.FC = () => {
   const { organisation, user, profile } = useAuth();
   const isStaff = isStaffRole(profile?.role);
   const today = getTodayInTimezone(organisation.timezone);
@@ -158,8 +153,8 @@ export const CrmScreen: React.FC<CrmScreenProps> = ({ onBack }) => {
   if (view.kind === 'reports') {
     return (
       <div className="w-full space-y-4 animate-in fade-in duration-150">
-        <button type="button" onClick={() => setView({ kind: 'list' })} className="inline-flex items-center gap-1.5 text-xs text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 cursor-pointer">
-          <ArrowLeft className="w-3.5 h-3.5" />
+        <button type="button" onClick={() => setView({ kind: 'list' })} className="ui-btn-ghost !min-h-10 !py-2 !px-4">
+          <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
           <span>Back to Leads</span>
         </button>
         <FunnelReportPanel />
@@ -192,13 +187,13 @@ export const CrmScreen: React.FC<CrmScreenProps> = ({ onBack }) => {
         <button
           type="button"
           onClick={() => setView(view.id ? { kind: 'detail', id: view.id } : { kind: 'list' })}
-          className="inline-flex items-center gap-1.5 text-xs text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 cursor-pointer"
+          className="ui-btn-ghost !min-h-10 !py-2 !px-4"
         >
-          <ArrowLeft className="w-3.5 h-3.5" />
+          <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
           <span>Cancel</span>
         </button>
         <form onSubmit={submit} className={`${card} space-y-3`}>
-          <h1 className="text-base font-semibold text-stone-900 dark:text-stone-100">{view.id ? 'Edit lead' : 'Add a lead'}</h1>
+          <h1 className="text-base font-semibold text-stone-900">{view.id ? 'Edit lead' : 'Add a lead'}</h1>
           <div>
             <label className={labelClass} htmlFor="lead-name">Name</label>
             <input id="lead-name" className={inputClass} value={form.full_name} onChange={(e) => set('full_name', e.target.value)} />
@@ -210,7 +205,7 @@ export const CrmScreen: React.FC<CrmScreenProps> = ({ onBack }) => {
           <div>
             <label className={labelClass} htmlFor="lead-email">Email</label>
             <input id="lead-email" type="email" className={inputClass} value={form.email} onChange={(e) => set('email', e.target.value)} />
-            <p className="text-[11px] text-stone-500 mt-1">With an email, they can be registered for a batch before they sign up.</p>
+            <p className="text-xs text-stone-500 mt-1">With an email, they can be registered for a batch before they sign up.</p>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
@@ -250,27 +245,27 @@ export const CrmScreen: React.FC<CrmScreenProps> = ({ onBack }) => {
                   </option>
                 ))}
               </select>
-              <p className="text-[11px] text-stone-500 mt-1">A volunteer sees only the leads they own.</p>
+              <p className="text-xs text-stone-500 mt-1">A volunteer sees only the leads they own.</p>
             </div>
           )}
           <div>
             <label className={labelClass} htmlFor="lead-notes">Notes</label>
             <textarea id="lead-notes" className={`${inputClass} min-h-[70px]`} value={form.notes} onChange={(e) => set('notes', e.target.value)} />
           </div>
-          <label className="flex items-start gap-2 text-xs text-stone-700 dark:text-stone-300">
+          <label className="flex items-start gap-2 text-xs text-stone-700">
             <input type="checkbox" className="mt-0.5" checked={form.consent} onChange={(e) => set('consent', e.target.checked)} />
             <span>They agreed that we contact them about our programmes and events.</span>
           </label>
-          <label className="flex items-start gap-2 text-xs text-stone-700 dark:text-stone-300">
+          <label className="flex items-start gap-2 text-xs text-stone-700">
             <input type="checkbox" className="mt-0.5" checked={form.opted_out} onChange={(e) => set('opted_out', e.target.checked)} />
             <span>Do not contact (they asked us to stop).</span>
           </label>
           {formErrors.length > 0 && (
-            <ul role="alert" className="p-3 rounded-xl bg-red-50 dark:bg-red-950/50 text-xs text-red-600 dark:text-red-400 list-disc list-inside">
+            <ul role="alert" className="p-3 rounded-xl bg-red-50 text-xs text-red-600 list-disc list-inside">
               {formErrors.map((e) => <li key={e}>{e}</li>)}
             </ul>
           )}
-          <button type="submit" disabled={saving} className="w-full py-3 rounded-xl bg-stone-900 dark:bg-stone-100 text-stone-100 dark:text-stone-900 text-sm font-semibold disabled:opacity-50 cursor-pointer">
+          <button type="submit" disabled={saving} className="w-full py-3 rounded-xl bg-stone-900 text-stone-100 text-sm font-semibold disabled:opacity-50 cursor-pointer">
             {saving ? 'Saving...' : 'Save lead'}
           </button>
         </form>
@@ -283,10 +278,9 @@ export const CrmScreen: React.FC<CrmScreenProps> = ({ onBack }) => {
       key={value}
       type="button"
       onClick={() => setFilter(value)}
-      className={`shrink-0 px-3 py-1.5 rounded-full text-[11px] font-semibold border cursor-pointer ${
-        filter === value
-          ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 border-transparent'
-          : 'border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300'
+      aria-pressed={filter === value}
+      className={`shrink-0 min-h-10 px-3.5 rounded-full text-sm font-semibold cursor-pointer ring-1 ${
+        filter === value ? 'bg-stone-900 text-white ring-stone-900' : 'bg-white ring-stone-300 text-stone-700'
       }`}
     >
       {label} {count}
@@ -294,19 +288,14 @@ export const CrmScreen: React.FC<CrmScreenProps> = ({ onBack }) => {
   );
 
   return (
-    <div className="w-full space-y-4 animate-in fade-in duration-150">
-      <button type="button" onClick={onBack} className="inline-flex items-center gap-1.5 text-xs text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 cursor-pointer">
-        <ArrowLeft className="w-3.5 h-3.5" />
-        <span>Back</span>
-      </button>
-
-      <div className={`${card} space-y-3`}>
+    <div className="w-full space-y-4 animate-fade-up">
+      <section className="ui-card space-y-3">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <h1 className="text-lg font-semibold text-stone-900 dark:text-stone-100 flex items-center gap-2">
-              <Contact className="w-5 h-5 text-emerald-600" /> Leads
+            <h1 className="font-display text-2xl font-semibold text-stone-950 flex items-center gap-2">
+              <Contact className="w-6 h-6 text-emerald-700" /> Leads
             </h1>
-            <p className="text-xs text-stone-500">
+            <p className="text-base text-stone-600 mt-1">
               {isStaff
                 ? 'Everyone volunteers have met, from first contact to the programme.'
                 : 'People you have met. Invite them to an intro talk and help them register.'}
@@ -316,53 +305,48 @@ export const CrmScreen: React.FC<CrmScreenProps> = ({ onBack }) => {
             <button
               type="button"
               onClick={() => setView({ kind: 'reports' })}
-              className="shrink-0 px-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700 text-xs font-medium text-stone-700 dark:text-stone-300 flex items-center gap-1.5 cursor-pointer"
+              className="ui-btn-ghost shrink-0 !px-4"
             >
-              <BarChart3 className="w-3.5 h-3.5" /> Reports
+              <BarChart3 className="w-4 h-4" /> Reports
             </button>
           )}
-        </div>
-
-        <div className="grid grid-cols-3 gap-1.5 text-center" aria-label="Pipeline">
-          {PIPELINE.map((s) => (
-            <button key={s} type="button" onClick={() => setFilter(s)} className="p-1.5 rounded-lg border border-stone-100 dark:border-stone-800 cursor-pointer">
-              <div className="text-[10px] uppercase font-semibold text-stone-500 leading-tight">{STAGE_LABEL[s]}</div>
-              <div className="text-base font-bold text-stone-900 dark:text-stone-100">{counts[s]}</div>
-            </button>
-          ))}
         </div>
 
         <button
           type="button"
           onClick={() => openForm(null)}
-          className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold flex items-center justify-center gap-2 cursor-pointer"
+          className="ui-btn-primary w-full"
         >
           <PlusCircle className="w-4 h-4" /> Add a lead
         </button>
-      </div>
+      </section>
 
-      <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
+      {/* Filters scroll sideways; the fade shows there are more */}
+      <div className="relative">
+      <div role="group" aria-label="Show" className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 pe-8">
         {chip('all', 'All', contacts.length)}
         {chip('due', 'Follow up', dueCount)}
         {PIPELINE.map((s) => chip(s, STAGE_LABEL[s], counts[s]))}
         {chip('lost', STAGE_LABEL.lost, counts.lost)}
       </div>
+      <div className="pointer-events-none absolute inset-y-0 end-0 w-8 bg-gradient-to-l rtl:bg-gradient-to-r from-[#f7f7f8] to-transparent" aria-hidden="true" />
+      </div>
 
       <div className="relative">
-        <Search className="w-4 h-4 text-stone-400 absolute left-3 top-3 pointer-events-none" />
+        <Search className="w-4 h-4 text-stone-500 absolute start-3 top-1/2 -translate-y-1/2 pointer-events-none" />
         <input
           aria-label="Search leads"
           placeholder="Search by name, phone or email"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className={`${inputClass} pl-9`}
+          className={`${inputClass} ps-9`}
         />
       </div>
 
-      {error && <div role="alert" className="p-3 rounded-xl bg-red-50 dark:bg-red-950/50 text-xs text-red-600 dark:text-red-400">{error}</div>}
-      {loading && <p className="text-xs text-stone-400">Loading leads...</p>}
+      {error && <div role="alert" className="p-3 rounded-xl bg-red-50 text-sm text-red-700">{error}</div>}
+      {loading && <p role="status" className="text-sm text-stone-600">Loading leads...</p>}
       {!loading && visible.length === 0 && !error && (
-        <div className={`${card} text-center text-xs text-stone-500`}>
+        <div className="ui-card text-center text-base text-stone-600">
           {contacts.length === 0 ? 'No leads yet. Add the first person you have met.' : 'No leads match.'}
         </div>
       )}
@@ -373,28 +357,28 @@ export const CrmScreen: React.FC<CrmScreenProps> = ({ onBack }) => {
             <button
               type="button"
               onClick={() => setView({ kind: 'detail', id: c.id })}
-              className="w-full text-left bg-white dark:bg-stone-900 p-4 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm hover:border-stone-400 dark:hover:border-stone-600 cursor-pointer space-y-1"
+              className="ui-card !p-4 w-full text-start hover:bg-stone-50 cursor-pointer space-y-1"
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="font-semibold text-sm text-stone-900 dark:text-stone-100 truncate">{c.full_name}</span>
-                <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold ${STAGE_CLASS[c.stage]}`}>{STAGE_LABEL[c.stage]}</span>
+                <span dir="auto" className="font-semibold text-base text-stone-900 truncate user-text">{c.full_name}</span>
+                <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold ${STAGE_CLASS[c.stage]}`}>{STAGE_LABEL[c.stage]}</span>
               </div>
-              <div className="text-[11px] text-stone-500 truncate">{[c.phone, c.email].filter(Boolean).join(' · ') || 'No contact details'}</div>
-              <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-stone-500">
+              <div className="text-sm text-stone-600 truncate">{[c.phone, c.email].filter(Boolean).join(' · ') || 'No contact details'}</div>
+              <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-stone-600">
                 {isFollowUpDue(c, today) && (
-                  <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-400 font-semibold">
+                  <span className="inline-flex items-center gap-1 text-amber-700 font-semibold">
                     <Clock className="w-3 h-3" /> Follow up due
                   </span>
                 )}
                 {c.profile_id && (
-                  <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
+                  <span className="inline-flex items-center gap-1 text-emerald-700">
                     <UserCheck className="w-3 h-3" /> In the app
                   </span>
                 )}
                 {c.opted_out ? (
                   <span className="inline-flex items-center gap-1 text-red-600"><AlertTriangle className="w-3 h-3" /> Do not contact</span>
                 ) : !c.consent_at ? (
-                  <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-400"><AlertTriangle className="w-3 h-3" /> No consent yet</span>
+                  <span className="inline-flex items-center gap-1 text-amber-700"><AlertTriangle className="w-3 h-3" /> No consent yet</span>
                 ) : null}
                 {isStaff && <span>Owner: {ownerName(c.owner_id) || 'Unassigned'}</span>}
               </div>

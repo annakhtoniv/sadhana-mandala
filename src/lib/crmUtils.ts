@@ -25,13 +25,13 @@ export const STAGE_HINT: Record<CrmStage, string> = {
 };
 
 export const STAGE_CLASS: Record<CrmStage, string> = {
-  new: 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300',
-  invited: 'bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300',
-  attended: 'bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300',
-  interested: 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300',
-  registered: 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300',
-  completed: 'bg-teal-100 dark:bg-teal-950 text-teal-700 dark:text-teal-300',
-  lost: 'bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400',
+  new: 'bg-stone-100 text-stone-700',
+  invited: 'bg-indigo-100 text-indigo-700',
+  attended: 'bg-sky-100 text-sky-700',
+  interested: 'bg-amber-100 text-amber-700',
+  registered: 'bg-emerald-100 text-emerald-700',
+  completed: 'bg-teal-100 text-teal-700',
+  lost: 'bg-red-50 text-red-600',
 };
 
 export const SOURCE_LABEL: Record<CrmSource, string> = {
@@ -114,7 +114,9 @@ export function validateContactInput(input: ContactInput): string[] {
 
 /** Digits of a phone number for WhatsApp links: "+971 50 123 4567" -> "971501234567". */
 export function phoneDigits(phone: string | null | undefined): string {
-  const digits = (phone || '').replace(/\D/g, '');
+  // Arabic-Indic (٠-٩) and Eastern Arabic (۰-۹) digits count as digits too
+  const western = (phone || '').replace(/[\u0660-\u0669\u06F0-\u06F9]/g, (ch) => String(ch.charCodeAt(0) & 0xf));
+  const digits = western.replace(/\D/g, '');
   return digits.startsWith('00') ? digits.slice(2) : digits;
 }
 

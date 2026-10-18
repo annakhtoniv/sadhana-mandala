@@ -1,3 +1,7 @@
+> **Historical (October 2026).** This hand-over describes the very first version and is out of date.
+> Current state: [PROGRESS.md](PROGRESS.md). SQL run order: [supabase/README.md](supabase/README.md).
+> The old all-in-one SQL script mentioned below is archived and unsafe; never run it.
+
 # Comprehensive Technical Handover: Sadhana Mandala
 
 > **Platform:** Sadhana Mandala (White-Label 40-Day Daily Practice Companion PWA)  
@@ -128,7 +132,7 @@ npm run dev
   - Teacher cohort list, quick creation modal.
 
 ### 4. Database Schema & Seed Scripts
-- **[RUN_THIS_IN_SUPABASE.sql](file:///c:/Users/annak/sadhana-mandala/RUN_THIS_IN_SUPABASE.sql)**: Complete all-in-one SQL setup script.
+- ~~RUN_THIS_IN_SUPABASE.sql~~: archived as `supabase/archive/OLD_UNSAFE_all_in_one_setup.sql` (unsafe, never run).
 - **[supabase/schema_phase3.sql](file:///c:/Users/annak/sadhana-mandala/supabase/schema_phase3.sql)**: RLS policies, tables, and triggers for check-ins.
 - **[supabase/seed_dummy_data.sql](file:///c:/Users/annak/sadhana-mandala/supabase/seed_dummy_data.sql)**:
   - Org A ("Sadhana Mandala", Dubai timezone) with 3 batches (Day 40 finished, Day 23 active, Day 2 fresh), 30 fictional students, streaks, 5 quiet students.

@@ -69,8 +69,8 @@ export const BatchCard: React.FC<BatchCardProps> = ({ batch, timeZone, onOpen, o
     >
       <div className="p-4 space-y-3">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-[11px] font-medium text-stone-500 truncate">{batch.course?.name || 'Programme'}</span>
-          <span className={`shrink-0 px-2.5 py-0.5 rounded-full text-[10.5px] font-semibold ring-1 ${tone}`}>{status}</span>
+          <span className="text-xs font-medium text-stone-500 truncate">{batch.course?.name || 'Programme'}</span>
+          <span className={`shrink-0 px-2.5 py-0.5 rounded-full text-xs font-semibold ring-1 ${tone}`}>{status}</span>
         </div>
 
         <div className="flex items-center justify-between gap-2">
@@ -86,7 +86,7 @@ export const BatchCard: React.FC<BatchCardProps> = ({ batch, timeZone, onOpen, o
             />
           </div>
         ) : null}
-        <div className="text-[11px] text-stone-400">
+        <div className="text-xs text-stone-500">
           {phase === 'upcoming' ? 'Starts' : 'Started'} {formatDateDisplay(batch.start_date, timeZone)}
           {practice ? ` · ${batch.course?.practice_name || `${total}-day practice`}` : ''}
         </div>
@@ -102,7 +102,7 @@ export const BatchCard: React.FC<BatchCardProps> = ({ batch, timeZone, onOpen, o
             type="button"
             onClick={copy}
             title="Copy join code"
-            className="h-8 px-2.5 rounded-full bg-white ring-1 ring-stone-900/10 text-[11px] font-mono font-semibold text-stone-700 flex items-center gap-1.5 hover:bg-stone-50 cursor-pointer"
+            className="h-8 px-2.5 rounded-full bg-white ring-1 ring-stone-900/10 text-xs font-mono font-semibold text-stone-700 flex items-center gap-1.5 hover:bg-stone-50 cursor-pointer"
           >
             {copied ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
             {copied ? 'Copied' : batch.join_code}

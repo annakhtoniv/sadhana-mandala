@@ -134,8 +134,13 @@ export function zonedInputToIso(local: string, timeZone: string): string | null 
   if (!match) return null;
   const [, y, m, d, h, min] = match.map(Number);
   const guess = Date.UTC(y, m - 1, d, h, min);
-  let utc = guess - zoneOffsetMs(guess, timeZone);
-  // Second pass corrects the rare case where the offset changes in between (daylight saving)
-  utc = guess - zoneOffsetMs(utc, timeZone);
+  // The two offsets around this moment (they differ only on a daylight-saving change day)
+  const candidates = [guess - zoneOffsetMs(guess - 12 * 3600_000, timeZone), guess - zoneOffsetMs(guess + 12 * 3600_000, timeZone)];
+  // The earliest one that shows the same wall-clock time (a repeated hour: its first time)
+  const exact = candidates
+    .filter((utc) => isoToZonedInput(new Date(utc).toISOString(), timeZone) === local.slice(0, 16))
+    .sort((a, b) => a - b)[0];
+  // A time that does not exist (the hour skipped in spring) moves forward, as clocks do
+  const utc = exact ?? Math.max(...candidates);
   return new Date(utc).toISOString();
 }

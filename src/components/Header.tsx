@@ -41,11 +41,11 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <>
       <header className="sticky top-0 z-30 w-full px-3 pt-3 md:hidden">
-        <div className="ui-glass max-w-md mx-auto h-14 pl-2 pr-1.5 rounded-full flex items-center justify-between gap-2">
+        <div className="ui-glass max-w-md mx-auto h-14 ps-2 pe-1.5 rounded-full flex items-center justify-between gap-2">
           <button
             type="button"
             onClick={() => onNavigate('home')}
-            className="flex items-center gap-2.5 min-w-0 rounded-full pr-2 focus:outline-none cursor-pointer"
+            className="flex items-center gap-2.5 min-w-0 rounded-full pe-2 focus:outline-none cursor-pointer"
           >
             {organisation.logo_url ? (
               <img src={organisation.logo_url} alt="" className="w-9 h-9 rounded-full object-cover" />
@@ -57,17 +57,17 @@ export const Header: React.FC<HeaderProps> = ({
 
           {user && (
             <div className="flex items-center gap-1 shrink-0">
-              {onRoleSwitch && (
+              {onRoleSwitch && roleViews.length > 1 && (
                 <label className="relative">
-                  <span className="sr-only">Active Role View</span>
+                  <span className="sr-only">Which screen to show</span>
                   <select
-                    aria-label="Active Role View"
+                    aria-label="Which screen to show"
                     value={currentRole}
                     onChange={(e) => {
                       const newRole = e.target.value as UserRole;
                       onRoleSwitch(newRole);
                     }}
-                    className="appearance-none h-9 pl-3.5 pr-8 rounded-full bg-stone-900/[0.04] hover:bg-stone-900/[0.07] text-xs font-medium text-stone-700 cursor-pointer focus:outline-none transition-colors"
+                    className="appearance-none h-11 ps-3.5 pe-8 rounded-full bg-stone-900/[0.04] hover:bg-stone-900/[0.07] text-sm font-medium text-stone-800 cursor-pointer focus:outline-none transition-colors"
                   >
                     {roleViews.map((r) => (
                       <option key={r} value={r}>
@@ -75,7 +75,7 @@ export const Header: React.FC<HeaderProps> = ({
                       </option>
                     ))}
                   </select>
-                  <ChevronDown className="w-3.5 h-3.5 text-stone-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <ChevronDown className="w-3.5 h-3.5 text-stone-500 absolute end-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </label>
               )}
               {onOpenTour && (
@@ -104,7 +104,7 @@ export const Header: React.FC<HeaderProps> = ({
                   aria-label={label}
                   aria-current={active ? 'page' : undefined}
                   title={label === 'Profile' ? 'Profile & Settings' : label}
-                  className={`flex-1 h-12 rounded-full flex flex-col items-center justify-center gap-0.5 text-[10.5px] font-medium transition-all cursor-pointer ${
+                  className={`flex-1 h-12 rounded-full flex flex-col items-center justify-center gap-0.5 text-xs font-medium transition-all cursor-pointer ${
                     active ? 'bg-stone-900 text-white shadow-[0_8px_20px_-10px_rgba(24,24,27,0.7)]' : 'text-stone-500 hover:text-stone-900'
                   }`}
                 >
@@ -121,7 +121,7 @@ export const Header: React.FC<HeaderProps> = ({
         </nav>
       )}
       {user && (
-        <aside className="hidden md:flex fixed inset-y-0 left-0 z-30 w-64 p-4">
+        <aside className="hidden md:flex fixed inset-y-0 start-0 z-30 w-64 p-4">
           <div className="ui-glass rounded-[1.75rem] flex-1 flex flex-col p-4 gap-6">
             <button type="button" onClick={() => onNavigate('home')} className="flex items-center gap-3 px-1 text-left cursor-pointer">
               {organisation.logo_url ? (
@@ -159,13 +159,13 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="mt-auto space-y-2">
               {onRoleSwitch && roleViews.length > 1 && (
                 <label className="block">
-                  <span className="block px-1 pb-1 text-[10px] font-medium uppercase tracking-[0.16em] text-stone-400">View</span>
+                  <span className="block px-1 pb-1 text-xs font-medium uppercase tracking-[0.16em] text-stone-500">View</span>
                   <span className="relative block">
                     <select
-                      aria-label="Active Role View (desktop)"
+                      aria-label="Which screen to show"
                       value={currentRole}
                       onChange={(e) => onRoleSwitch(e.target.value as UserRole)}
-                      className="appearance-none w-full h-10 pl-3.5 pr-8 rounded-full bg-stone-900/[0.04] hover:bg-stone-900/[0.07] text-xs font-medium text-stone-700 cursor-pointer focus:outline-none"
+                      className="appearance-none w-full h-10 ps-3.5 pe-8 rounded-full bg-stone-900/[0.04] hover:bg-stone-900/[0.07] text-xs font-medium text-stone-700 cursor-pointer focus:outline-none"
                     >
                       {roleViews.map((r) => (
                         <option key={r} value={r}>
@@ -173,7 +173,7 @@ export const Header: React.FC<HeaderProps> = ({
                         </option>
                       ))}
                     </select>
-                    <ChevronDown className="w-3.5 h-3.5 text-stone-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <ChevronDown className="w-3.5 h-3.5 text-stone-500 absolute end-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </span>
                 </label>
               )}

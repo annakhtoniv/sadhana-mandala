@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Sheet } from './Sheet';
+import { hasRole } from '../lib/roles';
 import { useAuth } from '../context/AuthContext';
-import { isDemoMode } from '../lib/supabase';
 import { fetchProgrammes, saveProgramme } from '../lib/programmeService';
 import {
   hasPracticeTrack,
@@ -54,7 +55,9 @@ function toInput(course: Course): ProgrammeInput {
  * programmes here. Nothing about a programme is hard-coded in the app.
  */
 export const ProgrammesManager: React.FC<ProgrammesManagerProps> = ({ onBack }) => {
-  const { organisation, user } = useAuth();
+  const { organisation, user, profile } = useAuth();
+  // Admins change every programme; teachers the ones they added (database rule, Phase 14)
+  const canEdit = (p: Course) => hasRole(profile, 'admin') || (Boolean(user) && p.created_by === user?.id);
   const [programmes, setProgrammes] = useState<Course[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -67,7 +70,7 @@ export const ProgrammesManager: React.FC<ProgrammesManagerProps> = ({ onBack }) 
   const [materialsFor, setMaterialsFor] = useState<Course | null>(null);
 
   const loadData = async () => {
-    if (!organisation.id && !isDemoMode()) return;
+    if (!organisation.id) return;
     setLoading(true);
     setLoadError(null);
     try {
@@ -135,9 +138,8 @@ export const ProgrammesManager: React.FC<ProgrammesManagerProps> = ({ onBack }) 
     return <MaterialsEditor course={materialsFor} onBack={() => setMaterialsFor(null)} />;
   }
 
-  const inputClass =
-    'w-full px-3 py-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-sm text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-stone-500';
-  const labelClass = 'block text-xs font-medium text-stone-600 dark:text-stone-300 mb-1';
+  const inputClass = 'ui-input';
+  const labelClass = 'ui-label';
 
   return (
     <div className="w-full space-y-6 animate-in fade-in duration-150">
@@ -145,16 +147,16 @@ export const ProgrammesManager: React.FC<ProgrammesManagerProps> = ({ onBack }) 
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex items-center gap-1.5 text-xs text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 transition-colors cursor-pointer"
+          className="ui-btn-ghost !min-h-10 !py-2 !px-4"
         >
-          <ArrowLeft className="w-3.5 h-3.5" />
+          <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
           <span>Back</span>
         </button>
       )}
 
-      <div className="bg-white dark:bg-stone-900 p-5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-2">
+      <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm space-y-2">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+          <div className="flex items-center gap-2 text-xs font-medium text-emerald-600">
             <BookOpen className="w-4 h-4" />
             <span>Programme catalogue</span>
           </div>
@@ -162,21 +164,21 @@ export const ProgrammesManager: React.FC<ProgrammesManagerProps> = ({ onBack }) 
             type="button"
             onClick={loadData}
             disabled={loading}
-            className="p-1 text-stone-400 hover:text-stone-700 dark:hover:text-stone-200"
+            className="p-1 text-stone-500 hover:text-stone-700"
             title="Refresh"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
-        <h1 className="text-xl font-semibold text-stone-900 dark:text-stone-100">Programmes ({programmes.length})</h1>
-        <p className="text-xs text-stone-500 dark:text-stone-400">
+        <h1 className="text-xl font-semibold text-stone-900">Programmes ({programmes.length})</h1>
+        <p className="text-xs text-stone-500">
           Add and edit the programmes your students can join. A daily practice track adds the daily check-in,
           streak and trail for that programme only.
         </p>
         <button
           type="button"
           onClick={openNew}
-          className="w-full mt-2 py-3 rounded-xl bg-stone-900 dark:bg-stone-100 text-stone-100 dark:text-stone-900 text-xs font-semibold flex items-center justify-center gap-2 hover:opacity-90 cursor-pointer"
+          className="w-full mt-2 py-3 rounded-xl bg-stone-900 text-stone-100 text-xs font-semibold flex items-center justify-center gap-2 hover:opacity-90 cursor-pointer"
         >
           <PlusCircle className="w-4 h-4" />
           <span>New programme</span>
@@ -184,74 +186,76 @@ export const ProgrammesManager: React.FC<ProgrammesManagerProps> = ({ onBack }) 
       </div>
 
       {loadError && (
-        <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-900 text-xs text-red-700 dark:text-red-300">
+        <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700">
           Could not load programmes: {loadError}
         </div>
       )}
 
       {!loading && !loadError && programmes.length === 0 && (
-        <p className="text-xs text-stone-400 italic text-center">No programmes yet. Add the first one above.</p>
+        <p className="text-xs text-stone-500 italic text-center">No programmes yet. Add the first one above.</p>
       )}
 
       {byCategory.map(([category, items]) => (
         <div key={category} className="space-y-2">
-          <h2 className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-stone-500">
             {category}
           </h2>
           {items.map((p) => (
             <div
               key={p.id}
-              className={`bg-white dark:bg-stone-900 p-4 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-2 ${
+              className={`bg-white p-4 rounded-2xl border border-stone-200 shadow-sm space-y-2 ${
                 p.is_active === false ? 'opacity-60' : ''
               }`}
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-sm text-stone-900 dark:text-stone-100">{p.name}</span>
+                    <span className="font-semibold text-sm text-stone-900">{p.name}</span>
                     {p.code && (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300">
+                      <span className="px-2 py-0.5 rounded-full text-xs font-mono font-bold bg-stone-100 text-stone-600">
                         {p.code}
                       </span>
                     )}
                     {p.is_active === false && (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-stone-200 dark:bg-stone-700 text-stone-600 dark:text-stone-300">
+                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-stone-200 text-stone-600">
                         Inactive
                       </span>
                     )}
                   </div>
                   {p.programme_days ? (
-                    <div className="text-[11px] text-stone-500">{p.programme_days}-day programme</div>
+                    <div className="text-xs text-stone-500">{p.programme_days}-day programme</div>
                   ) : null}
                 </div>
+                {canEdit(p) && (
                 <button
                   type="button"
                   onClick={() => {
                     setFormErrors([]);
                     setEditing(toInput(p));
                   }}
-                  className="shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-stone-200 dark:border-stone-700 text-xs text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 cursor-pointer"
+                  className="shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-stone-200 text-xs text-stone-700 hover:bg-stone-100 cursor-pointer"
                 >
                   <Pencil className="w-3 h-3" />
                   <span>Edit</span>
                 </button>
+                )}
               </div>
 
-              {p.description && <p className="text-xs text-stone-500 dark:text-stone-400">{p.description}</p>}
+              {p.description && <p className="text-xs text-stone-500">{p.description}</p>}
 
-              <div className="flex flex-wrap gap-1.5 text-[10px]">
+              <div className="flex flex-wrap gap-1.5 text-xs">
                 {hasPracticeTrack(p) ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-bold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-bold bg-amber-50 text-amber-700 border border-amber-200">
                     <Flame className="w-3 h-3" />
                     {practiceTrackName(p)} · {p.duration_days} days
                   </span>
                 ) : (
-                  <span className="px-2 py-0.5 rounded-full bg-stone-100 dark:bg-stone-800 text-stone-500">
+                  <span className="px-2 py-0.5 rounded-full bg-stone-100 text-stone-500">
                     No daily practice track
                   </span>
                 )}
                 {(p.prerequisite_ids || []).length > 0 && (
-                  <span className="px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300">
+                  <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700">
                     After: {(p.prerequisite_ids || []).map((id) => nameById.get(id) || 'removed programme').join(', ')}
                   </span>
                 )}
@@ -261,7 +265,7 @@ export const ProgrammesManager: React.FC<ProgrammesManagerProps> = ({ onBack }) 
                 <button
                   type="button"
                   onClick={() => setMaterialsFor(p)}
-                  className="py-2 rounded-xl border border-stone-200 dark:border-stone-700 text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="py-2 rounded-xl border border-stone-200 text-xs font-medium text-stone-700 hover:bg-stone-50 flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <FolderOpen className="w-3.5 h-3.5" />
                   <span>Materials</span>
@@ -269,7 +273,7 @@ export const ProgrammesManager: React.FC<ProgrammesManagerProps> = ({ onBack }) 
                 <button
                   type="button"
                   onClick={() => setModulesFor(p)}
-                  className="py-2 rounded-xl border border-stone-200 dark:border-stone-700 text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="py-2 rounded-xl border border-stone-200 text-xs font-medium text-stone-700 hover:bg-stone-50 flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <Layers className="w-3.5 h-3.5" />
                   <span>Modules</span>
@@ -277,7 +281,7 @@ export const ProgrammesManager: React.FC<ProgrammesManagerProps> = ({ onBack }) 
                 <button
                   type="button"
                   onClick={() => setFollowupsFor(p)}
-                  className="py-2 rounded-xl border border-stone-200 dark:border-stone-700 text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="py-2 rounded-xl border border-stone-200 text-xs font-medium text-stone-700 hover:bg-stone-50 flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <CalendarClock className="w-3.5 h-3.5" />
                   <span>Follow-ups</span>
@@ -289,14 +293,8 @@ export const ProgrammesManager: React.FC<ProgrammesManagerProps> = ({ onBack }) 
       ))}
 
       {editing && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-stone-950/70 backdrop-blur-sm">
-          <form
-            onSubmit={handleSave}
-            className="w-full max-w-md max-h-[92vh] overflow-y-auto bg-white dark:bg-stone-900 rounded-t-3xl sm:rounded-3xl border border-stone-200 dark:border-stone-800 p-6 shadow-xl space-y-4"
-          >
-            <h2 className="text-base font-semibold text-stone-900 dark:text-stone-100">
-              {editing.id ? 'Edit programme' : 'New programme'}
-            </h2>
+        <Sheet open onClose={() => setEditing(null)} title={editing.id ? 'Edit programme' : 'New programme'} busy={saving}>
+          <form onSubmit={handleSave} className="space-y-4">
 
             <div>
               <label className={labelClass} htmlFor="prog-name">Name</label>
@@ -334,11 +332,11 @@ export const ProgrammesManager: React.FC<ProgrammesManagerProps> = ({ onBack }) 
                 onChange={(e) => update({ description: e.target.value })} />
             </div>
 
-            <div className="p-3 rounded-2xl border border-stone-200 dark:border-stone-700 space-y-3">
+            <div className="p-3 rounded-2xl border border-stone-200 space-y-3">
               <label className="flex items-center justify-between gap-3 cursor-pointer">
                 <span>
-                  <span className="block text-sm font-medium text-stone-900 dark:text-stone-100">Daily practice track</span>
-                  <span className="block text-[11px] text-stone-500">Daily check-in, streak, trail and Quiet alerts</span>
+                  <span className="block text-sm font-medium text-stone-900">Daily practice track</span>
+                  <span className="block text-xs text-stone-500">Daily check-in, streak, trail and Quiet alerts</span>
                 </span>
                 <input type="checkbox" className="w-5 h-5 accent-emerald-600" checked={editing.has_practice_track}
                   onChange={(e) => update({ has_practice_track: e.target.checked })} />
@@ -380,7 +378,7 @@ export const ProgrammesManager: React.FC<ProgrammesManagerProps> = ({ onBack }) 
                         className={`px-3 py-1.5 rounded-full text-xs border cursor-pointer ${
                           selected
                             ? 'bg-indigo-600 text-white border-indigo-600'
-                            : 'bg-stone-50 dark:bg-stone-800 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-700'
+                            : 'bg-stone-50 text-stone-600 border-stone-200'
                         }`}
                       >
                         {p.name}
@@ -397,7 +395,7 @@ export const ProgrammesManager: React.FC<ProgrammesManagerProps> = ({ onBack }) 
                 <input id="prog-order" type="number" className={inputClass} value={editing.sort_order}
                   onChange={(e) => update({ sort_order: Number(e.target.value) })} />
               </div>
-              <label className="flex items-center gap-2 pb-2.5 text-sm text-stone-700 dark:text-stone-300 cursor-pointer">
+              <label className="flex items-center gap-2 pb-2.5 text-sm text-stone-700 cursor-pointer">
                 <input type="checkbox" className="w-5 h-5 accent-emerald-600" checked={editing.is_active}
                   onChange={(e) => update({ is_active: e.target.checked })} />
                 <span>Active</span>
@@ -405,23 +403,23 @@ export const ProgrammesManager: React.FC<ProgrammesManagerProps> = ({ onBack }) 
             </div>
 
             {formErrors.length > 0 && (
-              <ul className="p-3 rounded-xl bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-900 text-xs text-red-700 dark:text-red-300 space-y-1 list-disc list-inside">
+              <ul role="alert" className="p-3 rounded-xl bg-red-50 text-sm text-red-700 space-y-1 list-disc list-inside">
                 {formErrors.map((err) => <li key={err}>{err}</li>)}
               </ul>
             )}
 
             <div className="flex items-center justify-end gap-2 pt-2">
               <button type="button" onClick={() => setEditing(null)}
-                className="px-4 py-2.5 rounded-xl border border-stone-200 dark:border-stone-700 text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800">
+                className="ui-btn-ghost">
                 Cancel
               </button>
               <button type="submit" disabled={saving}
-                className="px-4 py-2.5 rounded-xl bg-stone-900 dark:bg-stone-100 text-stone-100 dark:text-stone-900 text-xs font-semibold hover:opacity-90 disabled:opacity-50">
+                className="ui-btn-primary">
                 {saving ? 'Saving...' : 'Save programme'}
               </button>
             </div>
           </form>
-        </div>
+        </Sheet>
       )}
     </div>
   );

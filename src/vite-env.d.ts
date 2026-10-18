@@ -9,3 +9,6 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+/** Build date, set in vite.config.ts (sent with error reports) */
+declare const __APP_VERSION__: string;

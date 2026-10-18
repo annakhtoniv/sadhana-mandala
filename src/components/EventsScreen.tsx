@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { hasRole } from '../lib/roles';
 import { useAuth } from '../context/AuthContext';
-import { isDemoMode } from '../lib/supabase';
+import { Sheet, useConfirm } from './Sheet';
 import { isoToZonedInput } from '../lib/dateUtils';
 import { fetchCourses } from '../lib/batchService';
 import {
@@ -15,15 +16,10 @@ import {
 import { EVENT_KIND_LABEL, eventTiming, placesLeft, REGISTRATION_STATUS_LABEL, validateEventInput, type EventInput } from '../lib/eventUtils';
 import type { Course, EventKind, OrgEvent, RegistrationStatus } from '../types/database';
 import { EventManager } from './EventManager';
-import { ArrowLeft, CalendarDays, EyeOff, Globe, MapPin, PlusCircle, Users } from 'lucide-react';
+import { CalendarDays, EyeOff, Globe, MapPin, PlusCircle, Users } from 'lucide-react';
 
-interface EventsScreenProps {
-  onBack: () => void;
-}
-
-const inputClass =
-  'w-full px-3 py-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-sm text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-stone-500';
-const labelClass = 'block text-xs font-medium text-stone-600 dark:text-stone-300 mb-1';
+const inputClass = 'ui-input';
+const labelClass = 'ui-label';
 
 export function formatEventDate(iso: string, timeZone: string, withTime = true): string {
   try {
@@ -51,10 +47,11 @@ function dayBlock(iso: string, timeZone: string) {
  * Events (SPEC "Events"): everyone sees and registers for published events;
  * admins and teachers create events, manage registrations and attendance.
  */
-export const EventsScreen: React.FC<EventsScreenProps> = ({ onBack }) => {
+export const EventsScreen: React.FC = () => {
   const { organisation, user, profile, activeRole } = useAuth();
+  const confirm = useConfirm();
   // Staff tools only in the Teacher or Admin view (an admin previewing the Student view sees what students see)
-  const isStaff = (profile?.role === 'admin' || profile?.role === 'teacher') && activeRole !== 'student';
+  const isStaff = (hasRole(profile, 'admin') || hasRole(profile, 'teacher')) && activeRole !== 'student';
   const [events, setEvents] = useState<OrgEvent[]>([]);
   const [taken, setTaken] = useState<Map<string, number>>(new Map());
   const [mine, setMine] = useState<Map<string, RegistrationStatus>>(new Map());
@@ -69,7 +66,7 @@ export const EventsScreen: React.FC<EventsScreenProps> = ({ onBack }) => {
   const [saving, setSaving] = useState(false);
 
   const load = async () => {
-    if (!organisation.id && !isDemoMode()) return;
+    if (!organisation.id) return;
     try {
       const list = await fetchEvents(organisation.id);
       const [placeMap, myMap] = await Promise.all([
@@ -153,7 +150,7 @@ export const EventsScreen: React.FC<EventsScreenProps> = ({ onBack }) => {
   };
 
   const handleDelete = async (e: OrgEvent) => {
-    if (!window.confirm(`Delete "${e.title}" and all its registrations?`)) return;
+    if (!(await confirm({ title: `Delete "${e.title}"?`, message: 'All its registrations are deleted too.', confirmLabel: 'Delete', danger: true }))) return;
     const res = await deleteEvent(e.id);
     setMessage(res.success ? `Deleted "${e.title}".` : `Could not delete: ${res.error}`);
     setManaging(null);
@@ -169,32 +166,32 @@ export const EventsScreen: React.FC<EventsScreenProps> = ({ onBack }) => {
     const holding = status === 'registered' || status === 'attended';
     const { day, month } = dayBlock(e.starts_at, organisation.timezone);
     return (
-      <div key={e.id} className={`bg-white dark:bg-stone-900 p-4 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-3 ${timing === 'past' ? 'opacity-70' : ''}`}>
+      <div key={e.id} className={`bg-white p-4 rounded-2xl border border-stone-200 shadow-sm space-y-3 ${timing === 'past' ? 'opacity-70' : ''}`}>
         <div className="flex gap-3">
-          <div className="w-12 shrink-0 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-center py-1.5">
-            <div className="text-lg font-bold leading-none text-emerald-700 dark:text-emerald-300">{day}</div>
-            <div className="text-[10px] uppercase text-emerald-700 dark:text-emerald-400">{month}</div>
+          <div className="w-12 shrink-0 rounded-xl bg-emerald-50 text-center py-1.5">
+            <div className="text-lg font-bold leading-none text-emerald-700">{day}</div>
+            <div className="text-xs uppercase text-emerald-700">{month}</div>
           </div>
           <div className="flex-1 min-w-0 space-y-0.5">
-            <div className="flex items-center gap-1.5 flex-wrap text-[10px] font-semibold uppercase tracking-wide text-stone-500">
+            <div className="flex items-center gap-1.5 flex-wrap text-xs font-semibold uppercase tracking-wide text-stone-500">
               <span>{EVENT_KIND_LABEL[e.kind]}</span>
               {timing === 'ongoing' && <span className="px-1.5 py-0.5 rounded-full bg-emerald-600 text-white normal-case tracking-normal">Happening now</span>}
               {!e.published && (
-                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-stone-200 dark:bg-stone-700 normal-case tracking-normal">
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-stone-200 normal-case tracking-normal">
                   <EyeOff className="w-3 h-3" /> Draft
                 </span>
               )}
             </div>
-            <div className="text-sm font-semibold text-stone-900 dark:text-stone-100">{e.title}</div>
+            <div className="text-sm font-semibold text-stone-900">{e.title}</div>
             <div className="text-xs text-stone-500">{formatEventDate(e.starts_at, organisation.timezone)}</div>
             {e.venue && (
-              <div className="inline-flex items-center gap-1 text-xs text-stone-500 mr-3"><MapPin className="w-3 h-3" />{e.venue}</div>
+              <div className="inline-flex items-center gap-1 text-xs text-stone-500 me-3"><MapPin className="w-3 h-3" />{e.venue}</div>
             )}
             {e.online_url && (
               <div className="inline-flex items-center gap-1 text-xs text-stone-500">
                 <Globe className="w-3 h-3" />
                 {holding ? (
-                  <a href={e.online_url} target="_blank" rel="noopener noreferrer" className="underline text-emerald-700 dark:text-emerald-400">Join online</a>
+                  <a href={e.online_url} target="_blank" rel="noopener noreferrer" className="underline text-emerald-700">Join online</a>
                 ) : (
                   'Online'
                 )}
@@ -202,28 +199,28 @@ export const EventsScreen: React.FC<EventsScreenProps> = ({ onBack }) => {
             )}
           </div>
         </div>
-        {e.description && <p className="text-xs text-stone-600 dark:text-stone-400">{e.description}</p>}
+        {e.description && <p className="text-xs text-stone-600">{e.description}</p>}
         <div className="flex items-center justify-between gap-2">
-          <span className="inline-flex items-center gap-1 text-[11px] text-stone-500">
+          <span className="inline-flex items-center gap-1 text-xs text-stone-500">
             <Users className="w-3.5 h-3.5" />
             {left === null ? `${taken.get(e.id) || 0} registered` : left === 0 ? 'Full' : `${left} place${left === 1 ? '' : 's'} left`}
           </span>
           <div className="flex items-center gap-2">
             {status && status !== 'registered' && (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300">
+              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-stone-100 text-stone-600">
                 {REGISTRATION_STATUS_LABEL[status]}
               </span>
             )}
             {isStaff && (
               <button type="button" onClick={() => setManaging(e)}
-                className="px-3 py-1.5 rounded-xl border border-stone-200 dark:border-stone-700 text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 cursor-pointer">
+                className="px-3 py-1.5 rounded-xl border border-stone-200 text-xs font-medium text-stone-700 hover:bg-stone-100 cursor-pointer">
                 Manage
               </button>
             )}
             {timing !== 'past' && e.published && (
               status === 'registered' ? (
                 <button type="button" disabled={busyId === e.id} onClick={() => cancel(e)}
-                  className="px-3 py-1.5 rounded-xl border border-stone-200 dark:border-stone-700 text-xs text-stone-600 dark:text-stone-300 disabled:opacity-50 cursor-pointer">
+                  className="px-3 py-1.5 rounded-xl border border-stone-200 text-xs text-stone-600 disabled:opacity-50 cursor-pointer">
                   Cancel my place
                 </button>
               ) : status !== 'attended' && left !== 0 ? (
@@ -236,7 +233,7 @@ export const EventsScreen: React.FC<EventsScreenProps> = ({ onBack }) => {
           </div>
         </div>
         {status === 'registered' && timing !== 'past' && (
-          <p className="text-[11px] text-emerald-700 dark:text-emerald-400">You are registered. At the event, scan the check-in QR code.</p>
+          <p className="text-xs text-emerald-700">You are registered. At the event, scan the check-in QR code.</p>
         )}
       </div>
     );
@@ -261,10 +258,8 @@ export const EventsScreen: React.FC<EventsScreenProps> = ({ onBack }) => {
   function renderForm() {
     if (!editing) return null;
     return (
-      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-stone-950/70 backdrop-blur-sm">
-        <form onSubmit={handleSave}
-          className="w-full max-w-md max-h-[92vh] overflow-y-auto bg-white dark:bg-stone-900 rounded-t-3xl sm:rounded-3xl border border-stone-200 dark:border-stone-800 p-6 shadow-xl space-y-4">
-          <h2 className="text-base font-semibold text-stone-900 dark:text-stone-100">{editing.id ? 'Edit event' : 'New event'}</h2>
+      <Sheet open onClose={() => setEditing(null)} title={editing.id ? 'Edit event' : 'New event'} busy={saving}>
+        <form onSubmit={handleSave} className="space-y-4">
           <div>
             <label className={labelClass} htmlFor="ev-kind">Kind</label>
             <select id="ev-kind" className={inputClass} value={editing.kind} onChange={(e) => update({ kind: e.target.value as EventKind })}>
@@ -297,7 +292,7 @@ export const EventsScreen: React.FC<EventsScreenProps> = ({ onBack }) => {
           <div>
             <label className={labelClass} htmlFor="ev-url">Online link (optional)</label>
             <input id="ev-url" type="url" className={inputClass} value={editing.online_url} onChange={(e) => update({ online_url: e.target.value })} placeholder="https://..." />
-            <p className="text-[10px] text-stone-400 mt-1">Only people who registered see the link.</p>
+            <p className="text-xs text-stone-500 mt-1">Only people who registered see the link.</p>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -313,58 +308,53 @@ export const EventsScreen: React.FC<EventsScreenProps> = ({ onBack }) => {
               </select>
             </div>
           </div>
-          <label className="flex items-center gap-2 text-sm text-stone-700 dark:text-stone-300 cursor-pointer">
+          <label className="flex items-center gap-2 text-sm text-stone-700 cursor-pointer">
             <input type="checkbox" className="w-5 h-5 accent-emerald-600" checked={editing.published} onChange={(e) => update({ published: e.target.checked })} />
             <span>Published (members can see it and register)</span>
           </label>
           {formErrors.length > 0 && (
-            <ul className="p-3 rounded-xl bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-900 text-xs text-red-700 dark:text-red-300 space-y-1 list-disc list-inside">
+            <ul role="alert" className="p-3 rounded-xl bg-red-50 text-sm text-red-700 space-y-1 list-disc list-inside">
               {formErrors.map((err) => <li key={err}>{err}</li>)}
             </ul>
           )}
           <div className="flex items-center justify-end gap-2 pt-2">
             <button type="button" onClick={() => setEditing(null)}
-              className="px-4 py-2.5 rounded-xl border border-stone-200 dark:border-stone-700 text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800">
+              className="ui-btn-ghost">
               Cancel
             </button>
             <button type="submit" disabled={saving}
-              className="px-4 py-2.5 rounded-xl bg-stone-900 dark:bg-stone-100 text-stone-100 dark:text-stone-900 text-xs font-semibold hover:opacity-90 disabled:opacity-50">
+              className="ui-btn-primary">
               {saving ? 'Saving...' : 'Save event'}
             </button>
           </div>
         </form>
-      </div>
+      </Sheet>
     );
   }
 
   return (
     <div className="w-full space-y-5 animate-in fade-in duration-150">
-      <button type="button" onClick={onBack}
-        className="inline-flex items-center gap-1.5 text-xs text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 cursor-pointer">
-        <ArrowLeft className="w-3.5 h-3.5" />
-        <span>Back</span>
-      </button>
 
-      <div className="bg-white dark:bg-stone-900 p-5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-2">
-        <div className="flex items-center gap-2 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+      <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm space-y-2">
+        <div className="flex items-center gap-2 text-xs font-medium text-emerald-600">
           <CalendarDays className="w-4 h-4" />
           <span>Events</span>
         </div>
-        <h1 className="text-xl font-semibold text-stone-900 dark:text-stone-100">Coming up ({coming.length})</h1>
-        <p className="text-xs text-stone-500 dark:text-stone-400">Intro talks, satsangs, programmes and follow-up sessions. Times are in {organisation.timezone}.</p>
+        <h1 className="text-xl font-semibold text-stone-900">Coming up ({coming.length})</h1>
+        <p className="text-xs text-stone-500">Intro talks, satsangs, programmes and follow-up sessions. Times are in {organisation.timezone}.</p>
         {isStaff && (
           <button type="button" onClick={openNew}
-            className="w-full mt-2 py-3 rounded-xl bg-stone-900 dark:bg-stone-100 text-stone-100 dark:text-stone-900 text-xs font-semibold flex items-center justify-center gap-2 hover:opacity-90 cursor-pointer">
+            className="w-full mt-2 py-3 rounded-xl bg-stone-900 text-stone-100 text-xs font-semibold flex items-center justify-center gap-2 hover:opacity-90 cursor-pointer">
             <PlusCircle className="w-4 h-4" />
             <span>New event</span>
           </button>
         )}
       </div>
 
-      {message && <div role="status" className="p-3 rounded-xl bg-stone-100 dark:bg-stone-800 text-xs text-stone-700 dark:text-stone-300">{message}</div>}
-      {loadError && <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/60 text-xs text-red-700 dark:text-red-300">Could not load events: {loadError}</div>}
+      {message && <div role="status" className="p-3 rounded-xl bg-stone-100 text-xs text-stone-700">{message}</div>}
+      {loadError && <div className="p-3 rounded-xl bg-red-50 text-xs text-red-700">Could not load events: {loadError}</div>}
 
-      {coming.length === 0 && !loadError && <p className="text-xs text-stone-400 italic text-center">No events coming up.</p>}
+      {coming.length === 0 && !loadError && <p className="text-xs text-stone-500 italic text-center">No events coming up.</p>}
       {coming.map(eventCard)}
 
       {past.length > 0 && (

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { Sheet, useConfirm } from './Sheet';
 import { deleteStep, fetchFollowupPlan, saveStep } from '../lib/followupService';
 import { FOLLOWUP_KIND_LABEL, REMINDER_VISIBLE_DAYS, validateStepInput, type StepInput } from '../lib/followupUtils';
 import type { Course, FollowupKind, FollowupStep } from '../types/database';
@@ -22,13 +23,13 @@ const KIND_HELP: Record<FollowupKind, string> = {
   reminder: `A short message students see in the app from this day, for ${REMINDER_VISIBLE_DAYS} days.`,
 };
 
-const inputClass =
-  'w-full px-3 py-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-sm text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-stone-500';
-const labelClass = 'block text-xs font-medium text-stone-600 dark:text-stone-300 mb-1';
+const inputClass = 'ui-input';
+const labelClass = 'ui-label';
 
 /** Admins and teachers define a programme's follow-up plan (SPEC "Follow-ups"). */
 export const FollowupPlanEditor: React.FC<FollowupPlanEditorProps> = ({ course, onBack }) => {
   const { organisation, user } = useAuth();
+  const confirm = useConfirm();
   const [steps, setSteps] = useState<FollowupStep[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -69,7 +70,7 @@ export const FollowupPlanEditor: React.FC<FollowupPlanEditorProps> = ({ course, 
   };
 
   const handleDelete = async (s: FollowupStep) => {
-    if (!window.confirm(`Delete "${s.title}"? What was recorded for it in every batch is deleted too.`)) return;
+    if (!(await confirm({ title: `Delete "${s.title}"?`, message: 'What was recorded for it in every batch is deleted too.', confirmLabel: 'Delete', danger: true }))) return;
     const res = await deleteStep(s.id);
     setMessage(res.success ? `Deleted "${s.title}".` : `Could not delete: ${res.error}`);
     await load();
@@ -80,18 +81,18 @@ export const FollowupPlanEditor: React.FC<FollowupPlanEditorProps> = ({ course, 
   return (
     <div className="w-full space-y-6 animate-in fade-in duration-150">
       <button type="button" onClick={onBack}
-        className="inline-flex items-center gap-1.5 text-xs text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 cursor-pointer">
-        <ArrowLeft className="w-3.5 h-3.5" />
+        className="ui-btn-ghost !min-h-10 !py-2 !px-4">
+        <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
         <span>Back to Programmes</span>
       </button>
 
-      <div className="bg-white dark:bg-stone-900 p-5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-2">
-        <div className="flex items-center gap-2 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+      <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm space-y-2">
+        <div className="flex items-center gap-2 text-xs font-medium text-emerald-600">
           <CalendarClock className="w-4 h-4" />
           <span>Follow-up plan</span>
         </div>
-        <h1 className="text-xl font-semibold text-stone-900 dark:text-stone-100">{course.name}</h1>
-        <p className="text-xs text-stone-500 dark:text-stone-400">
+        <h1 className="text-xl font-semibold text-stone-900">{course.name}</h1>
+        <p className="text-xs text-stone-500">
           Each step falls due on a day of every batch of this programme (Day 1 is the batch start date).
         </p>
         <button type="button"
@@ -99,35 +100,35 @@ export const FollowupPlanEditor: React.FC<FollowupPlanEditorProps> = ({ course, 
             setFormErrors([]);
             setEditing({ kind: 'session', title: '', description: '', offset_day: 1, sort_order: 10, is_active: true });
           }}
-          className="w-full mt-2 py-3 rounded-xl bg-stone-900 dark:bg-stone-100 text-stone-100 dark:text-stone-900 text-xs font-semibold flex items-center justify-center gap-2 hover:opacity-90 cursor-pointer">
+          className="w-full mt-2 py-3 rounded-xl bg-stone-900 text-stone-100 text-xs font-semibold flex items-center justify-center gap-2 hover:opacity-90 cursor-pointer">
           <PlusCircle className="w-4 h-4" />
           <span>New step</span>
         </button>
       </div>
 
-      {message && <div className="p-3 rounded-xl bg-stone-100 dark:bg-stone-800 text-xs text-stone-700 dark:text-stone-300">{message}</div>}
+      {message && <div className="p-3 rounded-xl bg-stone-100 text-xs text-stone-700">{message}</div>}
 
       {!loading && steps.length === 0 && (
-        <p className="text-xs text-stone-400 italic text-center">No follow-up steps yet. Add the first one above.</p>
+        <p className="text-xs text-stone-500 italic text-center">No follow-up steps yet. Add the first one above.</p>
       )}
 
       {steps.length > 0 && (
-        <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm divide-y divide-stone-100 dark:divide-stone-800">
+        <div className="bg-white rounded-2xl border border-stone-200 shadow-sm divide-y divide-stone-100">
           {steps.map((s) => {
             const Icon = KIND_ICON[s.kind];
             return (
               <div key={s.id} className={`p-4 flex items-start gap-3 ${s.is_active ? '' : 'opacity-60'}`}>
                 <div className="w-12 shrink-0 text-center">
-                  <div className="text-[10px] uppercase text-stone-400">Day</div>
-                  <div className="text-lg font-bold text-stone-900 dark:text-stone-100">{s.offset_day}</div>
+                  <div className="text-xs uppercase text-stone-500">Day</div>
+                  <div className="text-lg font-bold text-stone-900">{s.offset_day}</div>
                 </div>
                 <div className="flex-1 min-w-0 space-y-0.5">
-                  <div className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
+                  <div className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-emerald-700">
                     <Icon className="w-3 h-3" />
                     {FOLLOWUP_KIND_LABEL[s.kind]}
-                    {!s.is_active && <EyeOff className="w-3 h-3 text-stone-400 ml-1" />}
+                    {!s.is_active && <EyeOff className="w-3 h-3 text-stone-500 ms-1" />}
                   </div>
-                  <div className="text-sm font-medium text-stone-900 dark:text-stone-100">{s.title}</div>
+                  <div className="text-sm font-medium text-stone-900">{s.title}</div>
                   {s.description && <div className="text-xs text-stone-500">{s.description}</div>}
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
@@ -136,11 +137,11 @@ export const FollowupPlanEditor: React.FC<FollowupPlanEditorProps> = ({ course, 
                       setFormErrors([]);
                       setEditing({ id: s.id, kind: s.kind, title: s.title, description: s.description || '', offset_day: s.offset_day, sort_order: s.sort_order, is_active: s.is_active });
                     }}
-                    className="p-2 rounded-lg text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800 cursor-pointer">
+                    className="p-2 rounded-lg text-stone-500 hover:bg-stone-100 cursor-pointer">
                     <Pencil className="w-4 h-4" />
                   </button>
                   <button type="button" aria-label={`Delete ${s.title}`} onClick={() => handleDelete(s)}
-                    className="p-2 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 cursor-pointer">
+                    className="p-2 rounded-lg text-red-500 hover:bg-red-50 cursor-pointer">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
@@ -151,10 +152,8 @@ export const FollowupPlanEditor: React.FC<FollowupPlanEditorProps> = ({ course, 
       )}
 
       {editing && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-stone-950/70 backdrop-blur-sm">
-          <form onSubmit={handleSave}
-            className="w-full max-w-md max-h-[92vh] overflow-y-auto bg-white dark:bg-stone-900 rounded-t-3xl sm:rounded-3xl border border-stone-200 dark:border-stone-800 p-6 shadow-xl space-y-4">
-            <h2 className="text-base font-semibold text-stone-900 dark:text-stone-100">{editing.id ? 'Edit step' : 'New step'}</h2>
+        <Sheet open onClose={() => setEditing(null)} title={editing.id ? 'Edit step' : 'New step'} busy={saving}>
+          <form onSubmit={handleSave} className="space-y-4">
 
             <div>
               <span className={labelClass}>Kind</span>
@@ -164,8 +163,8 @@ export const FollowupPlanEditor: React.FC<FollowupPlanEditorProps> = ({ course, 
                   const selected = editing.kind === k;
                   return (
                     <button key={k} type="button" onClick={() => update({ kind: k })} aria-pressed={selected}
-                      className={`p-2.5 rounded-xl border text-[11px] font-medium flex flex-col items-center gap-1 cursor-pointer ${
-                        selected ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-stone-50 dark:bg-stone-800 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-700'
+                      className={`p-2.5 rounded-xl border text-xs font-medium flex flex-col items-center gap-1 cursor-pointer ${
+                        selected ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-stone-50 text-stone-600 border-stone-200'
                       }`}>
                       <Icon className="w-4 h-4" />
                       {k === 'session' ? 'Session' : k === 'personal' ? 'Personal' : 'Reminder'}
@@ -173,7 +172,7 @@ export const FollowupPlanEditor: React.FC<FollowupPlanEditorProps> = ({ course, 
                   );
                 })}
               </div>
-              <p className="text-[11px] text-stone-500 mt-1.5">{KIND_HELP[editing.kind]}</p>
+              <p className="text-xs text-stone-500 mt-1.5">{KIND_HELP[editing.kind]}</p>
             </div>
 
             <div>
@@ -196,7 +195,7 @@ export const FollowupPlanEditor: React.FC<FollowupPlanEditorProps> = ({ course, 
                 <input id="step-order" type="number" className={inputClass} value={editing.sort_order}
                   onChange={(e) => update({ sort_order: Number(e.target.value) })} />
               </div>
-              <label className="flex items-center gap-2 pb-2.5 text-xs text-stone-700 dark:text-stone-300 cursor-pointer">
+              <label className="flex items-center gap-2 pb-2.5 text-xs text-stone-700 cursor-pointer">
                 <input type="checkbox" className="w-5 h-5 accent-emerald-600" checked={editing.is_active}
                   onChange={(e) => update({ is_active: e.target.checked })} />
                 <span>Active</span>
@@ -204,22 +203,22 @@ export const FollowupPlanEditor: React.FC<FollowupPlanEditorProps> = ({ course, 
             </div>
 
             {formErrors.length > 0 && (
-              <ul className="p-3 rounded-xl bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-900 text-xs text-red-700 dark:text-red-300 space-y-1 list-disc list-inside">
+              <ul role="alert" className="p-3 rounded-xl bg-red-50 text-sm text-red-700 space-y-1 list-disc list-inside">
                 {formErrors.map((err) => <li key={err}>{err}</li>)}
               </ul>
             )}
             <div className="flex items-center justify-end gap-2 pt-2">
               <button type="button" onClick={() => setEditing(null)}
-                className="px-4 py-2.5 rounded-xl border border-stone-200 dark:border-stone-700 text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800">
+                className="ui-btn-ghost">
                 Cancel
               </button>
               <button type="submit" disabled={saving}
-                className="px-4 py-2.5 rounded-xl bg-stone-900 dark:bg-stone-100 text-stone-100 dark:text-stone-900 text-xs font-semibold hover:opacity-90 disabled:opacity-50">
+                className="ui-btn-primary">
                 {saving ? 'Saving...' : 'Save'}
               </button>
             </div>
           </form>
-        </div>
+        </Sheet>
       )}
     </div>
   );
