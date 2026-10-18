@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { allowedRoleViews, canUseCrm, defaultRoleView, isStaffRole } from '../roles';
+import { allowedRoleViews, canUseCrm, defaultRoleView, isStaffRole, rolesOf, primaryRole } from '../roles';
 
 describe('allowedRoleViews', () => {
   it('lets a student see only the student view', () => {
@@ -28,5 +28,20 @@ describe('volunteer role', () => {
     expect(canUseCrm(null)).toBe(false);
     expect(canUseCrm('teacher')).toBe(true);
     expect(defaultRoleView('admin')).toBe('admin');
+  });
+});
+
+describe('several roles per person (Phase 13)', () => {
+  it('reads the list, or the single role on older rows, in a fixed order', () => {
+    expect(rolesOf({ role: 'teacher', roles: ['volunteer', 'student', 'teacher'] })).toEqual(['student', 'volunteer', 'teacher']);
+    expect(rolesOf({ role: 'volunteer' })).toEqual(['volunteer']);
+    expect(rolesOf({ role: 'admin', roles: [] })).toEqual(['admin']);
+  });
+
+  it('the main role is the highest one, as in the database', () => {
+    expect(primaryRole(['student', 'volunteer'])).toBe('volunteer');
+    expect(primaryRole(['volunteer', 'teacher'])).toBe('teacher');
+    expect(primaryRole(['student', 'volunteer', 'teacher', 'admin'])).toBe('admin');
+    expect(primaryRole([])).toBe('student');
   });
 });

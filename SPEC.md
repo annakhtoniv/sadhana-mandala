@@ -217,6 +217,12 @@ enrolled -> practice period over -> completed the practice ("done" on at
 least 80% of its days) -> went on to a next programme. Per source and per
 volunteer. All time or the last 90 or 30 days.
 
+### Roles (Phase 13)
+A person can hold several roles at once (Student, Volunteer, Teacher, Admin;
+at least one). They get everything their highest role allows. Only an admin
+changes roles; an admin cannot remove their own Admin role. Roles can be
+given to an email before the person first signs in.
+
 ### Profile pictures (Phase 12)
 Everyone's Google photo is used automatically and refreshed at each sign-in.
 Anyone can upload their own picture instead (Profile, camera button) and go
@@ -274,6 +280,10 @@ by the organisation.
     programme and not others; a student cannot add materials; a teacher
     cannot upload into another organisation; nobody can change another
     person's picture.
+13. Several roles per person, people search, organisation settings.
+    Test: an admin gives a student the Volunteer role too and the student
+    sees Leads; a student cannot give themselves a role; an admin cannot
+    remove their own Admin role.
 
 ## Out of scope (do not build)
 Community or chat, payments, native mobile apps, organisation self-signup,

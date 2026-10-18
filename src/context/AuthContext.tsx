@@ -30,6 +30,8 @@ interface AuthContextType {
   deleteAccount: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  /** After an admin saves the organisation settings */
+  updateOrganisation: (org: Organisation) => void;
   refreshEnrolment: () => Promise<void>;
   joinBatch: (code: string) => Promise<{ success: boolean; message?: string }>;
   /** A one-off message for the user, e.g. the result of an event QR check-in */
@@ -194,6 +196,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await fetchProfileForUser(user, orgRef.current);
     }
   }, [user]);
+
+  const updateOrganisation = useCallback((org: Organisation) => {
+    orgRef.current = org;
+    setOrganisation(org);
+  }, []);
 
   const refreshEnrolment = useCallback(async () => {
     if (user) {
@@ -382,6 +389,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         deleteAccount,
         signOut,
         refreshProfile,
+        updateOrganisation,
         refreshEnrolment,
         joinBatch,
       }}

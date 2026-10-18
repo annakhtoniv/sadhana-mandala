@@ -147,7 +147,7 @@
   - [supabase/verify.sql](supabase/verify.sql): 89 checks (6 new: today's ticks, change a past day and it is marked late, no future day, not another student's day, teacher edits own batch but not another teacher's), all PASS on a local copy; the seed runs twice cleanly.
   - 102 unit tests (the old rest-day tests were replaced by tests for the new rules), clean build.
 
-- Phase 12 built and deployed on 2026-10-18 (PR merged; phase12_media.sql and the seed ran in Supabase; verify.sql stopped because Supabase does not allow deleting storage rows with SQL. Fixed: verify.sql now undoes all its checks at the end instead of deleting its two test files; reproduced and passing 98/98 twice on a local copy with the same protection; live checked: no test files left behind):
+- Phase 12 built and deployed on 2026-10-18 (PR merged; phase12_media.sql and the seed ran in Supabase; verify.sql first stopped because Supabase does not allow deleting storage rows with SQL; fixed (verify.sql now undoes all its checks at the end) and re-run in Supabase: 98/98 PASS):
   - Profile pictures: everyone gets their Google photo automatically at sign-in (existing users too, filled in by the SQL). Profile > camera button uploads your own picture (resized to a small square); "Use my Google photo" switches back. Pictures show on the Profile tab, the admin People list and the batch roster.
   - Admin overview: the four cards (Batches, People, Programmes, Reports) are now the tabs; the separate buttons that repeated the same numbers are gone. Settings moved to a gear icon next to refresh.
   - Batch cards redesigned: the whole card opens the batch; it shows the programme, a status pill (Day x of N / Starts in n days / Finished), a progress bar, the start date, the teacher with their picture, the join code (tap to copy) and the QR button. Batches are grouped into Running, Starting soon and Finished.
@@ -156,8 +156,18 @@
   - Seed: 4 sample links (3 Happiness Program, one of them hidden; 1 Art of Silence). [supabase/verify.sql](supabase/verify.sql): 98 checks (9 new: materials a student sees, cannot add, file access, cannot upload; own avatar only, no other web addresses; teacher uploads into own organisation only), all PASS on a local copy.
   - 105 unit tests (3 new), clean build.
 
+- Phase 13 built on 2026-10-18 (pull request open; SQL not yet run in Supabase):
+  - Several roles per person (PM request): a person can be Student, Volunteer, Teacher and Admin in any mix. Admin > People: each person has a multi-select role list (tick / untick, saved at once). "Give someone a role" also takes several roles for an email that has not signed in yet.
+  - Rules: only an admin changes roles; an admin may change their own roles but cannot remove their own Admin role (so nobody locks the organisation out); at least one role. The app and every access rule use the highest role (Admin > Teacher > Volunteer > Student), so a Teacher who is also a Volunteer gets everything a teacher gets.
+  - Admin > People: search bar above Everyone (name, email or role, e.g. "teacher"). "Waiting for first sign-in" now lists only emails that have not signed in yet.
+  - Admin gear icon: it only switched a small read-only box further down the page, so it looked like nothing happened. It now opens an "Organisation settings" window to edit the organisation name, app name, contact email, time zone (with a warning: it moves day numbers of running batches) and footer text.
+  - [supabase/phase13_roles.sql](supabase/phase13_roles.sql): profiles.roles and role_grants.roles (lists); profiles.role stays and always holds the highest role, so all existing rules work unchanged; old code that sets only role still works; sign-in gives all invited roles. Nothing dropped; safe to re-run. Live functions it replaces were compared first (same logic).
+  - [supabase/verify.sql](supabase/verify.sql): 103 checks (5 new: student cannot give self Admin; admin gives a student a second role; admin cannot remove own Admin; admin gives self every role; invite with two roles), all PASS on a local copy, twice.
+  - Tried in a browser on a local copy: search, adding Volunteer to a teacher, the locked own-Admin tick, settings save (footer changed at once).
+  - 107 unit tests (2 new), clean build.
+
 ## Next
-- PM: merge the verify fix pull request, then in the Supabase SQL editor run only `supabase/verify.sql` from `main` (all 98 rows PASS). phase12_media.sql and the seed are already done.
+- PM: merge the Phase 13 pull request, then in the Supabase SQL editor run (from `main`): `supabase/phase13_roles.sql`, then `supabase/verify.sql` (all 103 rows PASS). No seed needed. Until the SQL is run, changing roles shows an error.
 - PM: test Phase 12: sign out and in (your Google photo appears); Profile > camera > pick a picture; Admin > tap each overview card; tap a batch card; Admin > Programmes > Happiness Program > Materials > upload a PDF and an MP3; as a student of that programme, see "Study materials" on the home screen.
 - Storage limits (Supabase free plan): 50 MB per file, about 1 GB in total. Long videos are better as YouTube (unlisted) links.
 - PM: test Phase 11: tick Morning and Evening today; tap an earlier circle and tick it (it gets the clock badge); try the guided tour (? button); open the site on a computer (side menu) and on the phone (bottom tabs); Admin > Batches > Open > Edit and rename a batch.

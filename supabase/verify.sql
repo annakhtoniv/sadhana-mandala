@@ -1,10 +1,10 @@
 -- ============================================================================
--- Sadhana Mandala: verification (phases 4 to 12)
+-- Sadhana Mandala: verification (phases 4 to 13)
 --
 -- Run in the Supabase SQL editor after phase4_security.sql,
 -- phase5_programmes.sql, phase6_lms.sql, phase7_followups.sql,
--- phase8_events.sql, phase9_crm.sql, phase11_checkins.sql, phase12_media.sql and
--- seed_dummy_data.sql. It signs in as the fictional seed users one at a time
+-- phase8_events.sql, phase9_crm.sql, phase11_checkins.sql, phase12_media.sql,
+-- phase13_roles.sql and seed_dummy_data.sql. It signs in as the fictional seed users one at a time
 -- (by setting the same JWT claims Supabase sets for a real sign-in) and checks
 -- what each of them can see and change. Nothing is saved: every write attempt
 -- is rolled back immediately.
@@ -484,6 +484,13 @@ begin
   exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
   r := r || array['Student (Aarav)|upload a material file|blocked', v_txt];
 
+  -- Phase 13: roles are given by an admin only
+  begin
+    update public.profiles set roles = array['student', 'admin'] where id = v_student01;
+    raise exception 'PROBE_WROTE';
+  exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
+  r := r || array['Student (Aarav)|give self the admin role|blocked', v_txt];
+
   begin
     insert into storage.objects (bucket_id, name) values ('avatars', v_student01::text || '/avatar.jpg');
     raise exception 'PROBE_WROTE';
@@ -606,6 +613,37 @@ begin
 
   execute v_sql_foreign into v_n using v_org_b;
   r := r || array['Admin A|rows visible from Org B (all tables)|0', v_n::text];
+
+  -- Phase 13: several roles per person
+  v_txt := 'error';
+  begin
+    update public.profiles set roles = array['volunteer', 'student'] where id = 'd0000000-0000-0000-0000-000000000002'
+    returning array_to_string(roles, ',') || ' -> ' || role into v_txt;
+    raise exception 'PROBE_DONE';
+  exception when others then if sqlerrm <> 'PROBE_DONE' then v_txt := 'blocked: ' || sqlerrm; end if; end;
+  r := r || array['Admin A|give a student a second role (volunteer)|student,volunteer -> volunteer', v_txt];
+
+  begin
+    update public.profiles set roles = array['teacher'] where id = v_admin_a;
+    raise exception 'PROBE_WROTE';
+  exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
+  r := r || array['Admin A|remove own admin role|blocked', v_txt];
+
+  v_txt := 'error';
+  begin
+    update public.profiles set roles = array['admin', 'teacher', 'volunteer', 'student'] where id = v_admin_a
+    returning array_to_string(roles, ',') || ' -> ' || role into v_txt;
+    raise exception 'PROBE_DONE';
+  exception when others then if sqlerrm <> 'PROBE_DONE' then v_txt := 'blocked: ' || sqlerrm; end if; end;
+  r := r || array['Admin A|give self every role|student,volunteer,teacher,admin -> admin', v_txt];
+
+  v_txt := 'error';
+  begin
+    insert into public.role_grants (org_id, email, roles) values (v_org_a, 'verify.multi@example.com', array['teacher', 'volunteer'])
+    returning array_to_string(roles, ',') || ' -> ' || role into v_txt;
+    raise exception 'PROBE_DONE';
+  exception when others then if sqlerrm <> 'PROBE_DONE' then v_txt := 'blocked: ' || sqlerrm; end if; end;
+  r := r || array['Admin A|invite an email with two roles|volunteer,teacher -> teacher', v_txt];
 
   reset role;
 

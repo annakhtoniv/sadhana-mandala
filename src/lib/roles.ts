@@ -32,3 +32,24 @@ export const ROLE_LABEL: Record<UserRole, string> = {
   teacher: 'Teacher',
   admin: 'Admin',
 };
+
+/** Phase 13: a person may hold several roles; this is the fixed display order. */
+export const ALL_ROLES: UserRole[] = ['student', 'volunteer', 'teacher', 'admin'];
+
+export const ROLE_HINT: Record<UserRole, string> = {
+  student: 'Joins batches and checks in',
+  volunteer: 'Own leads in the Leads screen',
+  teacher: 'Runs batches and programmes',
+  admin: 'Everything, including people',
+};
+
+/** The roles of a person; older rows only have the single role. */
+export function rolesOf(p: { role: UserRole; roles?: UserRole[] | null }): UserRole[] {
+  const list = p.roles && p.roles.length > 0 ? p.roles : [p.role];
+  return ALL_ROLES.filter((r) => list.includes(r));
+}
+
+/** The highest role in a list; the database keeps profiles.role equal to this. */
+export function primaryRole(roles: UserRole[]): UserRole {
+  return [...ALL_ROLES].reverse().find((r) => roles.includes(r)) ?? 'student';
+}
