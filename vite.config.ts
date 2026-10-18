@@ -34,6 +34,8 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // src/lib/appUpdate.ts registers the service worker and reloads the page on an update
+      injectRegister: false,
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
         name: 'Sadhana Mandala',
@@ -55,6 +57,9 @@ export default defineConfig({
         // The app is one page: a QR link like /?code=JOIN opens it from the cache too
         navigateFallback: 'index.html',
         cleanupOutdatedCaches: true,
+        // A new version takes over at once, instead of waiting until every tab of the site is closed
+        skipWaiting: true,
+        clientsClaim: true,
       },
     })
   ],
