@@ -23,6 +23,9 @@ export interface Profile {
   full_name: string | null;
   role: UserRole;
   consent_at: string | null;
+  /** Phase 12: profile picture (Google photo or an uploaded one) */
+  avatar_url?: string | null;
+  avatar_source?: 'google' | 'upload' | null;
   created_at: string;
   updated_at: string;
 }
@@ -333,4 +336,25 @@ export interface BatchJoinPreview {
   start_date: string;
   org_name: string;
   org_slug: string;
+}
+
+export type MaterialKind = 'pdf' | 'audio' | 'video' | 'image' | 'file' | 'link';
+
+/** Phase 12: a study material of a programme, shared by all its batches */
+export interface ProgrammeMaterial {
+  id: string;
+  org_id: string;
+  course_id: string;
+  title: string;
+  description: string | null;
+  kind: MaterialKind;
+  storage_path: string | null;
+  url: string | null;
+  mime_type: string | null;
+  size_bytes: number | null;
+  sort_order: number;
+  published: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at?: string;
 }

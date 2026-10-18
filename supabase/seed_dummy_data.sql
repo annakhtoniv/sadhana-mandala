@@ -28,6 +28,8 @@
 --   admins and teachers see them). Leads invited to the intro talk are
 --   linked to its guest registrations; two leads are linked to student
 --   accounts (one registered, one completed). Org B has 1 lead.
+--   Phase 12: 4 sample study materials (links): Happiness Program 2 + 1
+--   draft, Art of Silence 1.
 --   Phase 11: check-ins are Morning and Evening ticks (done and rest days
 --   become Morning ticks; some days also get an Evening tick).
 -- Organisation B "Prana Flow Academy": different name and colours,
@@ -41,7 +43,8 @@
 -- Real accounts are never deleted or changed by this script.
 -- Run supabase/phase4_security.sql, supabase/phase5_programmes.sql,
 -- supabase/phase6_lms.sql, supabase/phase7_followups.sql and
--- supabase/phase8_events.sql, supabase/phase9_crm.sql and supabase/phase11_checkins.sql first,
+-- supabase/phase8_events.sql, supabase/phase9_crm.sql, supabase/phase11_checkins.sql and
+-- supabase/phase12_media.sql first,
 -- and supabase/verify.sql after.
 --
 -- Expected teacher dashboard for "Autumn Awakening" (day 23 of 40):
@@ -661,5 +664,28 @@ begin
     where p.id = c.student_id and p.email like '%example.com';
     alter table public.checkins enable trigger tr_checkin_before_save;
   end if;
+end;
+$$;
+
+-- ----------------------------------------------------------------------------
+-- Phase 12: sample study materials (links only, so nothing points to a
+-- missing file). Happiness Program: 2 published + 1 draft; Art of Silence: 1.
+-- (Runs only if phase12_media.sql has been applied.)
+-- ----------------------------------------------------------------------------
+do $$
+declare
+  v_org_a uuid := (select id from public.organisations where slug = 'sadhana-mandala');
+begin
+  if to_regclass('public.programme_materials') is null then return; end if;
+  delete from public.programme_materials where id::text like 'e6000000-%';
+  insert into public.programme_materials (id, org_id, course_id, title, description, kind, url, sort_order, published, created_by) values
+    ('e6000000-0000-0000-0000-000000000001', v_org_a, 'c1000000-0000-0000-0000-000000000001', 'Welcome to the Happiness Program',
+     'Sample link. Replace it with your own video or PDF.', 'link', 'https://www.artofliving.org/', 1, true, 'b0000000-0000-0000-0000-000000000001'),
+    ('e6000000-0000-0000-0000-000000000002', v_org_a, 'c1000000-0000-0000-0000-000000000001', 'Breathing practice: how to sit',
+     'Sample link.', 'link', 'https://www.youtube.com/', 2, true, 'b0000000-0000-0000-0000-000000000001'),
+    ('e6000000-0000-0000-0000-000000000003', v_org_a, 'c1000000-0000-0000-0000-000000000001', 'Draft: week 3 notes',
+     'Not published yet.', 'link', 'https://example.com/draft', 3, false, 'b0000000-0000-0000-0000-000000000001'),
+    ('e6000000-0000-0000-0000-000000000004', v_org_a, 'c1000000-0000-0000-0000-000000000002', 'Preparing for silence',
+     'Sample link.', 'link', 'https://www.artofliving.org/', 1, true, 'b0000000-0000-0000-0000-000000000002');
 end;
 $$;

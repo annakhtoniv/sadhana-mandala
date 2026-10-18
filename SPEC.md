@@ -217,6 +217,19 @@ enrolled -> practice period over -> completed the practice ("done" on at
 least 80% of its days) -> went on to a next programme. Per source and per
 volunteer. All time or the last 90 or 30 days.
 
+### Profile pictures (Phase 12)
+Everyone's Google photo is used automatically and refreshed at each sign-in.
+Anyone can upload their own picture instead (Profile, camera button) and go
+back to the Google photo. Only a Google photo or a picture in the app's own
+storage is accepted.
+
+### Study materials (Phase 12)
+Per programme, staff upload PDFs, audio, video, pictures and documents (up to
+50 MB each) or add links, and can rename, reorder, hide and delete them. Every
+batch of the programme, current and future, sees the published materials.
+Files are private: only staff of the organisation and students enrolled in
+the programme can open them.
+
 ### Data
 Dummy data only until the first real group. Before real people's data is
 added (especially CRM contacts who have not signed up), add a consent and
@@ -255,6 +268,12 @@ by the organisation.
 10. Admin screens, funnel reports (leads, intro talk, Happiness Program,
     Sadhana completed, next programme), automatic invites, PWA install and
     final polish (replaces the old phases 6 and 7).
+11. Morning and Evening check-ins, past days, redesign.
+12. Profile pictures (Google photo or upload) and study materials per
+    programme. Test: a student sees the published materials of their
+    programme and not others; a student cannot add materials; a teacher
+    cannot upload into another organisation; nobody can change another
+    person's picture.
 
 ## Out of scope (do not build)
 Community or chat, payments, native mobile apps, organisation self-signup,

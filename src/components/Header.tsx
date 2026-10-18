@@ -4,6 +4,7 @@ import { allowedRoleViews, canUseCrm, ROLE_LABEL } from '../lib/roles';
 import { HelpCircle, CalendarDays, Contact, Home, UserRound, ChevronDown } from 'lucide-react';
 import type { UserRole } from '../types/database';
 import { BrandMark } from './BrandMark';
+import { Avatar } from './Avatar';
 
 interface HeaderProps {
   currentTab: string;
@@ -107,7 +108,11 @@ export const Header: React.FC<HeaderProps> = ({
                     active ? 'bg-stone-900 text-white shadow-[0_8px_20px_-10px_rgba(24,24,27,0.7)]' : 'text-stone-500 hover:text-stone-900'
                   }`}
                 >
-                  <Icon className="w-[18px] h-[18px]" />
+                  {id === 'profile' && profile?.avatar_url ? (
+                    <Avatar url={profile.avatar_url} name={profile.full_name} size={20} />
+                  ) : (
+                    <Icon className="w-[18px] h-[18px]" />
+                  )}
                   <span>{label}</span>
                 </button>
               );
@@ -140,7 +145,11 @@ export const Header: React.FC<HeaderProps> = ({
                       active ? 'bg-stone-900 text-white shadow-[0_8px_20px_-10px_rgba(24,24,27,0.7)]' : 'text-stone-600 hover:bg-stone-900/5 hover:text-stone-900'
                     }`}
                   >
-                    <Icon className="w-[18px] h-[18px]" />
+                    {id === 'profile' && profile?.avatar_url ? (
+                      <Avatar url={profile.avatar_url} name={profile.full_name} size={20} />
+                    ) : (
+                      <Icon className="w-[18px] h-[18px]" />
+                    )}
                     {label}
                   </button>
                 );

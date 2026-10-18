@@ -5,6 +5,7 @@ import { fetchOrganisation, getResolvedOrgSlug, DEFAULT_ORGANISATION } from '../
 import { claimUserInvites, fetchUserEnrolments, joinBatchByCode } from '../lib/batchService';
 import { pickDefaultEnrolment } from '../lib/programmeUtils';
 import { checkInToEvent } from '../lib/eventService';
+import { syncGoogleAvatar } from '../lib/avatarService';
 import { DEMO_TEACHER_PROFILE } from '../lib/mockData';
 import { PENDING_CHECKIN_KEY, PENDING_JOIN_KEY, readLinkParams, savePending, takePending } from '../lib/joinLink';
 import { allowedRoleViews, defaultRoleView } from '../lib/roles';
@@ -131,6 +132,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const prof = existingProfile as Profile;
         setProfile(prof);
         applyRole(prof.role);
+        // Phase 12: keep the Google photo up to date (unless the person uploaded their own)
+        if (prof.avatar_source !== 'upload') {
+          syncGoogleAvatar().then((url) => {
+            if (url && url !== prof.avatar_url) setProfile((p) => (p ? { ...p, avatar_url: url, avatar_source: 'google' } : p));
+          });
+        }
       } else {
         // Profile not readable yet: treat as a student until it is
         setProfile({

@@ -9,9 +9,10 @@ import {
   type ProgrammeInput,
 } from '../lib/programmeUtils';
 import type { Course } from '../types/database';
-import { ArrowLeft, BookOpen, CalendarClock, Flame, Layers, Pencil, PlusCircle, RefreshCw } from 'lucide-react';
+import { ArrowLeft, BookOpen, CalendarClock, Flame, FolderOpen, Layers, Pencil, PlusCircle, RefreshCw } from 'lucide-react';
 import { FollowupPlanEditor } from './FollowupPlanEditor';
 import { ModulesEditor } from './ModulesEditor';
+import { MaterialsEditor } from './MaterialsEditor';
 
 interface ProgrammesManagerProps {
   onBack?: () => void;
@@ -63,6 +64,7 @@ export const ProgrammesManager: React.FC<ProgrammesManagerProps> = ({ onBack }) 
   const [saving, setSaving] = useState(false);
   const [modulesFor, setModulesFor] = useState<Course | null>(null);
   const [followupsFor, setFollowupsFor] = useState<Course | null>(null);
+  const [materialsFor, setMaterialsFor] = useState<Course | null>(null);
 
   const loadData = async () => {
     if (!organisation.id && !isDemoMode()) return;
@@ -128,6 +130,9 @@ export const ProgrammesManager: React.FC<ProgrammesManagerProps> = ({ onBack }) 
   }
   if (followupsFor) {
     return <FollowupPlanEditor course={followupsFor} onBack={() => setFollowupsFor(null)} />;
+  }
+  if (materialsFor) {
+    return <MaterialsEditor course={materialsFor} onBack={() => setMaterialsFor(null)} />;
   }
 
   const inputClass =
@@ -252,14 +257,22 @@ export const ProgrammesManager: React.FC<ProgrammesManagerProps> = ({ onBack }) 
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-2 mt-1">
+              <div className="grid grid-cols-3 gap-2 mt-1">
+                <button
+                  type="button"
+                  onClick={() => setMaterialsFor(p)}
+                  className="py-2 rounded-xl border border-stone-200 dark:border-stone-700 text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <FolderOpen className="w-3.5 h-3.5" />
+                  <span>Materials</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => setModulesFor(p)}
                   className="py-2 rounded-xl border border-stone-200 dark:border-stone-700 text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <Layers className="w-3.5 h-3.5" />
-                  <span>Learning modules</span>
+                  <span>Modules</span>
                 </button>
                 <button
                   type="button"
@@ -267,7 +280,7 @@ export const ProgrammesManager: React.FC<ProgrammesManagerProps> = ({ onBack }) 
                   className="py-2 rounded-xl border border-stone-200 dark:border-stone-700 text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <CalendarClock className="w-3.5 h-3.5" />
-                  <span>Follow-up plan</span>
+                  <span>Follow-ups</span>
                 </button>
               </div>
             </div>
