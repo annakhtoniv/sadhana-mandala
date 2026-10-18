@@ -22,6 +22,8 @@ export interface Profile {
   email: string;
   full_name: string | null;
   role: UserRole;
+  /** Phase 13: every role the person holds; role is the highest of them */
+  roles?: UserRole[];
   consent_at: string | null;
   /** Phase 12: profile picture (Google photo or an uploaded one) */
   avatar_url?: string | null;
@@ -35,6 +37,8 @@ export interface RoleGrant {
   org_id: string;
   email: string;
   role: UserRole;
+  /** Phase 13: every role waiting for this email */
+  roles?: UserRole[];
   created_at: string;
 }
 

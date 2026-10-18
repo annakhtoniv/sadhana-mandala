@@ -44,7 +44,7 @@
 -- Run supabase/phase4_security.sql, supabase/phase5_programmes.sql,
 -- supabase/phase6_lms.sql, supabase/phase7_followups.sql and
 -- supabase/phase8_events.sql, supabase/phase9_crm.sql, supabase/phase11_checkins.sql and
--- supabase/phase12_media.sql first,
+-- supabase/phase12_media.sql and supabase/phase13_roles.sql first,
 -- and supabase/verify.sql after.
 --
 -- Expected teacher dashboard for "Autumn Awakening" (day 23 of 40):

@@ -7,7 +7,9 @@ import { BatchCard, batchPhase } from './BatchCard';
 import { Avatar } from './Avatar';
 import { supabase, isDemoMode } from '../lib/supabase';
 import { FunnelReportPanel } from './FunnelReportPanel';
-import { ROLE_LABEL } from '../lib/roles';
+import { rolesOf, primaryRole, ROLE_LABEL } from '../lib/roles';
+import { RolePicker } from './RolePicker';
+import { OrganisationSettings } from './OrganisationSettings';
 import {
   fetchCourses,
   fetchTeacherBatches,
@@ -40,8 +42,9 @@ import {
 } from 'lucide-react';
 
 export const AdminHome: React.FC = () => {
-  const { organisation, profile: currentProfile } = useAuth();
-  const [activeTab, setActiveTab] = useState<'batches' | 'users' | 'courses' | 'reports' | 'system'>('batches');
+  const { organisation, profile: currentProfile, refreshProfile, updateOrganisation } = useAuth();
+  const [activeTab, setActiveTab] = useState<'batches' | 'users' | 'courses' | 'reports'>('batches');
+  const [showSettings, setShowSettings] = useState(false);
 
   // Loading & general status
   const [loading, setLoading] = useState(false);
@@ -51,7 +54,8 @@ export const AdminHome: React.FC = () => {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [roleGrants, setRoleGrants] = useState<RoleGrant[]>([]);
   const [newEmail, setNewEmail] = useState('');
-  const [newRole, setNewRole] = useState<UserRole>('teacher');
+  const [newRoles, setNewRoles] = useState<UserRole[]>(['teacher']);
+  const [peopleSearch, setPeopleSearch] = useState('');
 
   // Courses state
   const [courses, setCourses] = useState<Course[]>([]);
@@ -142,7 +146,8 @@ export const AdminHome: React.FC = () => {
           {
             org_id: organisation.id,
             email: normalizedEmail,
-            role: newRole,
+            role: primaryRole(newRoles),
+            roles: newRoles,
           },
           { onConflict: 'org_id,email' }
         );
@@ -150,13 +155,14 @@ export const AdminHome: React.FC = () => {
       if (grantErr) throw grantErr;
 
       // Update existing profile if present
-      await supabase
+      const { error: profErr } = await supabase
         .from('profiles')
-        .update({ role: newRole })
+        .update({ roles: newRoles })
         .eq('org_id', organisation.id)
         .ilike('email', normalizedEmail);
+      if (profErr) throw profErr;
 
-      setStatusMessage(`Granted role "${newRole}" to ${normalizedEmail}`);
+      setStatusMessage(`Saved: ${newRoles.map((r) => ROLE_LABEL[r]).join(', ')} for ${normalizedEmail}`);
       setNewEmail('');
       await loadData();
     } catch (err: unknown) {
@@ -176,19 +182,12 @@ export const AdminHome: React.FC = () => {
   };
 
   // Handle Quick Role Change on existing profile
-  const handleProfileRoleChange = async (profileId: string, updatedRole: UserRole) => {
-    try {
-      await supabase
-        .from('profiles')
-        .update({ role: updatedRole })
-        .eq('id', profileId);
-
-      setProfiles((prev) =>
-        prev.map((p) => (p.id === profileId ? { ...p, role: updatedRole } : p))
-      );
-    } catch (err) {
-      console.error('Failed to change role:', err);
-    }
+  // Several roles per person (Phase 13); errors are shown by the role picker
+  const handleProfileRolesChange = async (profileId: string, roles: UserRole[]) => {
+    const { error } = await supabase.from('profiles').update({ roles }).eq('id', profileId);
+    if (error) throw new Error(error.message);
+    setProfiles((prev) => prev.map((p) => (p.id === profileId ? { ...p, roles, role: primaryRole(roles) } : p)));
+    if (profileId === currentProfile?.id) await refreshProfile();
   };
 
   // Handle Create Batch (Admin Modal)
@@ -233,9 +232,19 @@ export const AdminHome: React.FC = () => {
 
 
   // Metrics for Sanctuary KPI Grid
-  const studentCount = profiles.filter((p) => p.role === 'student' || p.role === 'volunteer').length;
-  const teacherCount = profiles.filter((p) => p.role === 'teacher' || p.role === 'admin').length;
-  const volunteerCount = profiles.filter((p) => p.role === 'volunteer').length;
+  const withRole = (r: UserRole) => profiles.filter((p) => rolesOf(p).includes(r)).length;
+  const studentCount = withRole('student');
+  const teacherCount = withRole('teacher');
+  const volunteerCount = withRole('volunteer');
+  // Invitations for people who have not signed in yet (signed-in people are under Everyone)
+  const signedInEmails = new Set(profiles.map((p) => p.email.toLowerCase()));
+  const waitingGrants = roleGrants.filter((g) => !signedInEmails.has(g.email.toLowerCase()));
+  const peopleQuery = peopleSearch.trim().toLowerCase();
+  const filteredPeople = peopleQuery
+    ? profiles.filter((p) =>
+        [p.full_name || '', p.email, ...rolesOf(p).map((r) => ROLE_LABEL[r])].some((t) => t.toLowerCase().includes(peopleQuery))
+      )
+    : profiles;
   const filteredBatches = allBatches.filter((b) =>
     b.name.toLowerCase().includes(batchSearch.toLowerCase()) ||
     b.join_code.toLowerCase().includes(batchSearch.toLowerCase()) ||
@@ -298,8 +307,8 @@ export const AdminHome: React.FC = () => {
             </button>
             <button
               type="button"
-              onClick={() => setActiveTab('system')}
-              className={`ui-icon-btn ${activeTab === 'system' ? '!bg-stone-900 !text-white' : ''}`}
+              onClick={() => setShowSettings(true)}
+              className="ui-icon-btn"
               title="Organisation settings"
               aria-label="Organisation settings"
             >
@@ -424,7 +433,7 @@ export const AdminHome: React.FC = () => {
               </h2>
             </div>
             <p className="text-xs text-stone-500">
-              Give a teacher, volunteer or admin role to an email in advance. When the person signs in with Google, the role is active at once. Volunteers use the Leads screen for their own leads.
+              Give one or more roles to an email in advance (for example Teacher and Volunteer). When the person signs in with Google, the roles are active at once. If they already use the app, their roles change now.
             </p>
 
             <form onSubmit={handleAddRoleGrant} className="space-y-3">
@@ -440,17 +449,8 @@ export const AdminHome: React.FC = () => {
                   />
                 </div>
 
-                <div>
-                  <select
-                    value={newRole}
-                    onChange={(e) => setNewRole(e.target.value as UserRole)}
-                    className="w-full px-3.5 py-2.5 rounded-2xl border border-stone-200 bg-stone-50 text-xs text-stone-900 focus:outline-none cursor-pointer"
-                  >
-                    <option value="teacher">Teacher (batches)</option>
-                    <option value="volunteer">Volunteer (leads)</option>
-                    <option value="admin">Admin (everything)</option>
-                    <option value="student">Student</option>
-                  </select>
+                <div className="flex items-center sm:justify-end">
+                  <RolePicker value={newRoles} onChange={setNewRoles} label="Roles to give" />
                 </div>
               </div>
 
@@ -459,7 +459,7 @@ export const AdminHome: React.FC = () => {
                   <span className="text-xs text-emerald-600 font-semibold">{statusMessage}</span>
                 ) : (
                   <span className="text-[11px] text-stone-500">
-                    Auto-claimed on first OAuth sign-in.
+                    Active at their first Google sign-in.
                   </span>
                 )}
 
@@ -468,25 +468,25 @@ export const AdminHome: React.FC = () => {
                   className="px-5 py-2.5 rounded-2xl bg-stone-900 text-white text-xs font-bold shadow-sm hover:opacity-90 transition-all cursor-pointer flex items-center gap-1.5"
                 >
                   <Check className="w-3.5 h-3.5" />
-                  <span>Save role</span>
+                  <span>Save roles</span>
                 </button>
               </div>
             </form>
           </div>
 
           {/* Pre-Granted Roles Directory */}
-          {roleGrants.length > 0 && (
+          {waitingGrants.length > 0 && (
             <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs space-y-3">
               <h3 className="text-xs font-bold uppercase tracking-wider text-stone-900">
-                Waiting for first sign-in ({roleGrants.length})
+                Waiting for first sign-in ({waitingGrants.length})
               </h3>
               <div className="divide-y divide-stone-100">
-                {roleGrants.map((grant) => (
+                {waitingGrants.map((grant) => (
                   <div key={grant.id} className="py-2.5 flex items-center justify-between text-xs">
                     <div>
                       <div className="font-semibold text-stone-900">{grant.email}</div>
                       <div className="text-[10px] text-stone-500 uppercase tracking-wide">
-                        Role: {grant.role}
+                        Roles: {rolesOf(grant).map((r) => ROLE_LABEL[r]).join(', ')}
                       </div>
                     </div>
                     <button
@@ -507,15 +507,31 @@ export const AdminHome: React.FC = () => {
           <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="font-display text-base font-bold text-stone-900">
-                Everyone ({profiles.length})
+                Everyone ({peopleQuery ? `${filteredPeople.length} of ${profiles.length}` : profiles.length})
               </h3>
-              <span className="text-[11px] text-stone-500">
-                Live database records
-              </span>
             </div>
+            <div className="relative">
+              <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="search"
+                value={peopleSearch}
+                onChange={(e) => setPeopleSearch(e.target.value)}
+                placeholder="Search by name, email or role"
+                aria-label="Search people"
+                className="w-full pl-10 pr-9 py-2.5 rounded-2xl border border-stone-200 bg-stone-50 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+              />
+              {peopleSearch && (
+                <button type="button" onClick={() => setPeopleSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 ui-icon-btn !w-7 !h-7" aria-label="Clear search">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+            {peopleQuery && filteredPeople.length === 0 && (
+              <p className="text-xs text-stone-500 py-2">Nobody matches "{peopleSearch.trim()}".</p>
+            )}
 
             <div className="divide-y divide-stone-100">
-              {profiles.map((p) => {
+              {filteredPeople.map((p) => {
 
                 const isCurrent = p.id === currentProfile?.id;
 
@@ -537,24 +553,13 @@ export const AdminHome: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
-                      <select
-                        value={p.role}
-                        onChange={(e) => handleProfileRoleChange(p.id, e.target.value as UserRole)}
-                        className={`px-2.5 py-1 rounded-xl text-[11px] font-bold uppercase tracking-wider border cursor-pointer ${
-                          p.role === 'admin'
-                            ? 'bg-amber-50 text-amber-700 border-amber-200'
-                            : p.role === 'teacher'
-                            ? 'bg-sky-50 text-sky-700 border-sky-200'
-                            : p.role === 'volunteer'
-                            ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-emerald-300/50'
-                            : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-700'
-                        }`}
-                      >
-                        {(['student', 'volunteer', 'teacher', 'admin'] as UserRole[]).map((r) => (
-                          <option key={r} value={r}>{ROLE_LABEL[r]}</option>
-                        ))}
-                      </select>
+                    <div className="shrink-0">
+                      <RolePicker
+                        value={rolesOf(p)}
+                        onChange={(roles) => handleProfileRolesChange(p.id, roles)}
+                        locked={isCurrent ? { admin: 'You cannot remove your own admin role' } : {}}
+                        label={`Roles of ${p.full_name || p.email}`}
+                      />
                     </div>
                   </div>
                 );
@@ -570,59 +575,9 @@ export const AdminHome: React.FC = () => {
       {/* Phase 10: funnel report */}
       {activeTab === 'reports' && <FunnelReportPanel />}
 
-      {/* 8. TAB CONTENT: SYSTEM & GOVERNANCE PARAMETERS */}
-      {activeTab === 'system' && (
-        <div className="space-y-4">
-          <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs space-y-4">
-            <div className="flex items-center gap-2">
-              <Settings className="w-4 h-4 text-stone-900" />
-              <h2 className="font-display text-base font-bold text-stone-900">
-                Organisation settings
-              </h2>
-            </div>
-            <p className="text-xs text-stone-500">
-              Core branding and operational settings configured for {organisation.name}.
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-              <div className="p-3.5 bg-stone-50 rounded-2xl border border-stone-200">
-                <span className="text-stone-500 block text-[10px] uppercase font-mono font-bold tracking-wider">
-                  App Name
-                </span>
-                <span className="font-bold text-stone-900 text-sm">
-                  {organisation.app_name}
-                </span>
-              </div>
-
-              <div className="p-3.5 bg-stone-50 rounded-2xl border border-stone-200">
-                <span className="text-stone-500 block text-[10px] uppercase font-mono font-bold tracking-wider">
-                  Timezone
-                </span>
-                <span className="font-bold text-stone-900 text-sm">
-                  {organisation.timezone}
-                </span>
-              </div>
-
-              <div className="p-3.5 bg-stone-50 rounded-2xl border border-stone-200">
-                <span className="text-stone-500 block text-[10px] uppercase font-mono font-bold tracking-wider">
-                  Slug
-                </span>
-                <span className="font-bold text-stone-900 text-sm font-mono">
-                  {organisation.slug}
-                </span>
-              </div>
-
-              <div className="p-3.5 bg-stone-50 rounded-2xl border border-stone-200">
-                <span className="text-stone-500 block text-[10px] uppercase font-mono font-bold tracking-wider">
-                  Powered by ZYXENAI
-                </span>
-                <span className="font-bold text-emerald-600 text-sm">
-                  {organisation.show_powered_by ? 'Active (White-label footer)' : 'Hidden'}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
+      {/* Organisation settings (gear icon) */}
+      {showSettings && (
+        <OrganisationSettings organisation={organisation} onClose={() => setShowSettings(false)} onSaved={updateOrganisation} />
       )}
 
       {/* 9. CREATE BATCH MODAL (Fixed for Admin) */}
