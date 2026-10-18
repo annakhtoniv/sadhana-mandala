@@ -68,5 +68,5 @@ Postgres 16 on port 5499 with the Supabase roles and schema, PostgREST, and a sm
 4. Shubham Ji's feedback on the WhatsApp update.
 5. Before the first real batch: clear the sample data (all `@example.com` people, seeded batches, leads, events) in both organisations; decide whether Org B stays; get the lead consent wording (PDPL) approved.
 6. Infrastructure: Supabase Pro (about 25 USD a month; free plan pauses after 7 idle days, a daily keep-alive job covers that), move the database closer to Dubai, optional staging project, auth settings (Google only, exact redirect list, admin MFA), point-in-time recovery.
-7. Known UX gaps: no reminders/notifications to students; Google-only sign-in; long teacher roster with no Quiet filter; admin home does a lot; long lead form; short onboarding for staff.
+7. Known UX gaps: Google-only sign-in; long teacher roster with no Quiet filter; admin home does a lot; long lead form; short onboarding for staff.
 8. Possible later work: automatic invites by email or WhatsApp (needs a provider and approved consent text), a data layer such as TanStack Query, splitting AdminHome further.

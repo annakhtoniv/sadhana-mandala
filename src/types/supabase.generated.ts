@@ -1,6 +1,6 @@
 /**
  * Database tables as they exist (columns and types), generated from the schema
- * after Phase 15. The app's own types in database.ts are checked against these
+ * after Phase 18. The app's own types in database.ts are checked against these
  * at build time (schemaDrift.ts), so a renamed or removed column breaks the build.
  * Regenerate after a migration, e.g. with the Supabase CLI:
  *   npx supabase gen types typescript --project-id pshapxojprvgmwhdivim
@@ -230,6 +230,11 @@ export interface DbTables {
     logo_url: string | null;
     name: string;
     primary_colour: string;
+    reminder_evening_text: string;
+    reminder_evening_time: string;
+    reminder_morning_text: string;
+    reminder_morning_time: string;
+    reminders_enabled: boolean;
     show_powered_by: boolean;
     slug: string;
     support_email: string;
@@ -265,6 +270,23 @@ export interface DbTables {
     title: string;
     updated_at: string;
     url: string | null;
+  };
+  push_subscriptions: {
+    auth: string;
+    created_at: string;
+    endpoint: string;
+    id: string;
+    org_id: string;
+    p256dh: string;
+    updated_at: string;
+    user_id: string;
+  };
+  reminder_sends: {
+    local_date: string;
+    org_id: string;
+    phones: number | null;
+    sent_at: string;
+    slot: string;
   };
   role_grants: {
     created_at: string;

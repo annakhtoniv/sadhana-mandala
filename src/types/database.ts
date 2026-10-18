@@ -14,6 +14,12 @@ export interface Organisation {
   timezone: string;
   show_powered_by: boolean;
   created_at: string;
+  /** Daily practice reminders (Phase 18); times are "HH:MM:SS" in the organisation's time zone */
+  reminders_enabled?: boolean;
+  reminder_morning_time?: string;
+  reminder_morning_text?: string;
+  reminder_evening_time?: string;
+  reminder_evening_text?: string;
 }
 
 export interface Profile {

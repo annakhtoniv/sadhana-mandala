@@ -222,7 +222,17 @@
   - Each browser that has the old version needs one more reload after this goes live; after that, updates arrive by themselves.
   - Tested in a headless Chrome: published a new version while the old one was open; the first reload showed the new version (before: the second reload or later). 121 unit tests, clean build.
 
+- Phase 18 built on 2026-10-18 (daily practice reminders; app, SQL and an Edge Function):
+  - Push notifications every Morning and Evening to everyone in a running batch with a daily practice who turned reminders on (also when they already ticked; PM decision).
+  - Admin > Organisation settings > Daily practice reminders: on/off, the two times (organisation time zone) and the two texts. Defaults 06:00 and 19:00.
+  - Students: Profile > Daily reminders > Turn on reminders (the phone asks once). The student home shows the same card while a practice runs, until "Not now". On iPhone reminders need the app on the Home Screen (iOS 16.4 or later); in a Safari tab the card explains how. Translated (English, Arabic, Hindi).
+  - Signing out stops that phone's reminders; deleting the account removes its phones; phones that turned notifications off are removed after the next send.
+  - Database ([supabase/phase18_reminders.sql](supabase/phase18_reminders.sql)): reminder settings on organisations, `push_subscriptions` (a person sees and removes only their own phones; only the browsers' push services are accepted as addresses), `reminder_sends` (each reminder goes out once a day; admins can read it), and functions only the sender may call. 15 new checks in verify.sql (137 PASS, twice, on a local copy).
+  - Sender: [supabase/functions/send-reminders](supabase/functions/send-reminders/index.ts), started every 5 minutes by [supabase/phase18_schedule.sql](supabase/phase18_schedule.sql). A reminder is sent from its time until 3 hours later, never twice.
+  - Tested: the service worker shows a pushed reminder (headless Chrome); 123 unit tests; clean build. Not yet tried on a real phone with the live sender.
+
 ## Next
+- Phase 18 live set-up (see supabase/README.md steps 15 to 17), then PM: turn reminders on on an iPhone (Home Screen app) and an Android phone, and set a reminder time two minutes ahead in Admin > Organisation settings to see one arrive.
 - PM: have a native speaker read the Arabic and Hindi (Profile > Language), and send corrections.
 - Decide: translate the staff screens (admin, teacher, leads) too.
 - PM: test Phase 12: sign out and in (your Google photo appears); Profile > camera > pick a picture; Admin > tap each overview card; tap a batch card; Admin > Programmes > Happiness Program > Materials > upload a PDF and an MP3; as a student of that programme, see "Study materials" on the home screen.

@@ -48,6 +48,8 @@ jobs:
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || 'https://pshapxojprvgmwhdivim.supabase.co' }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBzaGFweG9qcHJ2Z213aGRpdmltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEyMDc0MTYsImV4cCI6MjEwNjc4MzQxNn0.-GOesOz0tkg7ZOp_Xxr1cs6ZEnD7v-DOCXshBL_c9lA' }}
           VITE_ORG_SLUG: ${{ vars.VITE_ORG_SLUG || 'sadhana-mandala' }}
+          # Public half of the reminder key pair (the private half is a Supabase secret)
+          VITE_VAPID_PUBLIC_KEY: ${{ vars.VITE_VAPID_PUBLIC_KEY || 'BDNXtDuwsq6Dfc8FUWHWrioFSuKHZAFQQgCfozVBgH-M7H3qJmleFeRrW1JsQoiNIBlfVW-UHSxyPe1YznVrLKA' }}
         run: npm run build
 
       - name: Upload GitHub Pages artifact

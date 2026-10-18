@@ -6,6 +6,7 @@ import { ProgrammeLearning } from './ProgrammeLearning';
 import { ProgrammeMaterials } from './ProgrammeMaterials';
 import { ProgrammeFollowups } from './ProgrammeFollowups';
 import { PracticeCheckin } from './PracticeCheckin';
+import { RemindersCard } from './RemindersCard';
 import { calculateDayNumber, formatDateDisplay } from '../lib/dateUtils';
 import {
   fetchStudentCheckins,
@@ -312,6 +313,9 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
           />
         )
       )}
+
+      {/* Daily practice reminders on this phone (Phase 18), while the practice runs */}
+      {practice && runStatus === 'running' && <RemindersCard compact />}
 
       {/* Reminders and follow-up sessions of the selected programme (Phase 7) */}
       {course && batch && (
