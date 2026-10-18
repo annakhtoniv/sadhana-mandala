@@ -120,7 +120,7 @@
   - Event and follow-up session times are now entered in the organisation's time zone, whatever time zone the phone uses.
   - 124 unit tests passing (15 new), clean build.
 
-- Phases 9 and 10 (CRM for volunteers, batch QR join, reports, PWA) built on 2026-10-12, waiting for the PM to merge, run the SQL and test:
+- Phases 9 and 10 (CRM for volunteers, batch QR join, reports, PWA) built and deployed on 2026-10-12 (PR merged; SQL run in Supabase, 85/85 PASS; live database checked: 12 leads, 7 activities, 2 dummy volunteers, 6 intro-talk guests linked to leads, the role check allows volunteer, the QR preview finds AUTUMN23; real accounts unchanged):
   - Batch QR join fixed and finished: the admin screen's batch QR used `?join=` while the app only read `?code=`, so scanning it did not join. Both now work (old printed codes too). A new student scans the QR, sees "You are joining a batch: <name>" on the sign-in page, signs in with Google and is enrolled automatically, with a "Welcome! You have joined ..." banner. The code is kept on the phone for a day across the Google sign-in. Admin and teacher batch screens share one QR panel: Share, WhatsApp, Copy link and a printable QR poster (PNG).
   - [supabase/phase9_crm.sql](supabase/phase9_crm.sql): new role **volunteer** (role checks on `profiles` and `role_grants` now allow it); tables `crm_contacts` (leads: name, phone, email, source, stage, furthest stage, interest programme, owner, linked account, consent date, opted out, next follow-up, notes) and `crm_activities` (calls, notes, messages, stage changes); `event_registrations.contact_id`. Volunteers see and change only their own leads; admins and teachers see all leads of the organisation and assign owners; students see nothing. Functions: `crm_invite_to_event` (adds the lead to an event's guest list), `crm_register_for_batch` (enrols the member, or invites their email so they are enrolled when they sign in), `crm_open_batches`, `crm_owners`, `batch_join_preview` (sign-in page), `crm_funnel_report` (admins and teachers). Automatic: a lead who signs up is linked to their account (same email); attending an event moves the lead to Attended; enrolling moves it to Registered. The only change to existing objects is the two role checks; safe to re-run.
   - Seed: volunteers Ravi Kumar and Sara Haddad; 11 Org A leads in every stage (Ravi 6, Sara 3, 2 unassigned), linked to the intro talk guests; 2 leads linked to student accounts; 1 Org B lead.
@@ -131,14 +131,18 @@
   - Automatic invites (sending without the volunteer) are not built: they need a paid email or WhatsApp provider and an approved consent text (PDPL). The data for it (consent, opt-out) is in place.
   - 139 unit tests passing (15 new), clean build.
 
+- Site incident on 2026-10-12, fixed the same day: after the Phase 9/10 deploy, https://sadhana.zyxenai.com showed "Your connection is not private" (NET::ERR_CERT_COMMON_NAME_INVALID) on Wi-Fi and mobile data. The deploy itself had succeeded and the code was not the cause. Fix: GitHub > Settings > Pages: custom domain showed "DNS check successful"; ticking "Enforce HTTPS" made the site load securely again. If it ever returns: in the same screen clear the custom domain, Save, enter `sadhana.zyxenai.com` again, Save, wait for the certificate, then tick "Enforce HTTPS". DNS must stay one CNAME record `sadhana` -> `annakhtoniv.github.io`.
+- 2026-10-12: update message about everything since Sunday drafted for Shubham Ji (WhatsApp).
+
 ## Next
-- PM: merge the Phases 9 and 10 pull request, then in the Supabase SQL editor run (from `main`): `supabase/phase9_crm.sql`, `supabase/seed_dummy_data.sql`, `supabase/verify.sql` (all 85 rows PASS). Until the SQL is run, the Leads screen and Reports show an error and the sign-in page shows only the join code; joining by QR already works.
-- PM: test (sign in with Google):
-  1. Admin > Cohorts > QR icon on a batch: Share / WhatsApp / Copy link / Download QR poster. Scan the QR with a phone that is signed out (or a private window): the sign-in page names the batch; sign in with Google and you are in the batch with a welcome banner.
+- PM: confirm the site stays on HTTPS without a warning (phone on Wi-Fi and on mobile data).
+- PM: test Phases 9 and 10 (sign in with Google):
+  1. Admin > Cohorts > QR icon on a batch: Share / WhatsApp / Copy link / Download QR poster. Scan the QR with a phone that is signed out (or a private window): the sign-in page names the batch; sign in with Google and you are in the batch with a welcome banner. Not yet tried with a real Google sign-in on a phone.
   2. Leads icon (next to the calendar): 11 leads. Open Joel Mathew > Invite to an event > Register and write the invitation > WhatsApp. Then Events > Manage the intro talk: Joel is on the guest list; mark him Attended and see his stage change to Attended.
   3. Leads > Reports, and Admin > Reports: the funnel matches the seed (11 leads, 9 invited, 4 attended, 2 registered).
   4. Admin > People: give a test Google account the Volunteer role; signed in as that account, Leads shows only that account's leads.
   5. Profile > Install the app.
+- PM: present the app to the teacher (and Shubham Ji) and collect feedback.
 - Decide: automatic invites (Phase 10 remainder). Options: email through a provider such as Resend or Brevo (free tiers exist), WhatsApp Business API (paid per message). Both need the consent text approved first.
 - Before a demo on any later day, re-run `supabase/seed_dummy_data.sql` that morning, so the batches sit on day 23 / day 2 / finished again.
 - To check the dashboard against the seed, sign out first and sign in with Google. The 1-click demo button shows sample data from `mockData.ts`, not the database.
@@ -154,3 +158,5 @@ Decided 2026-10-12: keep the demo data and the 1-click demo login until after th
 - Anyone who visited before 2026-10-11 still has the old automatic demo login saved in their browser and sees sample data until they sign out (see "Before working with a real batch").
 - Demo mode is not labelled on screen, so sample data can be mistaken for real data.
 - `RUN_THIS_IN_SUPABASE.sql` still contains the old unsafe policies; never run it without `supabase/phase4_security.sql` after it.
+- Admin home in a local preview without Supabase keys shows zeros (the organisation is not loaded); the live site is not affected.
+- The app bundle is about 690 kB (one file); it loads fine but could be split later for faster first load on slow phones.
