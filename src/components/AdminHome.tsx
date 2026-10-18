@@ -33,7 +33,6 @@ import {
   PlusCircle,
   Users,
   Calendar,
-  Crown,
   Copy,
   QrCode,
   GraduationCap,
@@ -250,273 +249,95 @@ export const AdminHome: React.FC = () => {
     (b.course?.name && b.course.name.toLowerCase().includes(batchSearch.toLowerCase()))
   );
 
+  const openNewBatch = () => {
+    setBatchName('');
+    setBatchCustomCode('');
+    setBatchError(null);
+    setShowBatchModal(true);
+  };
+
+  const tabs = [
+    { id: 'batches' as const, label: 'Batches', icon: Calendar, count: allBatches.length },
+    { id: 'users' as const, label: 'People', icon: Users, count: profiles.length },
+    { id: 'courses' as const, label: 'Programmes', icon: BookOpen, count: courses.length },
+    { id: 'reports' as const, label: 'Reports', icon: BarChart3 },
+    { id: 'system' as const, label: 'Settings', icon: Settings },
+  ];
+
+  const stats = [
+    { label: 'Students', value: studentCount, icon: Users },
+    { label: 'Batches', value: allBatches.length, icon: Calendar, note: 'running and finished' },
+    { label: 'Programmes', value: courses.length, icon: BookOpen, note: 'in the catalogue' },
+    { label: 'Teachers', value: teacherCount, icon: GraduationCap, note: `${volunteerCount} volunteer${volunteerCount === 1 ? '' : 's'}` },
+  ];
+
   return (
-    <div className="w-full space-y-6 pb-20 animate-in fade-in duration-200">
-      {/* 1. TOP HEADER & SOVEREIGN STATUS BAR (Human 2.0 Sleep Sanctuary Style) */}
-      <div className="bg-white dark:bg-[#0e161b] p-5 rounded-3xl border border-[#e6dccb] dark:border-[#1d2e38] shadow-xs space-y-3">
+    <div className="w-full space-y-6 pb-6">
+      {/* Title */}
+      <section className="pt-2 space-y-3">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#4ba377] inline-block animate-pulse shadow-sm shadow-[#4ba377]/50" />
-            <span className="text-[10.5px] uppercase font-mono font-bold tracking-widest text-[#17495e] dark:text-[#e8b98a]">
-              Admin Sanctuary &bull; {organisation.name}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={loadData}
-              disabled={loading}
-              className="p-1.5 rounded-full text-[#717e7a] dark:text-[#90a2ad] hover:text-[#17495e] dark:hover:text-[#e8b98a] hover:bg-[#efe9df] dark:hover:bg-[#182933] transition-colors cursor-pointer"
-              title="Refresh All Data"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            </button>
-
-            {/* Sovereign Executive Badge */}
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-[#d9a44a]/20 to-[#e8b98a]/30 border border-[#d9a44a]/60 shadow-xs text-xs font-bold text-[#8e6724] dark:text-[#e8b98a]">
-              <Crown className="w-3.5 h-3.5 fill-current text-[#8e6724] dark:text-[#e8b98a]" />
-              <span>Sovereign Admin</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
-          <div>
-            <h1 className="font-serif text-2xl font-bold text-[#17495e] dark:text-[#e8b98a] leading-tight">
-              Executive Console
-            </h1>
-            <p className="text-xs text-[#717e7a] dark:text-[#90a2ad] mt-0.5">
-              Orchestrate cohorts, faculty roles, and contemplative curricula with zero friction.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setBatchName('');
-                setBatchCustomCode('');
-                setBatchError(null);
-                setShowBatchModal(true);
-              }}
-              className="px-4 py-2 rounded-2xl bg-[#e8b98a] hover:bg-[#dfaf7f] text-[#0b1317] font-bold text-xs shadow-md flex items-center gap-2 transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
-            >
-              <PlusCircle className="w-4 h-4" />
-              <span>+ New Cohort Batch</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. EXECUTIVE OVERVIEW HERO BANNER (Human 2.0 Hero Card Style) */}
-      <div className="bg-gradient-to-br from-[#17495e] via-[#1c556d] to-[#123645] text-white p-5 rounded-3xl shadow-md border border-[#17495e]/50 relative overflow-hidden space-y-4">
-        <div className="flex items-start justify-between">
-          <span className="text-[9.5px] uppercase font-mono font-bold tracking-widest text-[#e8b98a] bg-black/30 px-3 py-1 rounded-full backdrop-blur-xs">
-            Operational Health &bull; 100% Real-Time
+          <span className="ui-eyebrow">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Admin · {organisation.name}
           </span>
-          <span className="text-xs font-mono font-semibold text-[#e8b98a]/90">
-            {organisation.timezone}
+          <button type="button" onClick={loadData} disabled={loading} className="ui-icon-btn" title="Refresh" aria-label="Refresh">
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+        <h1 className="font-display text-[2rem] leading-[1.05] font-semibold text-stone-950">
+          Overview
+          <span className="font-display italic font-normal text-stone-400"> of your community</span>
+        </h1>
+      </section>
+
+      {/* Stats bento */}
+      <section className="grid grid-cols-2 gap-3">
+        {stats.map(({ label, value, icon: Icon, note }, i) => (
+          <div key={label} className={`ui-card !p-4 ${i === 0 ? 'bg-stone-950 text-white' : ''}`} style={i === 0 ? { background: '#09090b' } : undefined}>
+            <div className="flex items-center justify-between">
+              <span className={`text-[10px] uppercase tracking-[0.16em] font-medium ${i === 0 ? 'text-white/60' : 'text-stone-500'}`}>{label}</span>
+              <Icon className={`w-4 h-4 ${i === 0 ? 'text-emerald-400' : 'text-stone-400'}`} />
+            </div>
+            <div className={`font-display text-3xl font-semibold mt-2 ${i === 0 ? 'text-white' : 'text-stone-950'}`}>{value}</div>
+            <div className={`text-[11px] mt-0.5 ${i === 0 ? 'text-white/50' : 'text-stone-400'}`}>{note || 'incl. volunteers'}</div>
+          </div>
+        ))}
+      </section>
+
+      {/* Quick actions */}
+      <section className="grid grid-cols-2 gap-2.5">
+        <button type="button" onClick={openNewBatch} className="group ui-btn-primary !justify-between !pl-5 !pr-1.5 !py-1.5">
+          <span>New batch</span>
+          <span className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-px">
+            <PlusCircle className="w-4 h-4" />
           </span>
-        </div>
-
-        <div className="space-y-1">
-          <h2 className="font-serif text-xl font-bold text-white">
-            Contemplative Governance Engine
-          </h2>
-          <p className="text-xs text-white/85 leading-relaxed max-w-xl">
-            Sadhana Mandala maintains streak integrity across all enrolled students, surfaces quiet participants after 4 missed check-ins, and auto-claims invite codes upon sign-in.
-          </p>
-        </div>
-
-        {/* Quick Action Tiles inside Hero */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
-          <button
-            type="button"
-            onClick={() => {
-              setBatchName('');
-              setBatchCustomCode('');
-              setBatchError(null);
-              setShowBatchModal(true);
-            }}
-            className="p-3 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/15 text-left transition-all cursor-pointer group"
-          >
-            <div className="flex items-center justify-between mb-1">
-              <Users className="w-4 h-4 text-[#e8b98a]" />
-              <ArrowRight className="w-3.5 h-3.5 text-white/60 group-hover:translate-x-0.5 transition-transform" />
-            </div>
-            <div className="text-xs font-bold text-white">Create Cohort</div>
-            <div className="text-[10px] text-white/70">Launch new batch</div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('courses')}
-            className="p-3 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/15 text-left transition-all cursor-pointer group"
-          >
-            <div className="flex items-center justify-between mb-1">
-              <BookOpen className="w-4 h-4 text-[#e8b98a]" />
-              <ArrowRight className="w-3.5 h-3.5 text-white/60 group-hover:translate-x-0.5 transition-transform" />
-            </div>
-            <div className="text-xs font-bold text-white">Programmes</div>
-            <div className="text-[10px] text-white/70">Add or edit the catalogue</div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('users')}
-            className="p-3 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/15 text-left transition-all cursor-pointer group"
-          >
-            <div className="flex items-center justify-between mb-1">
-              <UserPlus className="w-4 h-4 text-[#e8b98a]" />
-              <ArrowRight className="w-3.5 h-3.5 text-white/60 group-hover:translate-x-0.5 transition-transform" />
-            </div>
-            <div className="text-xs font-bold text-white">Grant Roles</div>
-            <div className="text-[10px] text-white/70">Pre-grant teachers</div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('system')}
-            className="p-3 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/15 text-left transition-all cursor-pointer group"
-          >
-            <div className="flex items-center justify-between mb-1">
-              <Settings className="w-4 h-4 text-[#e8b98a]" />
-              <ArrowRight className="w-3.5 h-3.5 text-white/60 group-hover:translate-x-0.5 transition-transform" />
-            </div>
-            <div className="text-xs font-bold text-white">Parameters</div>
-            <div className="text-[10px] text-white/70">Org branding & TZ</div>
-          </button>
-        </div>
-      </div>
-
-      {/* 3. SANCTUARY KPI METRIC TILES (Human 2.0 Metric Grid) */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {/* Metric 1: Students */}
-        <div className="bg-white dark:bg-[#121e25] p-3.5 rounded-3xl border border-[#e6dccb] dark:border-[#1d2e38] shadow-xs space-y-1">
-          <div className="flex items-center justify-between text-[#717e7a] dark:text-[#90a2ad]">
-            <span className="text-[10px] uppercase font-mono font-bold tracking-wider">Students</span>
-            <Users className="w-3.5 h-3.5 text-[#17495e] dark:text-[#e8b98a]" />
-          </div>
-          <div className="font-serif text-2xl font-bold text-[#17495e] dark:text-[#f2ede4]">
-            {studentCount}
-          </div>
-          <div className="text-[10px] text-[#4ba377] font-semibold flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#4ba377] inline-block" />
-            <span>Active practitioners</span>
-          </div>
-        </div>
-
-        {/* Metric 2: Active Cohorts */}
-        <div className="bg-white dark:bg-[#121e25] p-3.5 rounded-3xl border border-[#e6dccb] dark:border-[#1d2e38] shadow-xs space-y-1">
-          <div className="flex items-center justify-between text-[#717e7a] dark:text-[#90a2ad]">
-            <span className="text-[10px] uppercase font-mono font-bold tracking-wider">Cohorts</span>
-            <Calendar className="w-3.5 h-3.5 text-[#d9a44a]" />
-          </div>
-          <div className="font-serif text-2xl font-bold text-[#17495e] dark:text-[#f2ede4]">
-            {allBatches.length}
-          </div>
-          <div className="text-[10px] text-[#8e6724] dark:text-[#e8b98a] font-semibold">
-            {allBatches.length > 0 ? organisation.timezone : 'Ready to create'}
-          </div>
-        </div>
-
-        {/* Metric 3: Curricula Programs */}
-        <div className="bg-white dark:bg-[#121e25] p-3.5 rounded-3xl border border-[#e6dccb] dark:border-[#1d2e38] shadow-xs space-y-1">
-          <div className="flex items-center justify-between text-[#717e7a] dark:text-[#90a2ad]">
-            <span className="text-[10px] uppercase font-mono font-bold tracking-wider">Programs</span>
-            <BookOpen className="w-3.5 h-3.5 text-[#3ba2c7]" />
-          </div>
-          <div className="font-serif text-2xl font-bold text-[#17495e] dark:text-[#f2ede4]">
-            {courses.length}
-          </div>
-          <div className="text-[10px] text-[#717e7a] dark:text-[#90a2ad]">
-            Active in catalogue
-          </div>
-        </div>
-
-        {/* Metric 4: Faculty & Quiet Alerts */}
-        <div className="bg-white dark:bg-[#121e25] p-3.5 rounded-3xl border border-[#e6dccb] dark:border-[#1d2e38] shadow-xs space-y-1">
-          <div className="flex items-center justify-between text-[#717e7a] dark:text-[#90a2ad]">
-            <span className="text-[10px] uppercase font-mono font-bold tracking-wider">Faculty</span>
-            <GraduationCap className="w-3.5 h-3.5 text-[#4ba377]" />
-          </div>
-          <div className="font-serif text-2xl font-bold text-[#17495e] dark:text-[#f2ede4]">
-            {teacherCount}
-          </div>
-          <div className="text-[10px] text-[#717e7a] dark:text-[#90a2ad]">
-            {volunteerCount} volunteer{volunteerCount === 1 ? '' : 's'}
-          </div>
-        </div>
-      </div>
-
-      {/* 4. HUMAN 2.0 SEGMENTED TAB PILLS */}
-      <div className="p-1.5 bg-white dark:bg-[#121e25] rounded-2xl border border-[#e6dccb] dark:border-[#1d2e38] shadow-xs flex gap-1 overflow-x-auto">
-        <button
-          type="button"
-          onClick={() => setActiveTab('batches')}
-          className={`flex-1 shrink-0 whitespace-nowrap px-2.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-            activeTab === 'batches'
-              ? 'bg-[#17495e] dark:bg-[#e8b98a] text-white dark:text-[#0b1317] shadow-xs'
-              : 'text-[#717e7a] dark:text-[#90a2ad] hover:text-[#17495e] dark:hover:text-[#e8b98a]'
-          }`}
-        >
-          <Calendar className="w-3.5 h-3.5" />
-          <span>Cohorts ({allBatches.length})</span>
         </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('users')}
-          className={`flex-1 shrink-0 whitespace-nowrap px-2.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-            activeTab === 'users'
-              ? 'bg-[#17495e] dark:bg-[#e8b98a] text-white dark:text-[#0b1317] shadow-xs'
-              : 'text-[#717e7a] dark:text-[#90a2ad] hover:text-[#17495e] dark:hover:text-[#e8b98a]'
-          }`}
-        >
-          <Users className="w-3.5 h-3.5" />
-          <span>People ({profiles.length})</span>
+        <button type="button" onClick={() => setActiveTab('users')} className="group ui-btn-ghost !justify-between !pl-5 !pr-1.5 !py-1.5">
+          <span>Add a role</span>
+          <span className="w-9 h-9 rounded-full bg-stone-900/5 flex items-center justify-center transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-px">
+            <ArrowRight className="w-4 h-4" />
+          </span>
         </button>
+      </section>
 
-        <button
-          type="button"
-          onClick={() => setActiveTab('courses')}
-          className={`flex-1 shrink-0 whitespace-nowrap px-2.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-            activeTab === 'courses'
-              ? 'bg-[#17495e] dark:bg-[#e8b98a] text-white dark:text-[#0b1317] shadow-xs'
-              : 'text-[#717e7a] dark:text-[#90a2ad] hover:text-[#17495e] dark:hover:text-[#e8b98a]'
-          }`}
-        >
-          <BookOpen className="w-3.5 h-3.5" />
-          <span>Programmes ({courses.length})</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('reports')}
-          className={`flex-1 shrink-0 whitespace-nowrap px-2.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-            activeTab === 'reports'
-              ? 'bg-[#17495e] dark:bg-[#e8b98a] text-white dark:text-[#0b1317] shadow-xs'
-              : 'text-[#717e7a] dark:text-[#90a2ad] hover:text-[#17495e] dark:hover:text-[#e8b98a]'
-          }`}
-        >
-          <BarChart3 className="w-3.5 h-3.5" />
-          <span>Reports</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('system')}
-          className={`flex-1 shrink-0 whitespace-nowrap px-2.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-            activeTab === 'system'
-              ? 'bg-[#17495e] dark:bg-[#e8b98a] text-white dark:text-[#0b1317] shadow-xs'
-              : 'text-[#717e7a] dark:text-[#90a2ad] hover:text-[#17495e] dark:hover:text-[#e8b98a]'
-          }`}
-        >
-          <Settings className="w-3.5 h-3.5" />
-          <span>System</span>
-        </button>
-      </div>
+      {/* Tabs */}
+      <nav aria-label="Admin sections" className="-mx-4 px-4 overflow-x-auto">
+        <div className="inline-flex gap-1 p-1 rounded-full bg-stone-900/[0.04] ring-1 ring-stone-900/5">
+          {tabs.map(({ id, label, icon: Icon, count }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setActiveTab(id)}
+              className={`shrink-0 whitespace-nowrap h-9 px-3.5 rounded-full text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
+                activeTab === id ? 'bg-white text-stone-950 shadow-[0_1px_2px_rgba(24,24,27,0.08),0_0_0_1px_rgba(24,24,27,0.06)]' : 'text-stone-500 hover:text-stone-900'
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              <span>{label}</span>
+              {count !== undefined && <span className="text-stone-400 tabular-nums">{count}</span>}
+            </button>
+          ))}
+        </div>
+      </nav>
 
       {/* 5. TAB CONTENT: BATCHES & COHORTS */}
       {activeTab === 'batches' && (
@@ -526,12 +347,12 @@ export const AdminHome: React.FC = () => {
             <div className="relative flex-1">
               <input
                 type="text"
-                placeholder="Search cohorts by name, course, or join code..."
+                placeholder="Search batches, programmes or join codes"
                 value={batchSearch}
                 onChange={(e) => setBatchSearch(e.target.value)}
-                className="w-full pl-9 pr-4 py-2.5 rounded-2xl bg-white dark:bg-[#121e25] border border-[#e6dccb] dark:border-[#1d2e38] text-xs text-[#1f2a28] dark:text-[#f2ede4] focus:outline-none focus:ring-2 focus:ring-[#17495e] dark:focus:ring-[#e8b98a]"
+                className="w-full pl-9 pr-4 py-2.5 rounded-2xl bg-white border border-stone-200 text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
               />
-              <Search className="w-4 h-4 text-[#717e7a] dark:text-[#90a2ad] absolute left-3 top-3 pointer-events-none" />
+              <Search className="w-4 h-4 text-stone-500 absolute left-3 top-3 pointer-events-none" />
             </div>
 
             <button
@@ -542,27 +363,27 @@ export const AdminHome: React.FC = () => {
                 setBatchError(null);
                 setShowBatchModal(true);
               }}
-              className="px-5 py-2.5 rounded-2xl bg-[#17495e] dark:bg-[#e8b98a] text-white dark:text-[#0b1317] font-bold text-xs shadow-sm flex items-center justify-center gap-2 transition-all cursor-pointer hover:opacity-90 shrink-0"
+              className="px-5 py-2.5 rounded-2xl bg-stone-900 text-white font-bold text-xs shadow-sm flex items-center justify-center gap-2 transition-all cursor-pointer hover:opacity-90 shrink-0"
             >
               <PlusCircle className="w-4 h-4" />
-              <span>Create New Batch</span>
+              <span>New batch</span>
             </button>
           </div>
 
           {/* Cohorts Grid */}
           {filteredBatches.length === 0 ? (
-            <div className="bg-white dark:bg-[#121e25] p-8 rounded-3xl border border-[#e6dccb] dark:border-[#1d2e38] text-center space-y-3">
-              <Calendar className="w-8 h-8 text-[#717e7a] dark:text-[#90a2ad] mx-auto opacity-50" />
-              <p className="text-xs text-[#717e7a] dark:text-[#90a2ad]">
-                {batchSearch ? 'No cohorts match your search.' : 'No cohorts created in this organisation yet.'}
+            <div className="bg-white p-8 rounded-2xl border border-stone-200 text-center space-y-3">
+              <Calendar className="w-8 h-8 text-stone-500 mx-auto opacity-50" />
+              <p className="text-xs text-stone-500">
+                {batchSearch ? 'No batches match.' : 'No batches yet.'}
               </p>
               <button
                 type="button"
                 onClick={() => setShowBatchModal(true)}
-                className="px-4 py-2 rounded-2xl bg-[#e8b98a] text-[#0b1317] font-bold text-xs inline-flex items-center gap-1.5 cursor-pointer"
+                className="px-4 py-2 rounded-2xl bg-stone-900 text-white font-bold text-xs inline-flex items-center gap-1.5 cursor-pointer"
               >
                 <PlusCircle className="w-3.5 h-3.5" />
-                <span>Create First Cohort</span>
+                <span>Create the first batch</span>
               </button>
             </div>
           ) : (
@@ -575,21 +396,21 @@ export const AdminHome: React.FC = () => {
                 return (
                   <div
                     key={batch.id}
-                    className="bg-white dark:bg-[#121e25] p-4.5 rounded-3xl border border-[#e6dccb] dark:border-[#1d2e38] shadow-xs hover:border-[#17495e]/40 dark:hover:border-[#e8b98a]/40 transition-all space-y-3.5"
+                    className="bg-white p-4.5 rounded-2xl border border-stone-200 shadow-xs hover:border-stone-300 transition-all space-y-3.5"
                   >
                     {/* Top row: Name & Active Day */}
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <span className="text-[9.5px] uppercase font-mono font-bold tracking-wider text-[#17495e] dark:text-[#e8b98a]">
-                          {batch.course?.name || 'Sadhana Curriculum'}
+                        <span className="text-[9.5px] uppercase font-mono font-bold tracking-wider text-stone-900">
+                          {batch.course?.name || 'Programme'}
                         </span>
-                        <h3 className="font-serif text-base font-bold text-[#17495e] dark:text-[#f2ede4] leading-snug">
+                        <h3 className="font-display text-base font-bold text-stone-900 leading-snug">
                           {batch.name}
                         </h3>
                       </div>
 
                       <div className="text-right shrink-0">
-                        <span className="px-2.5 py-1 rounded-full bg-[#17495e]/10 dark:bg-[#e8b98a]/15 text-[#17495e] dark:text-[#e8b98a] text-[10px] font-bold font-mono">
+                        <span className="px-2.5 py-1 rounded-full bg-stone-900/10 text-stone-900 text-[10px] font-bold font-mono">
                           Day {currentDay > 0 ? currentDay : 1} of {totalDays}
                         </span>
                       </div>
@@ -597,25 +418,25 @@ export const AdminHome: React.FC = () => {
 
                     {/* Progress Bar */}
                     <div className="space-y-1">
-                      <div className="w-full h-1.5 bg-[#efe9df] dark:bg-[#1c2e39] rounded-full overflow-hidden">
+                      <div className="w-full h-1.5 bg-stone-100 rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-gradient-to-r from-[#17495e] to-[#4ba377] dark:from-[#d9a44a] dark:to-[#e8b98a] transition-all duration-300"
+                          className="h-full bg-gradient-to-r from-stone-800 to-emerald-500 transition-all duration-300"
                           style={{ width: `${progressPct}%` }}
                         />
                       </div>
-                      <div className="flex justify-between text-[10px] text-[#717e7a] dark:text-[#90a2ad]">
+                      <div className="flex justify-between text-[10px] text-stone-500">
                         <span>Starts {formatDateDisplay(batch.start_date, organisation.timezone)}</span>
                         <span>{progressPct}% completed</span>
                       </div>
                     </div>
 
                     {/* Meta & Join Code Action Row */}
-                    <div className="pt-2 border-t border-[#e6dccb]/60 dark:border-[#1d2e38]/80 flex items-center justify-between text-xs">
+                    <div className="pt-2 border-t border-stone-200/60 flex items-center justify-between text-xs">
                       {/* Teacher Attribution */}
-                      <div className="flex items-center gap-1.5 text-[#5a6663] dark:text-[#98abb6]">
-                        <GraduationCap className="w-3.5 h-3.5 text-[#17495e] dark:text-[#e8b98a]" />
+                      <div className="flex items-center gap-1.5 text-stone-500">
+                        <GraduationCap className="w-3.5 h-3.5 text-stone-900" />
                         <span className="text-[11px] truncate max-w-[120px]">
-                          {batch.teacher?.full_name || batch.teacher?.email || 'Faculty'}
+                          {batch.teacher?.full_name || batch.teacher?.email || 'Teacher'}
                         </span>
                       </div>
 
@@ -624,13 +445,13 @@ export const AdminHome: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleCopyCode(batch.join_code)}
-                          className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-[#f7f3ec] dark:bg-[#182933] text-[#17495e] dark:text-[#e8b98a] font-mono font-bold text-[11px] border border-[#e6dccb] dark:border-[#223947] hover:bg-[#efe9df] dark:hover:bg-[#203644] transition-all cursor-pointer"
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-stone-50 text-stone-900 font-mono font-bold text-[11px] border border-stone-200 hover:bg-stone-100 transition-all cursor-pointer"
                           title="Click to copy join code"
                         >
                           {copiedCode === batch.join_code ? (
                             <>
-                              <Check className="w-3 h-3 text-[#4ba377]" />
-                              <span className="text-[#4ba377]">COPIED</span>
+                              <Check className="w-3 h-3 text-emerald-600" />
+                              <span className="text-emerald-600">COPIED</span>
                             </>
                           ) : (
                             <>
@@ -643,7 +464,7 @@ export const AdminHome: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setQrBatch(batch)}
-                          className="p-1.5 rounded-xl bg-[#f7f3ec] dark:bg-[#182933] text-[#17495e] dark:text-[#e8b98a] border border-[#e6dccb] dark:border-[#223947] hover:bg-[#efe9df] dark:hover:bg-[#203644] transition-all cursor-pointer"
+                          className="p-1.5 rounded-xl bg-stone-50 text-stone-900 border border-stone-200 hover:bg-stone-100 transition-all cursor-pointer"
                           title="View QR Code"
                         >
                           <QrCode className="w-3.5 h-3.5" />
@@ -662,14 +483,14 @@ export const AdminHome: React.FC = () => {
       {activeTab === 'users' && (
         <div className="space-y-5">
           {/* Pre-Grant Role Form */}
-          <div className="bg-white dark:bg-[#121e25] p-5 rounded-3xl border border-[#e6dccb] dark:border-[#1d2e38] shadow-xs space-y-4">
+          <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs space-y-4">
             <div className="flex items-center gap-2">
-              <UserPlus className="w-4 h-4 text-[#4ba377]" />
-              <h2 className="font-serif text-base font-bold text-[#17495e] dark:text-[#f2ede4]">
-                Pre-Grant Role Privilege
+              <UserPlus className="w-4 h-4 text-emerald-600" />
+              <h2 className="font-display text-base font-bold text-stone-900">
+                Give someone a role
               </h2>
             </div>
-            <p className="text-xs text-[#717e7a] dark:text-[#90a2ad]">
+            <p className="text-xs text-stone-500">
               Give a teacher, volunteer or admin role to an email in advance. When the person signs in with Google, the role is active at once. Volunteers use the Leads screen for their own leads.
             </p>
 
@@ -682,7 +503,7 @@ export const AdminHome: React.FC = () => {
                     placeholder="teacher.name@example.com"
                     value={newEmail}
                     onChange={(e) => setNewEmail(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-2xl border border-[#e6dccb] dark:border-[#1d2e38] bg-[#f7f3ec] dark:bg-[#0e161b] text-xs text-[#1f2a28] dark:text-[#f2ede4] focus:outline-none focus:ring-2 focus:ring-[#17495e] dark:focus:ring-[#e8b98a]"
+                    className="w-full px-3.5 py-2.5 rounded-2xl border border-stone-200 bg-stone-50 text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
                   />
                 </div>
 
@@ -690,7 +511,7 @@ export const AdminHome: React.FC = () => {
                   <select
                     value={newRole}
                     onChange={(e) => setNewRole(e.target.value as UserRole)}
-                    className="w-full px-3.5 py-2.5 rounded-2xl border border-[#e6dccb] dark:border-[#1d2e38] bg-[#f7f3ec] dark:bg-[#0e161b] text-xs text-[#1f2a28] dark:text-[#f2ede4] focus:outline-none cursor-pointer"
+                    className="w-full px-3.5 py-2.5 rounded-2xl border border-stone-200 bg-stone-50 text-xs text-stone-900 focus:outline-none cursor-pointer"
                   >
                     <option value="teacher">Teacher (batches)</option>
                     <option value="volunteer">Volunteer (leads)</option>
@@ -702,19 +523,19 @@ export const AdminHome: React.FC = () => {
 
               <div className="flex items-center justify-between pt-1">
                 {statusMessage ? (
-                  <span className="text-xs text-[#4ba377] font-semibold">{statusMessage}</span>
+                  <span className="text-xs text-emerald-600 font-semibold">{statusMessage}</span>
                 ) : (
-                  <span className="text-[11px] text-[#717e7a] dark:text-[#90a2ad]">
+                  <span className="text-[11px] text-stone-500">
                     Auto-claimed on first OAuth sign-in.
                   </span>
                 )}
 
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-2xl bg-[#17495e] dark:bg-[#e8b98a] text-white dark:text-[#0b1317] text-xs font-bold shadow-sm hover:opacity-90 transition-all cursor-pointer flex items-center gap-1.5"
+                  className="px-5 py-2.5 rounded-2xl bg-stone-900 text-white text-xs font-bold shadow-sm hover:opacity-90 transition-all cursor-pointer flex items-center gap-1.5"
                 >
                   <Check className="w-3.5 h-3.5" />
-                  <span>Save Role Grant</span>
+                  <span>Save role</span>
                 </button>
               </div>
             </form>
@@ -722,16 +543,16 @@ export const AdminHome: React.FC = () => {
 
           {/* Pre-Granted Roles Directory */}
           {roleGrants.length > 0 && (
-            <div className="bg-white dark:bg-[#121e25] p-5 rounded-3xl border border-[#e6dccb] dark:border-[#1d2e38] shadow-xs space-y-3">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-[#17495e] dark:text-[#e8b98a]">
-                Pending Pre-Grants ({roleGrants.length})
+            <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs space-y-3">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-stone-900">
+                Waiting for first sign-in ({roleGrants.length})
               </h3>
-              <div className="divide-y divide-[#e6dccb]/60 dark:divide-[#1d2e38]/80">
+              <div className="divide-y divide-stone-100">
                 {roleGrants.map((grant) => (
                   <div key={grant.id} className="py-2.5 flex items-center justify-between text-xs">
                     <div>
-                      <div className="font-semibold text-[#1f2a28] dark:text-[#f2ede4]">{grant.email}</div>
-                      <div className="text-[10px] text-[#717e7a] dark:text-[#90a2ad] uppercase tracking-wide">
+                      <div className="font-semibold text-stone-900">{grant.email}</div>
+                      <div className="text-[10px] text-stone-500 uppercase tracking-wide">
                         Role: {grant.role}
                       </div>
                     </div>
@@ -750,17 +571,17 @@ export const AdminHome: React.FC = () => {
           )}
 
           {/* Active Profiles Directory */}
-          <div className="bg-white dark:bg-[#121e25] p-5 rounded-3xl border border-[#e6dccb] dark:border-[#1d2e38] shadow-xs space-y-3">
+          <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="font-serif text-base font-bold text-[#17495e] dark:text-[#f2ede4]">
-                Active Practitioners & Faculty ({profiles.length})
+              <h3 className="font-display text-base font-bold text-stone-900">
+                Everyone ({profiles.length})
               </h3>
-              <span className="text-[11px] text-[#717e7a] dark:text-[#90a2ad]">
+              <span className="text-[11px] text-stone-500">
                 Live database records
               </span>
             </div>
 
-            <div className="divide-y divide-[#e6dccb]/60 dark:divide-[#1d2e38]/80">
+            <div className="divide-y divide-stone-100">
               {profiles.map((p) => {
                 const initials = (p.full_name || p.email)
                   .split(' ')
@@ -775,20 +596,20 @@ export const AdminHome: React.FC = () => {
                   <div key={p.id} className="py-3 flex items-center justify-between text-xs gap-2">
                     <div className="flex items-center gap-3 min-w-0">
                       {/* Initials Avatar */}
-                      <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-[#17495e] to-[#3ba2c7] text-[#e8b98a] font-mono font-bold flex items-center justify-center shrink-0 text-xs shadow-xs">
+                      <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-stone-800 to-stone-600 text-emerald-600 font-mono font-bold flex items-center justify-center shrink-0 text-xs shadow-xs">
                         {initials}
                       </div>
 
                       <div className="min-w-0">
-                        <div className="font-bold text-[#1f2a28] dark:text-[#f2ede4] truncate flex items-center gap-1.5">
-                          <span>{p.full_name || 'Contemplative Student'}</span>
+                        <div className="font-bold text-stone-900 truncate flex items-center gap-1.5">
+                          <span>{p.full_name || 'Student'}</span>
                           {isCurrent && (
-                            <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-[#4ba377]/15 text-[#4ba377]">
+                            <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-emerald-500/15 text-emerald-600">
                               YOU
                             </span>
                           )}
                         </div>
-                        <div className="text-[11px] text-[#717e7a] dark:text-[#90a2ad] truncate">{p.email}</div>
+                        <div className="text-[11px] text-stone-500 truncate">{p.email}</div>
                       </div>
                     </div>
 
@@ -798,9 +619,9 @@ export const AdminHome: React.FC = () => {
                         onChange={(e) => handleProfileRoleChange(p.id, e.target.value as UserRole)}
                         className={`px-2.5 py-1 rounded-xl text-[11px] font-bold uppercase tracking-wider border cursor-pointer ${
                           p.role === 'admin'
-                            ? 'bg-[#d9a44a]/15 text-[#8e6724] dark:text-[#e8b98a] border-[#d9a44a]/40'
+                            ? 'bg-amber-50 text-amber-700 border-amber-200'
                             : p.role === 'teacher'
-                            ? 'bg-[#3ba2c7]/15 text-[#17495e] dark:text-[#3ba2c7] border-[#3ba2c7]/40'
+                            ? 'bg-sky-50 text-sky-700 border-sky-200'
                             : p.role === 'volunteer'
                             ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-emerald-300/50'
                             : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-700'
@@ -828,50 +649,50 @@ export const AdminHome: React.FC = () => {
       {/* 8. TAB CONTENT: SYSTEM & GOVERNANCE PARAMETERS */}
       {activeTab === 'system' && (
         <div className="space-y-4">
-          <div className="bg-white dark:bg-[#121e25] p-5 rounded-3xl border border-[#e6dccb] dark:border-[#1d2e38] shadow-xs space-y-4">
+          <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs space-y-4">
             <div className="flex items-center gap-2">
-              <Settings className="w-4 h-4 text-[#17495e] dark:text-[#e8b98a]" />
-              <h2 className="font-serif text-base font-bold text-[#17495e] dark:text-[#f2ede4]">
-                White-Label Organisation Parameters
+              <Settings className="w-4 h-4 text-stone-900" />
+              <h2 className="font-display text-base font-bold text-stone-900">
+                Organisation settings
               </h2>
             </div>
-            <p className="text-xs text-[#717e7a] dark:text-[#90a2ad]">
+            <p className="text-xs text-stone-500">
               Core branding and operational settings configured for {organisation.name}.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-              <div className="p-3.5 bg-[#f7f3ec] dark:bg-[#0e161b] rounded-2xl border border-[#e6dccb] dark:border-[#1d2e38]">
-                <span className="text-[#717e7a] dark:text-[#90a2ad] block text-[10px] uppercase font-mono font-bold tracking-wider">
+              <div className="p-3.5 bg-stone-50 rounded-2xl border border-stone-200">
+                <span className="text-stone-500 block text-[10px] uppercase font-mono font-bold tracking-wider">
                   App Name
                 </span>
-                <span className="font-bold text-[#1f2a28] dark:text-[#f2ede4] text-sm">
+                <span className="font-bold text-stone-900 text-sm">
                   {organisation.app_name}
                 </span>
               </div>
 
-              <div className="p-3.5 bg-[#f7f3ec] dark:bg-[#0e161b] rounded-2xl border border-[#e6dccb] dark:border-[#1d2e38]">
-                <span className="text-[#717e7a] dark:text-[#90a2ad] block text-[10px] uppercase font-mono font-bold tracking-wider">
+              <div className="p-3.5 bg-stone-50 rounded-2xl border border-stone-200">
+                <span className="text-stone-500 block text-[10px] uppercase font-mono font-bold tracking-wider">
                   Timezone
                 </span>
-                <span className="font-bold text-[#1f2a28] dark:text-[#f2ede4] text-sm">
+                <span className="font-bold text-stone-900 text-sm">
                   {organisation.timezone}
                 </span>
               </div>
 
-              <div className="p-3.5 bg-[#f7f3ec] dark:bg-[#0e161b] rounded-2xl border border-[#e6dccb] dark:border-[#1d2e38]">
-                <span className="text-[#717e7a] dark:text-[#90a2ad] block text-[10px] uppercase font-mono font-bold tracking-wider">
+              <div className="p-3.5 bg-stone-50 rounded-2xl border border-stone-200">
+                <span className="text-stone-500 block text-[10px] uppercase font-mono font-bold tracking-wider">
                   Slug
                 </span>
-                <span className="font-bold text-[#1f2a28] dark:text-[#f2ede4] text-sm font-mono">
+                <span className="font-bold text-stone-900 text-sm font-mono">
                   {organisation.slug}
                 </span>
               </div>
 
-              <div className="p-3.5 bg-[#f7f3ec] dark:bg-[#0e161b] rounded-2xl border border-[#e6dccb] dark:border-[#1d2e38]">
-                <span className="text-[#717e7a] dark:text-[#90a2ad] block text-[10px] uppercase font-mono font-bold tracking-wider">
+              <div className="p-3.5 bg-stone-50 rounded-2xl border border-stone-200">
+                <span className="text-stone-500 block text-[10px] uppercase font-mono font-bold tracking-wider">
                   Powered by ZYXENAI
                 </span>
-                <span className="font-bold text-[#4ba377] text-sm">
+                <span className="font-bold text-emerald-600 text-sm">
                   {organisation.show_powered_by ? 'Active (White-label footer)' : 'Hidden'}
                 </span>
               </div>
@@ -883,20 +704,20 @@ export const AdminHome: React.FC = () => {
       {/* 9. CREATE BATCH MODAL (Fixed for Admin) */}
       {showBatchModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="w-full max-w-md bg-white dark:bg-[#0e161b] rounded-3xl border border-[#e6dccb] dark:border-[#1d2e38] p-6 shadow-2xl space-y-4">
+          <div className="w-full max-w-md bg-white rounded-2xl border border-stone-200 p-6 shadow-2xl space-y-4">
             <div className="flex items-start justify-between">
               <div>
-                <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-[#17495e] dark:text-[#e8b98a]">
-                  New Cohort Onboarding
+                <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-stone-900">
+                  New batch
                 </span>
-                <h2 className="font-serif text-lg font-bold text-[#17495e] dark:text-[#f2ede4]">
-                  Create Cohort Batch
+                <h2 className="font-display text-lg font-bold text-stone-900">
+                  Create a batch
                 </h2>
               </div>
               <button
                 type="button"
                 onClick={() => setShowBatchModal(false)}
-                className="p-1 rounded-full text-[#717e7a] dark:text-[#90a2ad] hover:text-[#1f2a28] dark:hover:text-[#f2ede4]"
+                className="p-1 rounded-full text-stone-500 hover:text-stone-900"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -905,13 +726,13 @@ export const AdminHome: React.FC = () => {
             <form onSubmit={handleCreateBatch} className="space-y-3.5">
               {/* Select Course */}
               <div>
-                <label className="block text-xs font-semibold text-[#1f2a28] dark:text-[#f2ede4] mb-1">
-                  Curriculum Program
+                <label className="block text-xs font-semibold text-stone-900 mb-1">
+                  Programme
                 </label>
                 <select
                   value={batchCourseId || (courses.length > 0 ? courses[0].id : DEMO_COURSE_40.id)}
                   onChange={(e) => setBatchCourseId(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-2xl border border-[#e6dccb] dark:border-[#1d2e38] bg-[#f7f3ec] dark:bg-[#121e25] text-xs text-[#1f2a28] dark:text-[#f2ede4] focus:outline-none cursor-pointer"
+                  className="w-full px-3.5 py-2.5 rounded-2xl border border-stone-200 bg-stone-50 text-xs text-stone-900 focus:outline-none cursor-pointer"
                 >
                   {(courses.length > 0 ? courses : [DEMO_COURSE_40, DEMO_COURSE_21]).map((c) => (
                     <option key={c.id} value={c.id}>
@@ -923,7 +744,7 @@ export const AdminHome: React.FC = () => {
 
               {/* Batch Name */}
               <div>
-                <label className="block text-xs font-semibold text-[#1f2a28] dark:text-[#f2ede4] mb-1">
+                <label className="block text-xs font-semibold text-stone-900 mb-1">
                   Batch Name
                 </label>
                 <input
@@ -932,19 +753,19 @@ export const AdminHome: React.FC = () => {
                   placeholder="e.g. November Dawn Sadhana"
                   value={batchName}
                   onChange={(e) => setBatchName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-2xl border border-[#e6dccb] dark:border-[#1d2e38] bg-[#f7f3ec] dark:bg-[#121e25] text-xs text-[#1f2a28] dark:text-[#f2ede4] focus:outline-none focus:ring-2 focus:ring-[#17495e] dark:focus:ring-[#e8b98a]"
+                  className="w-full px-3.5 py-2.5 rounded-2xl border border-stone-200 bg-stone-50 text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
                 />
               </div>
 
               {/* Teacher Assign */}
               <div>
-                <label className="block text-xs font-semibold text-[#1f2a28] dark:text-[#f2ede4] mb-1">
-                  Presiding Teacher
+                <label className="block text-xs font-semibold text-stone-900 mb-1">
+                  Teacher
                 </label>
                 <select
                   value={batchTeacherId || (currentProfile?.id || DEMO_TEACHER_PROFILE.id)}
                   onChange={(e) => setBatchTeacherId(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-2xl border border-[#e6dccb] dark:border-[#1d2e38] bg-[#f7f3ec] dark:bg-[#121e25] text-xs text-[#1f2a28] dark:text-[#f2ede4] focus:outline-none cursor-pointer"
+                  className="w-full px-3.5 py-2.5 rounded-2xl border border-stone-200 bg-stone-50 text-xs text-stone-900 focus:outline-none cursor-pointer"
                 >
                   {isDemoMode() && (
                     <option value={DEMO_TEACHER_PROFILE.id}>{DEMO_TEACHER_PROFILE.full_name} (admin)</option>
@@ -961,7 +782,7 @@ export const AdminHome: React.FC = () => {
 
               {/* Start Date */}
               <div>
-                <label className="block text-xs font-semibold text-[#1f2a28] dark:text-[#f2ede4] mb-1">
+                <label className="block text-xs font-semibold text-stone-900 mb-1">
                   Start Date (Day 1 in {organisation.timezone})
                 </label>
                 <input
@@ -969,13 +790,13 @@ export const AdminHome: React.FC = () => {
                   required
                   value={batchStartDate}
                   onChange={(e) => setBatchStartDate(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-2xl border border-[#e6dccb] dark:border-[#1d2e38] bg-[#f7f3ec] dark:bg-[#121e25] text-xs text-[#1f2a28] dark:text-[#f2ede4] focus:outline-none cursor-pointer"
+                  className="w-full px-3.5 py-2.5 rounded-2xl border border-stone-200 bg-stone-50 text-xs text-stone-900 focus:outline-none cursor-pointer"
                 />
               </div>
 
               {/* Custom Join Code */}
               <div>
-                <label className="block text-xs font-semibold text-[#1f2a28] dark:text-[#f2ede4] mb-1">
+                <label className="block text-xs font-semibold text-stone-900 mb-1">
                   Custom Join Code (Optional, max 8 chars)
                 </label>
                 <input
@@ -984,7 +805,7 @@ export const AdminHome: React.FC = () => {
                   placeholder="Auto-generated if empty"
                   value={batchCustomCode}
                   onChange={(e) => setBatchCustomCode(e.target.value.toUpperCase())}
-                  className="w-full px-3.5 py-2.5 rounded-2xl border border-[#e6dccb] dark:border-[#1d2e38] bg-[#f7f3ec] dark:bg-[#121e25] text-xs font-mono uppercase tracking-wider text-[#1f2a28] dark:text-[#f2ede4] focus:outline-none"
+                  className="w-full px-3.5 py-2.5 rounded-2xl border border-stone-200 bg-stone-50 text-xs font-mono uppercase tracking-wider text-stone-900 focus:outline-none"
                 />
               </div>
 
@@ -998,16 +819,16 @@ export const AdminHome: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowBatchModal(false)}
-                  className="px-4 py-2.5 rounded-2xl text-xs text-[#717e7a] dark:text-[#90a2ad] hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors cursor-pointer"
+                  className="px-4 py-2.5 rounded-2xl text-xs text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isCreatingBatch || !batchName.trim()}
-                  className="px-5 py-2.5 rounded-2xl bg-[#e8b98a] hover:bg-[#dfaf7f] text-[#0b1317] text-xs font-bold shadow-md transition-all cursor-pointer disabled:opacity-50"
+                  className="px-5 py-2.5 rounded-2xl bg-stone-900 hover:bg-stone-800 text-white text-xs font-bold shadow-md transition-all cursor-pointer disabled:opacity-50"
                 >
-                  {isCreatingBatch ? 'Creating Cohort...' : 'Create Batch'}
+                  {isCreatingBatch ? 'Creating...' : 'Create Batch'}
                 </button>
               </div>
             </form>
@@ -1018,25 +839,25 @@ export const AdminHome: React.FC = () => {
       {/* 11. BATCH QR CODE SHARING MODAL */}
       {qrBatch && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="w-full max-w-sm bg-white dark:bg-[#0e161b] rounded-3xl border border-[#e6dccb] dark:border-[#1d2e38] p-6 shadow-2xl space-y-4 text-center">
+          <div className="w-full max-w-sm bg-white rounded-2xl border border-stone-200 p-6 shadow-2xl space-y-4 text-center">
             <div className="flex justify-between items-center">
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#17495e] dark:text-[#e8b98a]">
-                Student Onboarding
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-stone-900">
+                Batch QR
               </span>
               <button
                 type="button"
                 onClick={() => setQrBatch(null)}
-                className="p-1 rounded-full text-[#717e7a] dark:text-[#90a2ad] hover:text-[#1f2a28] dark:hover:text-[#f2ede4]"
+                className="p-1 rounded-full text-stone-500 hover:text-stone-900"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <h3 className="font-serif text-lg font-bold text-[#17495e] dark:text-[#f2ede4]">
+            <h3 className="font-display text-lg font-bold text-stone-900">
               {qrBatch.name}
             </h3>
 
-            <p className="text-xs text-[#717e7a] dark:text-[#90a2ad]">{qrBatch.course?.name}</p>
+            <p className="text-xs text-stone-500">{qrBatch.course?.name}</p>
 
             <div className="text-left">
               <BatchSharePanel

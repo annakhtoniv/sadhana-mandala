@@ -16,7 +16,17 @@ import { clearPending, peekPending, PENDING_JOIN_KEY } from './lib/joinLink';
 import { fetchBatchJoinPreview } from './lib/batchService';
 import { formatDateDisplay } from './lib/dateUtils';
 import type { BatchJoinPreview } from './types/database';
-import { LogIn, Sparkles, AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2, ArrowUpRight, Flame, BookOpen, CalendarDays, HeartHandshake, QrCode } from 'lucide-react';
+import { BrandMark } from './components/BrandMark';
+
+const GoogleIcon = () => (
+  <svg viewBox="0 0 48 48" className="w-5 h-5" aria-hidden="true">
+    <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z" />
+    <path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.3 5.7c4.3-3.9 7-9.8 7-17.1z" />
+    <path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z" />
+    <path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.3-5.7c-2 1.4-4.7 2.3-8.6 2.3-6.2 0-11.5-4.1-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z" />
+  </svg>
+);
 
 type Tab = 'home' | 'lessons' | 'profile' | 'events' | 'leads';
 
@@ -70,117 +80,138 @@ function MainApp() {
     }
   };
 
-  // Loading spinner
+  // Loading
   if (isLoading) {
     return (
-      <div className="flex flex-col min-h-screen items-center justify-center bg-stone-50 dark:bg-stone-950 text-stone-500">
-        <Loader2 className="w-6 h-6 animate-spin text-stone-400" />
-        <span className="text-xs mt-3 tracking-wide">Loading {organisation.app_name}...</span>
+      <div className="flex flex-col min-h-[100dvh] items-center justify-center gap-4 text-stone-500">
+        <BrandMark className="w-12 h-12 animate-float" />
+        <span className="text-xs tracking-wide flex items-center gap-2">
+          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Opening {organisation.app_name}
+        </span>
       </div>
     );
   }
 
-  // Not signed in: White-label landing page
+  // Not signed in: white-label landing page
   if (!user) {
+    const features = [
+      { icon: Flame, title: 'Daily practice', text: 'One tap a day. Your streak and your 40-day trail.' },
+      { icon: BookOpen, title: 'Learn', text: 'Short lessons that open as your programme unfolds.' },
+      { icon: CalendarDays, title: 'Gather', text: 'Intro talks, satsangs and follow-ups in one place.' },
+      { icon: HeartHandshake, title: 'Guided', text: 'Your teacher sees how you are doing and checks in.' },
+    ];
     return (
-      <div className="flex flex-col min-h-screen bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 transition-colors">
-        <header className="w-full border-b border-stone-200 dark:border-stone-800 bg-white/70 dark:bg-stone-900/70 backdrop-blur sticky top-0 z-10">
-          <div className="max-w-md mx-auto px-4 h-14 flex items-center justify-between">
-            <div className="flex items-center gap-2">
+      <div className="flex flex-col min-h-[100dvh] text-stone-900">
+        <header className="sticky top-0 z-30 px-3 pt-3">
+          <div className="ui-glass max-w-md mx-auto h-14 px-2 rounded-full flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
               {organisation.logo_url ? (
-                <img src={organisation.logo_url} alt={organisation.app_name} className="w-8 h-8 rounded-full" />
+                <img src={organisation.logo_url} alt="" className="w-9 h-9 rounded-full object-cover" />
               ) : (
-                <div
-                  className="w-8 h-8 rounded-full text-white flex items-center justify-center font-bold text-sm shadow-sm"
-                  style={{ backgroundColor: organisation.primary_colour || '#1c1917' }}
-                >
-                  <Sparkles className="w-4 h-4" />
-                </div>
+                <BrandMark className="w-9 h-9" />
               )}
-              <span className="font-semibold text-base tracking-tight">{organisation.app_name}</span>
+              <span className="font-display font-semibold text-[15px]">{organisation.app_name}</span>
             </div>
-
-            <span className="text-[11px] text-stone-400 dark:text-stone-500 font-mono">
-              v1.0
-            </span>
+            <button type="button" onClick={handleGoogleSignIn} className="h-9 px-4 rounded-full text-xs font-medium text-stone-700 hover:bg-stone-900/5 cursor-pointer transition-colors">
+              Sign in
+            </button>
           </div>
         </header>
 
-        <main className="flex-1 w-full max-w-md mx-auto px-4 py-10 flex flex-col justify-center items-center">
-          <div className="w-full space-y-6 text-center">
-            <div className="space-y-2">
-              <h1 className="text-2xl font-semibold tracking-tight text-stone-900 dark:text-stone-50">
-                {organisation.app_name}
-              </h1>
-              <p className="text-sm text-stone-500 dark:text-stone-400 leading-relaxed max-w-xs mx-auto">
-                {organisation.footer_text || 'A mindful daily practice companion for 40-day meditation commitments.'}
-              </p>
+        <main className="flex-1 w-full max-w-md mx-auto px-4 pt-10 pb-10 space-y-8">
+          <section className="text-center space-y-5 animate-fade-up">
+            <div className="relative mx-auto w-28 h-28">
+              <div className="absolute inset-0 rounded-full bg-emerald-400/30 blur-2xl" />
+              <BrandMark className="relative w-28 h-28 animate-float drop-shadow-[0_18px_30px_rgba(24,24,27,0.25)]" />
             </div>
+            <span className="ui-eyebrow">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> {organisation.name}
+            </span>
+            <h1 className="font-display text-[2.6rem] leading-[1.02] font-semibold text-stone-950">
+              Your practice,
+              <br />
+              <span className="font-serif italic font-normal text-stone-500">gently kept.</span>
+            </h1>
+            <p className="text-[15px] text-stone-500 leading-relaxed max-w-[19rem] mx-auto">
+              {organisation.footer_text || 'Daily practice, programmes and teacher guidance for your community.'}
+            </p>
+          </section>
 
-            {pendingJoin && (
-              <div className="p-4 rounded-2xl border-2 border-emerald-500/60 bg-emerald-50 dark:bg-emerald-950/40 text-left space-y-1.5" role="status">
-                <div className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
-                  You are joining a batch
-                </div>
-                {joinPreview && joinPreview !== 'unknown' ? (
-                  <>
-                    <div className="text-base font-semibold text-stone-900 dark:text-stone-100">{joinPreview.batch_name}</div>
-                    <div className="text-xs text-stone-600 dark:text-stone-300">
-                      {joinPreview.course_name}
-                      {joinPreview.start_date ? ` · starts ${formatDateDisplay(joinPreview.start_date, organisation.timezone)}` : ''}
-                    </div>
-                  </>
-                ) : joinPreview === 'unknown' ? (
-                  <div className="text-xs text-red-600 dark:text-red-400">
-                    The join code {pendingJoin} was not found. Please check the QR code with your teacher.
+          {pendingJoin && (
+            <section className="ui-card !p-4 space-y-2 animate-fade-up" role="status">
+              <div className="flex items-center gap-2 text-[10px] font-medium uppercase tracking-[0.18em] text-emerald-700">
+                <QrCode className="w-3.5 h-3.5" /> You are joining a batch
+              </div>
+              {joinPreview && joinPreview !== 'unknown' ? (
+                <div>
+                  <div className="font-display text-lg font-semibold">{joinPreview.batch_name}</div>
+                  <div className="text-xs text-stone-500">
+                    {joinPreview.course_name}
+                    {joinPreview.start_date ? ` · starts ${formatDateDisplay(joinPreview.start_date, organisation.timezone)}` : ''}
                   </div>
-                ) : (
-                  <div className="text-sm font-mono font-semibold text-stone-900 dark:text-stone-100">Join code {pendingJoin}</div>
-                )}
-                <p className="text-xs text-stone-600 dark:text-stone-300">
-                  Sign in with Google below and you are added to this batch automatically.
-                </p>
+                </div>
+              ) : joinPreview === 'unknown' ? (
+                <div className="text-xs text-red-600">
+                  The join code {pendingJoin} was not found. Please check the QR code with your teacher.
+                </div>
+              ) : (
+                <div className="text-sm font-mono font-semibold">Join code {pendingJoin}</div>
+              )}
+              <div className="flex items-center justify-between gap-3 pt-1">
+                <p className="text-xs text-stone-500">Sign in with Google and you are added automatically.</p>
                 <button
                   type="button"
                   onClick={() => {
                     clearPending(PENDING_JOIN_KEY);
                     setPendingJoin(null);
                   }}
-                  className="text-[11px] text-stone-500 underline cursor-pointer"
+                  className="text-[11px] text-stone-400 hover:text-stone-700 shrink-0 cursor-pointer"
                 >
                   Not now
                 </button>
               </div>
+            </section>
+          )}
+
+          <section className="space-y-3 animate-fade-up [animation-delay:120ms]">
+            <button
+              type="button"
+              onClick={handleGoogleSignIn}
+              disabled={isSigningIn}
+              className="group w-full ui-btn-primary !py-2 !pl-2 !pr-2 justify-between"
+            >
+              <span className="w-10 h-10 rounded-full bg-white flex items-center justify-center shrink-0">
+                <GoogleIcon />
+              </span>
+              <span className="text-[15px]">
+                {isSigningIn ? 'Connecting to Google...' : pendingJoin ? 'Continue with Google and join' : 'Continue with Google'}
+              </span>
+              <span className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center shrink-0 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-px">
+                <ArrowUpRight className="w-4 h-4" />
+              </span>
+            </button>
+            <p className="text-center text-[11px] text-stone-400">No password. No app store. Just your Google account.</p>
+            {authError && (
+              <div role="alert" className="p-3 bg-red-50 rounded-2xl text-xs text-red-600 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>{authError}</span>
+              </div>
             )}
+          </section>
 
-            <div className="bg-white dark:bg-stone-900 p-6 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-4">
-              <p className="text-xs text-stone-500 dark:text-stone-400">
-                Sign in with your Google account to access your daily practice, track streaks, and connect with your teacher.
-              </p>
-
-              <button
-                type="button"
-                onClick={handleGoogleSignIn}
-                disabled={isSigningIn}
-                className="w-full h-12 rounded-xl bg-stone-900 dark:bg-stone-100 text-stone-100 dark:text-stone-900 font-medium text-sm flex items-center justify-center gap-3 shadow hover:opacity-90 active:scale-[0.99] transition-all disabled:opacity-50 cursor-pointer"
-              >
-                <LogIn className="w-4 h-4" />
-                <span>{isSigningIn ? 'Connecting to Google...' : pendingJoin ? 'Continue with Google and join' : 'Continue with Google'}</span>
-              </button>
-
-              {authError && (
-                <div className="p-3 bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-900 rounded-xl text-xs text-red-600 dark:text-red-400 text-left flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-                  <span>{authError}</span>
+          <section className="grid grid-cols-2 gap-3 animate-fade-up [animation-delay:220ms]">
+            {features.map(({ icon: Icon, title, text }, i) => (
+              <div key={title} className={`ui-card !p-4 space-y-2 ${i === 0 || i === 3 ? 'col-span-2 flex items-center gap-4 space-y-0' : ''}`}>
+                <span className="w-9 h-9 rounded-full bg-stone-900/[0.04] flex items-center justify-center shrink-0">
+                  <Icon className="w-[18px] h-[18px] text-stone-700" />
+                </span>
+                <div>
+                  <div className="text-sm font-semibold text-stone-900">{title}</div>
+                  <div className="text-xs text-stone-500 leading-relaxed">{text}</div>
                 </div>
-              )}
-            </div>
-
-            <div className="p-4 rounded-xl bg-stone-100/60 dark:bg-stone-900/40 border border-stone-200/50 dark:border-stone-800/50 text-left text-xs text-stone-500 space-y-1">
-              <div className="font-medium text-stone-700 dark:text-stone-300">Organisation Workspace:</div>
-              <div>{organisation.name} ({organisation.timezone})</div>
-            </div>
-          </div>
+              </div>
+            ))}
+          </section>
         </main>
 
         <Footer />
@@ -190,7 +221,7 @@ function MainApp() {
 
   // Signed in
   return (
-    <div className="flex flex-col min-h-screen bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 transition-colors">
+    <div className="flex flex-col min-h-[100dvh] text-stone-900">
       {!hasConsent && <ConsentModal />}
 
       {/* Navigation Header */}
@@ -212,14 +243,14 @@ function MainApp() {
       />
 
       {/* Main Container */}
-      <main className="flex-1 w-full max-w-md mx-auto px-4 py-6">
+      <main className="flex-1 w-full max-w-md mx-auto px-4 pt-5 pb-4 animate-fade-up">
         {notice && (
           <div
             role="status"
-            className={`mb-4 p-3 rounded-xl border text-sm flex items-start justify-between gap-3 ${
+            className={`mb-4 p-3.5 rounded-2xl text-sm flex items-start justify-between gap-3 ring-1 ${
               notice.tone === 'success'
-                ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
-                : 'bg-red-50 dark:bg-red-950/60 border-red-200 dark:border-red-900 text-red-700 dark:text-red-300'
+                ? 'bg-emerald-50 ring-emerald-600/15 text-emerald-900'
+                : 'bg-red-50 ring-red-600/15 text-red-700'
             }`}
           >
             <span>{notice.text}</span>
@@ -248,7 +279,7 @@ function MainApp() {
         )}
       </main>
 
-      <Footer />
+      <Footer withNav />
     </div>
   );
 }

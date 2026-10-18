@@ -2,10 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Design system (2026-10 redesign, inspired by 21st.dev):
+ * quiet zinc neutrals, Geist type, hairline rings instead of grey borders,
+ * soft diffused shadows, pill buttons and spring easing.
+ */
 :root {
-  --org-primary: #4f46e5;
-  --org-accent: #06b6d4;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --org-primary: #18181b;
+  --org-accent: #10b981;
+  --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
+  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+html {
+  background: #f7f7f8;
 }
 
 body {
@@ -13,11 +26,134 @@ body {
   padding: 0;
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  min-height: 100dvh;
+  background-color: #f7f7f8 !important;
+  /* A faint dot grid and a soft glow at the top, fixed so it never repaints on scroll */
+  background-image:
+    radial-gradient(60rem 28rem at 50% -8rem, rgba(16, 185, 129, 0.10), transparent 70%),
+    radial-gradient(40rem 22rem at 100% 0%, rgba(99, 102, 241, 0.07), transparent 70%),
+    radial-gradient(rgba(24, 24, 27, 0.07) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 22px 22px;
+  background-attachment: fixed;
+  color: #18181b;
 }
 
 #root {
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
+}
+
+/* Thin, precise icons everywhere */
+svg.lucide {
+  stroke-width: 1.6;
+}
+
+::selection {
+  background: rgba(16, 185, 129, 0.22);
+}
+
+/* Spring easing for every transition the app already declares */
+.transition,
+.transition-all,
+.transition-colors,
+.transition-transform,
+.transition-opacity {
+  transition-timing-function: var(--ease-spring) !important;
+  transition-duration: 300ms;
+}
+
+@layer components {
+  /* Cards: white plate, hairline ring, soft lift and a faint outer bezel */
+  .ui-card {
+    @apply bg-white rounded-[1.5rem] p-5;
+    box-shadow:
+      0 0 0 1px rgba(24, 24, 27, 0.06),
+      0 0 0 5px rgba(24, 24, 27, 0.018),
+      0 1px 2px rgba(24, 24, 27, 0.04),
+      0 16px 40px -24px rgba(24, 24, 27, 0.18);
+  }
+
+  .ui-eyebrow {
+    @apply inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-stone-600;
+    box-shadow: 0 0 0 1px rgba(24, 24, 27, 0.08), 0 1px 2px rgba(24, 24, 27, 0.04);
+  }
+
+  .ui-btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-medium transition-all active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none cursor-pointer;
+  }
+
+  .ui-btn-primary {
+    @apply ui-btn bg-stone-900 text-white hover:bg-stone-800;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 8px 20px -10px rgba(24, 24, 27, 0.55);
+  }
+
+  .ui-btn-ghost {
+    @apply ui-btn bg-white text-stone-800 hover:bg-stone-50;
+    box-shadow: 0 0 0 1px rgba(24, 24, 27, 0.1), 0 1px 2px rgba(24, 24, 27, 0.04);
+  }
+
+  .ui-icon-btn {
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-full text-stone-500 transition-all hover:bg-stone-900/5 hover:text-stone-900 active:scale-95 cursor-pointer;
+  }
+
+  .ui-glass {
+    @apply bg-white/70 backdrop-blur-xl;
+    box-shadow: 0 0 0 1px rgba(24, 24, 27, 0.07), 0 10px 30px -18px rgba(24, 24, 27, 0.35);
+  }
+}
+
+/*
+ * Restyle the building blocks every screen already uses, so the whole app
+ * follows the new system without rewriting each screen.
+ */
+/* Cards written as "bg-white ... rounded-2xl ... border" become soft plates */
+.bg-white.rounded-2xl.border,
+.bg-white.rounded-3xl.border {
+  border-color: transparent !important;
+  border-radius: 1.5rem;
+  box-shadow:
+    0 0 0 1px rgba(24, 24, 27, 0.06),
+    0 0 0 5px rgba(24, 24, 27, 0.018),
+    0 1px 2px rgba(24, 24, 27, 0.04),
+    0 16px 40px -24px rgba(24, 24, 27, 0.18) !important;
+}
+
+/* Solid dark buttons become pills */
+button.bg-stone-900,
+a.bg-stone-900,
+button.bg-emerald-600,
+a.bg-emerald-600 {
+  border-radius: 9999px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 8px 20px -12px rgba(24, 24, 27, 0.6);
+}
+
+/* Inputs: white, hairline ring, calm focus */
+input.rounded-xl,
+select.rounded-xl,
+textarea.rounded-xl {
+  background-color: #fff !important;
+  border-color: rgba(24, 24, 27, 0.1) !important;
+  border-radius: 0.875rem;
+}
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15) !important;
+  border-color: rgba(16, 185, 129, 0.6) !important;
+}
+
+.font-display {
+  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.035em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
 }

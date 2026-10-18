@@ -134,6 +134,8 @@
 - Site incident on 2026-10-12, fixed the same day: after the Phase 9/10 deploy, https://sadhana.zyxenai.com showed "Your connection is not private" (NET::ERR_CERT_COMMON_NAME_INVALID) on Wi-Fi and mobile data. The deploy itself had succeeded and the code was not the cause. Fix: GitHub > Settings > Pages: custom domain showed "DNS check successful"; ticking "Enforce HTTPS" made the site load securely again. If it ever returns: in the same screen clear the custom domain, Save, enter `sadhana.zyxenai.com` again, Save, wait for the certificate, then tick "Enforce HTTPS". DNS must stay one CNAME record `sadhana` -> `annakhtoniv.github.io`.
 - 2026-10-12: update message about everything since Sunday drafted for Shubham Ji (WhatsApp).
 
+- 2026-10-18: full visual redesign (inspired by 21st.dev; the earlier "Human 2.0" style is gone): Geist type with an Instrument Serif accent, quiet zinc neutrals, white cards with hairline rings and soft shadows on a faint dot grid, pill buttons, a floating glass top bar, a floating bottom tab bar (Home, Events, Leads, Profile), a new sign-in page (mandala hero, Google button, batch-join card, feature tiles) and a plain-language admin overview (stats, quick actions, tabs). No behaviour changed.
+
 ## Next
 - PM: confirm the site stays on HTTPS without a warning (phone on Wi-Fi and on mobile data).
 - PM: test Phases 9 and 10 (sign in with Google):
