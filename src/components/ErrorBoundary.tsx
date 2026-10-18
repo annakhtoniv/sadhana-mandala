@@ -1,5 +1,6 @@
 import React from 'react';
 import { reportError } from '../lib/errorReporting';
+import { translate } from '../i18n';
 
 interface State {
   failed: boolean;
@@ -25,12 +26,10 @@ export class ErrorBoundary extends React.Component<{ children: React.ReactNode }
     return (
       <div role="alert" className="min-h-[100dvh] flex items-center justify-center p-6 bg-stone-50">
         <div className="ui-card max-w-sm text-center space-y-3">
-          <h1 className="font-display text-xl font-semibold text-stone-950">Something went wrong</h1>
-          <p className="text-sm text-stone-600">
-            Sorry, this screen could not be shown. Your check-ins are safe. Reloading usually fixes it; the problem has been reported.
-          </p>
+          <h1 className="font-display text-xl font-semibold text-stone-950">{translate('crash.title')}</h1>
+          <p className="text-base text-stone-600">{translate('crash.body')}</p>
           <button type="button" onClick={() => window.location.reload()} className="ui-btn-primary w-full justify-center">
-            Reload
+            {translate('crash.reload')}
           </button>
         </div>
       </div>

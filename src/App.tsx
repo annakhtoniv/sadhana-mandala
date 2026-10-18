@@ -16,6 +16,8 @@ import { formatDateDisplay } from './lib/dateUtils';
 import type { BatchJoinPreview } from './types/database';
 import { AlertCircle, Loader2, ArrowUpRight, Flame, BookOpen, CalendarDays, HeartHandshake, QrCode } from 'lucide-react';
 import { BrandMark } from './components/BrandMark';
+import { LanguageButton } from './components/LanguageSwitch';
+import { LanguageProvider, translate, useT } from './i18n';
 
 // Staff screens load only when opened, so students download less (Phase 15)
 const AdminHome = lazy(() => import('./components/AdminHome').then((m) => ({ default: m.AdminHome })));
@@ -24,7 +26,7 @@ const CrmScreen = lazy(() => import('./components/CrmScreen').then((m) => ({ def
 
 const ScreenLoading = () => (
   <div role="status" className="w-full flex items-center justify-center gap-2 py-16 text-sm text-stone-500">
-    <Loader2 className="w-4 h-4 animate-spin" /> Loading...
+    <Loader2 className="w-4 h-4 animate-spin" /> {translate('common.loading')}
   </div>
 );
 
@@ -39,8 +41,32 @@ const GoogleIcon = () => (
 
 type Tab = 'home' | 'lessons' | 'profile' | 'events' | 'leads';
 
+/** Messages appear at the bottom, above the tab bar, and are read aloud */
+function Toast() {
+  const { notice, clearNotice } = useAuth();
+  const t = useT();
+  return (
+    <div aria-live="polite" className="fixed inset-x-0 bottom-24 md:bottom-6 z-40 px-4 pointer-events-none flex justify-center md:ps-64">
+      {notice && (
+        <div
+          role={notice.tone === 'success' ? 'status' : 'alert'}
+          className={`pointer-events-auto w-full max-w-md p-4 rounded-2xl text-base flex items-start justify-between gap-3 shadow-xl animate-fade-up ${
+            notice.tone === 'success' ? 'bg-emerald-900 text-white' : 'bg-red-700 text-white'
+          }`}
+        >
+          <span>{notice.text}</span>
+          <button type="button" onClick={clearNotice} className="min-h-11 -my-2 px-2 text-sm font-semibold underline shrink-0 cursor-pointer">
+            {t('common.close')}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MainApp() {
-  const { user, profile, activeRole, setActiveRole, hasConsent, isLoading, organisation, notice, clearNotice } = useAuth();
+  const { user, profile, activeRole, setActiveRole, hasConsent, isLoading, organisation } = useAuth();
+  const t = useT();
   const [currentTab, setCurrentTab] = useState<Tab>('home');
   // Volunteers come here for their leads: open on Leads once after sign-in
   const openedLeadsFor = useRef<string | null>(null);
@@ -72,7 +98,7 @@ function MainApp() {
 
   const handleGoogleSignIn = async () => {
     if (!isSupabaseConfigured) {
-      setAuthError('Supabase is not configured. Please ensure your Supabase keys are in .env.local.');
+      setAuthError(t('signin.notConfigured'));
       return;
     }
 
@@ -87,7 +113,7 @@ function MainApp() {
       });
       if (error) throw error;
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to connect to Google Sign-in';
+      const msg = err instanceof Error ? err.message : t('signin.failed');
       setAuthError(msg);
     } finally {
       setIsSigningIn(false);
@@ -99,8 +125,8 @@ function MainApp() {
     return (
       <div className="flex flex-col min-h-[100dvh] items-center justify-center gap-4 text-stone-500">
         <BrandMark className="w-12 h-12 animate-float" />
-        <span className="text-xs tracking-wide flex items-center gap-2">
-          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Opening {organisation.app_name}
+        <span className="text-sm tracking-wide flex items-center gap-2">
+          <Loader2 className="w-4 h-4 animate-spin" /> {t('app.opening', { app: organisation.app_name })}
         </span>
       </div>
     );
@@ -109,10 +135,10 @@ function MainApp() {
   // Not signed in: white-label landing page
   if (!user) {
     const features = [
-      { icon: Flame, title: 'Daily practice', text: 'One tap a day. Your streak and your 40-day trail.' },
-      { icon: BookOpen, title: 'Learn', text: 'Short lessons that open as your programme unfolds.' },
-      { icon: CalendarDays, title: 'Gather', text: 'Intro talks, satsangs and follow-ups in one place.' },
-      { icon: HeartHandshake, title: 'Guided', text: 'Your teacher sees how you are doing and checks in.' },
+      { icon: Flame, title: t('landing.f1Title'), text: t('landing.f1Text') },
+      { icon: BookOpen, title: t('landing.f2Title'), text: t('landing.f2Text') },
+      { icon: CalendarDays, title: t('landing.f3Title'), text: t('landing.f3Text') },
+      { icon: HeartHandshake, title: t('landing.f4Title'), text: t('landing.f4Text') },
     ];
     return (
       <div className="flex flex-col min-h-[100dvh] text-stone-900">
@@ -126,14 +152,17 @@ function MainApp() {
               )}
               <span className="font-display font-semibold text-[15px]">{organisation.app_name}</span>
             </div>
-            <button type="button" onClick={handleGoogleSignIn} className="h-9 px-4 rounded-full text-xs font-medium text-stone-700 hover:bg-stone-900/5 cursor-pointer transition-colors">
-              Sign in
-            </button>
+            <div className="flex items-center gap-1">
+              <LanguageButton />
+              <button type="button" onClick={handleGoogleSignIn} className="h-11 px-4 rounded-full text-sm font-medium text-stone-700 hover:bg-stone-900/5 cursor-pointer transition-colors">
+                {t('signin.short')}
+              </button>
+            </div>
           </div>
         </header>
 
         <main className="flex-1 w-full max-w-md md:max-w-5xl mx-auto px-4 md:px-10 pt-10 md:pt-20 pb-10 space-y-8 md:space-y-0 md:grid md:grid-cols-2 md:gap-16 md:items-center">
-          <section className="text-center md:text-left space-y-5 animate-fade-up">
+          <section className="text-center md:text-start space-y-5 animate-fade-up">
             <div className="relative mx-auto md:mx-0 w-28 h-28">
               <div className="absolute inset-0 rounded-full bg-emerald-400/30 blur-2xl" />
               <BrandMark className="relative w-28 h-28 animate-float drop-shadow-[0_18px_30px_rgba(24,24,27,0.25)]" />
@@ -142,12 +171,12 @@ function MainApp() {
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> {organisation.name}
             </span>
             <h1 className="font-display text-[2.6rem] md:text-6xl leading-[1.02] font-semibold text-stone-950">
-              Your practice,
+              {t('landing.title1')}
               <br />
-              <span className="font-serif italic font-normal text-stone-500">gently kept.</span>
+              <span className="font-serif italic font-normal text-stone-500">{t('landing.title2')}</span>
             </h1>
             <p className="text-[15px] md:text-lg text-stone-500 leading-relaxed max-w-[19rem] md:max-w-md mx-auto md:mx-0">
-              {organisation.footer_text || 'Daily practice, programmes and teacher guidance for your community.'}
+              {t('landing.subtitle')}
             </p>
           </section>
 
@@ -155,34 +184,32 @@ function MainApp() {
           {pendingJoin && (
             <section className="ui-card !p-4 space-y-2 animate-fade-up" role="status">
               <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-emerald-700">
-                <QrCode className="w-3.5 h-3.5" /> You are joining a batch
+                <QrCode className="w-3.5 h-3.5" /> {t('landing.joining')}
               </div>
               {joinPreview && joinPreview !== 'unknown' ? (
                 <div>
                   <div className="font-display text-lg font-semibold">{joinPreview.batch_name}</div>
                   <div className="text-xs text-stone-500">
                     {joinPreview.course_name}
-                    {joinPreview.start_date ? ` · starts ${formatDateDisplay(joinPreview.start_date, organisation.timezone)}` : ''}
+                    {joinPreview.start_date ? ` · ${t('landing.starts', { date: formatDateDisplay(joinPreview.start_date, organisation.timezone) })}` : ''}
                   </div>
                 </div>
               ) : joinPreview === 'unknown' ? (
-                <div className="text-xs text-red-600">
-                  The join code {pendingJoin} was not found. Please check the QR code with your teacher.
-                </div>
+                <div className="text-sm text-red-700">{t('landing.codeNotFound', { code: pendingJoin })}</div>
               ) : (
-                <div className="text-sm font-mono font-semibold">Join code {pendingJoin}</div>
+                <div className="text-sm font-semibold">{t('join.code')} <span className="font-mono">{pendingJoin}</span></div>
               )}
               <div className="flex items-center justify-between gap-3 pt-1">
-                <p className="text-xs text-stone-500">Sign in with Google and you are added automatically.</p>
+                <p className="text-sm text-stone-600">{t('landing.addedAutomatically')}</p>
                 <button
                   type="button"
                   onClick={() => {
                     clearPending(PENDING_JOIN_KEY);
                     setPendingJoin(null);
                   }}
-                  className="text-xs text-stone-500 hover:text-stone-700 shrink-0 cursor-pointer"
+                  className="min-h-11 px-2 text-sm text-stone-600 hover:text-stone-800 shrink-0 cursor-pointer"
                 >
-                  Not now
+                  {t('landing.notNow')}
                 </button>
               </div>
             </section>
@@ -199,15 +226,15 @@ function MainApp() {
                 <GoogleIcon />
               </span>
               <span className="text-[15px]">
-                {isSigningIn ? 'Connecting to Google...' : pendingJoin ? 'Continue with Google and join' : 'Continue with Google'}
+                {isSigningIn ? t('signin.connecting') : pendingJoin ? t('signin.continueJoin') : t('signin.continue')}
               </span>
               <span className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center shrink-0 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-px">
-                <ArrowUpRight className="w-4 h-4" />
+                <ArrowUpRight className="w-4 h-4 rtl:-scale-x-100" />
               </span>
             </button>
-            <p className="text-center text-xs text-stone-500">No password. No app store. Just your Google account.</p>
+            <p className="text-center text-sm text-stone-600">{t('signin.noPassword')}</p>
             {authError && (
-              <div role="alert" className="p-3 bg-red-50 rounded-2xl text-xs text-red-600 flex items-start gap-2">
+              <div role="alert" className="p-3 bg-red-50 rounded-2xl text-sm text-red-700 flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
                 <span>{authError}</span>
               </div>
@@ -221,8 +248,8 @@ function MainApp() {
                   <Icon className="w-[18px] h-[18px] text-stone-700" />
                 </span>
                 <div>
-                  <div className="text-sm font-semibold text-stone-900">{title}</div>
-                  <div className="text-xs text-stone-500 leading-relaxed">{text}</div>
+                  <div className="text-base font-semibold text-stone-900">{title}</div>
+                  <div className="text-sm text-stone-600 leading-relaxed">{text}</div>
                 </div>
               </div>
             ))}
@@ -230,22 +257,7 @@ function MainApp() {
           </div>
         </main>
 
-      {/* Messages appear at the bottom, above the tab bar, and are read aloud */}
-      <div aria-live="polite" className="fixed inset-x-0 bottom-24 md:bottom-6 z-40 px-4 pointer-events-none flex justify-center">
-        {notice && (
-          <div
-            role={notice.tone === 'success' ? 'status' : 'alert'}
-            className={`pointer-events-auto w-full max-w-md p-4 rounded-2xl text-base flex items-start justify-between gap-3 shadow-xl animate-fade-up ${
-              notice.tone === 'success' ? 'bg-emerald-900 text-white' : 'bg-red-700 text-white'
-            }`}
-          >
-            <span>{notice.text}</span>
-            <button type="button" onClick={clearNotice} className="min-h-11 -my-2 px-2 text-sm font-semibold underline shrink-0 cursor-pointer">
-              Close
-            </button>
-          </div>
-        )}
-      </div>
+      <Toast />
 
         <Footer />
       </div>
@@ -303,6 +315,7 @@ function MainApp() {
         </Suspense>
       </main>
 
+      <Toast />
       <Footer withNav />
     </div>
   );
@@ -310,10 +323,12 @@ function MainApp() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <ConfirmProvider>
-        <MainApp />
-      </ConfirmProvider>
-    </AuthProvider>
+    <LanguageProvider>
+      <AuthProvider>
+        <ConfirmProvider>
+          <MainApp />
+        </ConfirmProvider>
+      </AuthProvider>
+    </LanguageProvider>
   );
 }

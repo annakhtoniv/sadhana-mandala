@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import { useT } from '../i18n';
 
 interface SheetProps {
   open: boolean;
@@ -25,6 +26,7 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), selec
  * keyboard focus stays inside, Escape closes it and focus returns to where it was.
  */
 export const Sheet: React.FC<SheetProps> = ({ open, onClose, title, description, children, footer, size = 'md', busy = false, tone = 'default' }) => {
+  const t = useT();
   const titleId = useId();
   const descId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -94,7 +96,7 @@ export const Sheet: React.FC<SheetProps> = ({ open, onClose, title, description,
               </p>
             )}
           </div>
-          <button type="button" onClick={onClose} disabled={busy} className="ui-icon-btn -me-2 -mt-1 shrink-0" aria-label="Close">
+          <button type="button" onClick={onClose} disabled={busy} className="ui-icon-btn -me-2 -mt-1 shrink-0" aria-label={t('common.close')}>
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -118,6 +120,7 @@ const ConfirmContext = createContext<ConfirmFn | null>(null);
 
 /** Replaces window.confirm with a sheet that matches the app (and can be read aloud). */
 export const ConfirmProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const t = useT();
   const [state, setState] = useState<(ConfirmOptions & { resolve: (v: boolean) => void }) | null>(null);
   const confirm = useCallback<ConfirmFn>((options) => new Promise<boolean>((resolve) => setState({ ...options, resolve })), []);
   const answer = (value: boolean) => {
@@ -137,14 +140,14 @@ export const ConfirmProvider: React.FC<{ children: React.ReactNode }> = ({ child
         footer={
           <>
             <button type="button" onClick={() => answer(false)} className="ui-btn-ghost">
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               type="button"
               onClick={() => answer(true)}
               className={state?.danger ? 'ui-btn bg-red-600 text-white hover:bg-red-700' : 'ui-btn-primary'}
             >
-              {state?.confirmLabel || 'OK'}
+              {state?.confirmLabel || t('common.ok')}
             </button>
           </>
         }

@@ -35,7 +35,8 @@ describe('Morning and Evening ticks', () => {
 describe('trail', () => {
   it('shows both, one, today, missed and future', () => {
     expect(getTrailDayStatus(3, 5, day(3, true, true))).toBe('full');
-    expect(getTrailDayStatus(3, 5, day(3, false, true))).toBe('half');
+    expect(getTrailDayStatus(3, 5, day(3, false, true))).toBe('evening');
+    expect(getTrailDayStatus(3, 5, day(3, true, false))).toBe('morning');
     expect(getTrailDayStatus(5, 5, undefined)).toBe('today');
     expect(getTrailDayStatus(3, 5, day(3))).toBe('missed');
     expect(getTrailDayStatus(6, 5, undefined)).toBe('future');

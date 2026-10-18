@@ -306,6 +306,10 @@ by the organisation.
     the bottom of the screen, a calmer student home, a clearer People page.
     Test: every pop-up closes with Escape; on a phone the text can be zoomed;
     a volunteer opens on Leads; a person with one role sees no view switcher.
+17. Languages: English, Arabic (right to left) and Hindi for everything a
+    student sees; the trail shows Morning as the top half and Evening as the
+    bottom half of a day. Test: switch to Arabic on the consent screen and the
+    layout turns right to left; a morning-only day shows its top half green.
 
 ## Out of scope (do not build)
 Community or chat, payments, native mobile apps, organisation self-signup,

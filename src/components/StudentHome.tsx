@@ -14,9 +14,9 @@ import {
   hasPracticeTrack,
   practiceTrackName,
   programmeRunStatus,
-  RUN_STATUS_LABEL,
 } from '../lib/programmeUtils';
 import type { Checkin, Enrolment } from '../types/database';
+import { useT, type MsgKey } from '../i18n';
 import {
   Flame,
   Users,
@@ -44,6 +44,8 @@ function withPendingTicks(saved: Checkin[], pending: PendingTick[]): Checkin[] {
 
 export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) => {
   const { organisation, profile, enrolment, enrolments, selectEnrolment, joinBatch } = useAuth();
+  const t = useT();
+  const statusLabel = (s: string) => t(`status.${s}` as MsgKey);
   const [joinCode, setJoinCode] = useState('');
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
@@ -130,7 +132,7 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
 
     const result = await joinBatch(joinCode);
     if (!result.success) {
-      setJoinError(result.message || 'Invalid join code. Please check with your teacher.');
+      setJoinError(result.message || t('join.invalid'));
     } else {
       setJoinCode('');
     }
@@ -157,7 +159,7 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
           className="ui-input flex-1 min-w-0 font-mono tracking-widest uppercase"
         />
         <button type="submit" disabled={joining || !joinCode.trim()} className="ui-btn-primary shrink-0">
-          {joining ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>Join</span>}
+          {joining ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>{t('join.button')}</span>}
           {!joining && <ArrowRight className="w-4 h-4 rtl:rotate-180" />}
         </button>
       </div>
@@ -175,8 +177,8 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
     return (
       <div className="w-full space-y-5 animate-fade-up">
         <section className="ui-card">
-          <span className="ui-eyebrow">Welcome to {organisation.app_name}</span>
-          <h1 className="font-display text-2xl font-semibold text-stone-950 mt-3 user-text">{profile?.full_name || 'Welcome'}</h1>
+          <span className="ui-eyebrow">{t('home.welcomeTo', { app: organisation.app_name })}</span>
+          <h1 className="font-display text-2xl font-semibold text-stone-950 mt-3 user-text">{profile?.full_name || t('home.welcome')}</h1>
         </section>
 
         <section className="ui-card space-y-4">
@@ -185,17 +187,17 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
               <Users className="w-5 h-5" />
             </div>
             <div className="space-y-1">
-              <h2 className="font-display text-lg font-semibold text-stone-950">You are not in a batch yet</h2>
+              <h2 className="font-display text-lg font-semibold text-stone-950">{t('home.noBatch')}</h2>
               <p className="text-base text-stone-600 leading-relaxed">
-                Scan the QR code from your teacher, or type the join code they gave you.
+                {t('home.noBatchHelp')}
               </p>
             </div>
           </div>
-          {joinForm('join-first', 'Join code')}
+          {joinForm('join-first', t('join.code'))}
           {onNavigateLessons && (
             <button type="button" onClick={onNavigateLessons} className="ui-btn-ghost w-full">
               <BookOpen className="w-4 h-4" />
-              <span>Read the general lessons</span>
+              <span>{t('home.generalLessons')}</span>
             </button>
           )}
         </section>
@@ -210,13 +212,13 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
   return (
     <div className="w-full space-y-5 animate-fade-up">
       <section className="ui-card space-y-2">
-        <span className="ui-eyebrow">{course?.name || 'Programme'}</span>
+        <span className="ui-eyebrow user-text">{course?.name || t('common.programme')}</span>
         <h1 className="font-display text-2xl font-semibold text-stone-950 mt-1 user-text">{batch?.name}</h1>
         <p className="text-base text-stone-600">
-          {startText && (notStarted ? `Starts on ${startText}` : `Started on ${startText}`)}
+          {startText && (notStarted ? t('home.startsOn', { date: startText }) : t('home.startedOn', { date: startText }))}
           {batch?.teacher && (
             <>
-              {startText ? ' · ' : ''}Teacher: <span className="user-text">{batch.teacher.full_name || batch.teacher.email}</span>
+              {startText ? ' · ' : ''}{t('home.teacher')} <span className="user-text">{batch.teacher.full_name || batch.teacher.email}</span>
             </>
           )}
         </p>
@@ -225,7 +227,7 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
       {/* My programmes (a student can be in many programmes over time) */}
       {enrolments.length > 1 && (
         <section className="ui-card space-y-2">
-          <h2 className="text-sm font-semibold text-stone-700">My programmes ({enrolments.length})</h2>
+          <h2 className="text-sm font-semibold text-stone-700">{t('home.myProgrammes', { count: enrolments.length })}</h2>
           <div className="space-y-2">
             {enrolments.map((e: Enrolment) => {
               const eCourse = e.batch?.course;
@@ -243,7 +245,7 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
                   }`}
                 >
                   <span className="min-w-0">
-                    <span className="block text-base font-semibold text-stone-900 truncate">{eCourse?.name || 'Programme'}</span>
+                    <span className="block text-base font-semibold text-stone-900 truncate user-text">{eCourse?.name || t('common.programme')}</span>
                     <span className="block text-sm text-stone-600 truncate user-text">{e.batch?.name}</span>
                   </span>
                   <span className="shrink-0 flex flex-col items-end gap-1">
@@ -256,10 +258,10 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
                           : 'bg-stone-100 text-stone-600'
                       }`}
                     >
-                      {RUN_STATUS_LABEL[status]}
+                      {statusLabel(status)}
                     </span>
                     {hasPracticeTrack(eCourse) && (
-                      <span className="inline-flex items-center gap-1 text-xs text-amber-700">
+                      <span className="inline-flex items-center gap-1 text-xs text-amber-700 user-text">
                         <Flame className="w-3.5 h-3.5" />
                         {practiceTrackName(eCourse)}
                       </span>
@@ -276,18 +278,18 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
         /* Programme without a daily practice track (e.g. Art of Silence, VTP) */
         <section className="ui-card space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="font-display text-lg font-semibold text-stone-950">What happens next</h2>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-stone-100 text-stone-700">{RUN_STATUS_LABEL[runStatus]}</span>
+            <h2 className="font-display text-lg font-semibold text-stone-950">{t('home.whatNext')}</h2>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-stone-100 text-stone-700">{statusLabel(runStatus)}</span>
           </div>
-          {course?.description && <p className="text-base text-stone-700 leading-relaxed">{course.description}</p>}
+          {course?.description && <p className="text-base text-stone-700 leading-relaxed user-text">{course.description}</p>}
           <p className="text-base text-stone-700 leading-relaxed">
             {runStatus === 'upcoming'
-              ? `Your programme starts on ${startText}. Your teacher will tell you the times and the place.`
+              ? t('home.nextUpcoming', { date: startText })
               : runStatus === 'running'
-              ? 'Your programme is running now. Sessions and reminders from your teacher appear below.'
-              : 'This programme has finished. Your lessons and study materials stay here for you.'}
+              ? t('home.nextRunning')
+              : t('home.nextFinished')}
           </p>
-          {course?.programme_days ? <p className="text-sm text-stone-600">Length: {course.programme_days} days</p> : null}
+          {course?.programme_days ? <p className="text-sm text-stone-600">{t('home.length', { days: course.programme_days })}</p> : null}
         </section>
       ) : (
         batch &&
@@ -328,7 +330,7 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
       {/* Study materials of the programme (Phase 12) */}
       {course && <ProgrammeMaterials key={`mat-${course.id}`} course={course} />}
 
-      <section className="ui-card">{joinForm('join-another', 'Joining another programme? Type its join code')}</section>
+      <section className="ui-card">{joinForm('join-another', t('join.another'))}</section>
     </div>
   );
 };

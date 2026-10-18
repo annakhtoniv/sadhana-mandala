@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { currentLocale } from '../i18n/locale';
 import { useAuth } from '../context/AuthContext';
 import { deleteRecord, fetchBatchFollowupRecords, fetchFollowupPlan, saveRecord } from '../lib/followupService';
 import { countDue, REMINDER_VISIBLE_DAYS, stepProgress, type StepState } from '../lib/followupUtils';
@@ -37,7 +38,7 @@ const inputClass = 'ui-input';
 export function formatSessionTime(iso: string | null, timeZone: string): string {
   if (!iso) return '';
   try {
-    return new Intl.DateTimeFormat('en-GB', { timeZone, weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
+    return new Intl.DateTimeFormat(currentLocale(), { timeZone, weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
   } catch {
     return '';
   }

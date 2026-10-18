@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
+import { currentLocale } from '../i18n/locale';
+import { useT, type MsgKey } from '../i18n';
 import { useAuth } from '../context/AuthContext';
 import { Sheet } from './Sheet';
 import { InstallAppCard } from './InstallAppCard';
+import { LanguageChoices } from './LanguageSwitch';
 import { Avatar } from './Avatar';
 import { uploadAvatar, switchToGoogleAvatar } from '../lib/avatarService';
-import { ROLE_LABEL } from '../lib/roles';
-import { Camera, Loader2, Shield, CheckCircle2, LogOut, Trash2, Crown, GraduationCap } from 'lucide-react';
+import { rolesOf } from '../lib/roles';
+import { Camera, Loader2, Shield, CheckCircle2, LogOut, Trash2, Crown, GraduationCap, Languages } from 'lucide-react';
 
 interface ProfileScreenProps {
   onBack: () => void;
@@ -13,6 +16,7 @@ interface ProfileScreenProps {
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
   const { profile, user, organisation, role, setActiveRole, signOut, deleteAccount, refreshProfile } = useAuth();
+  const t = useT();
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoMessage, setPhotoMessage] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -20,12 +24,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const formattedConsentDate = profile?.consent_at
-    ? new Date(profile.consent_at).toLocaleString('en-GB', {
+    ? new Date(profile.consent_at).toLocaleString(currentLocale(), {
         timeZone: organisation.timezone || 'Asia/Dubai',
         dateStyle: 'medium',
         timeStyle: 'short',
       })
-    : 'Not yet recorded';
+    : t('profile.consentNone');
+  const roleNames = (profile ? rolesOf(profile) : [role]).map((r) => t(`role.${r}` as MsgKey)).join(', ');
 
   const handleDeleteAccount = async () => {
     setIsDeleting(true);
@@ -33,27 +38,30 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
     const res = await deleteAccount();
     setIsDeleting(false);
     // On success the person is signed out; otherwise say why it was not deleted
-    if (!res.success) setDeleteError(res.error || 'Your account could not be deleted. Please try again.');
+    if (!res.success) setDeleteError(res.error || t('profile.deleteFailed'));
+  };
+
+  const closeDelete = () => {
+    setShowDeleteConfirm(false);
+    setDeleteError(null);
   };
 
   return (
-    <div className="w-full space-y-6 animate-in fade-in duration-150">
-
-      {/* Profile Card */}
-      <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-4">
+    <div className="w-full space-y-5 animate-fade-up">
+      <section className="ui-card space-y-4">
         <div className="flex items-center gap-4">
           <div className="relative shrink-0">
             <Avatar name={profile?.full_name || user?.email} url={profile?.avatar_url} size={72} />
             <label
-              className="absolute -bottom-1 -end-1 w-8 h-8 rounded-full bg-stone-900 text-white flex items-center justify-center cursor-pointer shadow-lg ring-2 ring-white hover:scale-105 transition-transform"
-              title="Change photo"
+              className="absolute -bottom-1 -end-1 w-10 h-10 rounded-full bg-stone-900 text-white flex items-center justify-center cursor-pointer shadow-lg ring-2 ring-white hover:scale-105 transition-transform"
+              title={t('profile.changePhoto')}
             >
-              {photoBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
+              {photoBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
               <input
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
                 className="sr-only"
-                aria-label="Change photo"
+                aria-label={t('profile.changePhoto')}
                 disabled={photoBusy}
                 onChange={async (e) => {
                   const file = e.target.files?.[0];
@@ -63,17 +71,15 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
                   setPhotoMessage(null);
                   const res = await uploadAvatar(user.id, file);
                   setPhotoBusy(false);
-                  if (!res.success) setPhotoMessage(res.error || 'Upload failed.');
+                  if (!res.success) setPhotoMessage(res.error || t('profile.uploadFailed'));
                   else await refreshProfile();
                 }}
               />
             </label>
           </div>
           <div className="min-w-0">
-            <h1 className="font-display text-lg font-semibold text-stone-900 truncate">
-              {profile?.full_name || 'Practitioner'}
-            </h1>
-            <p className="text-xs text-stone-500 truncate">{user?.email}</p>
+            <h1 className="font-display text-xl font-semibold text-stone-950 truncate user-text">{profile?.full_name || user?.email}</h1>
+            <p className="text-sm text-stone-600 truncate">{user?.email}</p>
             {profile?.avatar_source === 'upload' ? (
               <button
                 type="button"
@@ -83,145 +89,122 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
                   setPhotoBusy(true);
                   const res = await switchToGoogleAvatar(user.id);
                   setPhotoBusy(false);
-                  if (!res.success) setPhotoMessage(res.error || 'Could not switch.');
+                  if (!res.success) setPhotoMessage(res.error || t('profile.switchFailed'));
                   else await refreshProfile();
                 }}
-                className="mt-1 text-xs text-stone-500 underline cursor-pointer"
+                className="mt-1 min-h-10 text-sm text-stone-700 underline cursor-pointer"
               >
-                Use my Google photo
+                {t('profile.useGooglePhoto')}
               </button>
             ) : (
-              <p className="mt-1 text-xs text-stone-500">Photo from your Google account. Tap the camera to change it.</p>
+              <p className="mt-1 text-sm text-stone-600">{t('profile.photoHelp')}</p>
             )}
-            {photoMessage && <p className="mt-1 text-xs text-red-600">{photoMessage}</p>}
+            {photoMessage && (
+              <p role="alert" className="mt-1 text-sm text-red-700">
+                {photoMessage}
+              </p>
+            )}
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 pt-2">
+        <dl className="grid grid-cols-2 gap-3">
           <div className="p-3 bg-stone-50 rounded-xl">
-            <span className="text-xs text-stone-500 uppercase tracking-wider block font-semibold">
-              Role
-            </span>
-            <span className="text-xs font-medium text-stone-800 mt-0.5 block">
-              {ROLE_LABEL[role] || role}
-            </span>
+            <dt className="text-sm text-stone-600">{t('profile.role')}</dt>
+            <dd className="text-base font-medium text-stone-900 mt-0.5">{roleNames}</dd>
           </div>
-
           <div className="p-3 bg-stone-50 rounded-xl">
-            <span className="text-xs text-stone-500 uppercase tracking-wider block font-semibold">
-              Organisation
-            </span>
-            <span className="text-xs font-medium text-stone-800 mt-0.5 block truncate">
-              {organisation.name}
-            </span>
+            <dt className="text-sm text-stone-600">{t('profile.organisation')}</dt>
+            <dd className="text-base font-medium text-stone-900 mt-0.5 truncate">{organisation.name}</dd>
           </div>
-        </div>
+        </dl>
 
-        {/* Console Quick Switch (admins only) */}
+        {/* Quick switch between screens (admins) */}
         {role === 'admin' && (
-        <div className="pt-2 border-t border-stone-100 space-y-2">
-          <div className="text-xs font-semibold text-stone-600">
-            Switch view
+          <div className="pt-2 border-t border-stone-100 space-y-2">
+            <div className="text-sm font-semibold text-stone-700">{t('profile.switchView')}</div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  await setActiveRole('admin');
+                  onBack();
+                }}
+                className="ui-btn-primary"
+              >
+                <Crown className="w-4 h-4 text-emerald-400" />
+                <span>{t('role.admin')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  await setActiveRole('teacher');
+                  onBack();
+                }}
+                className="ui-btn-primary"
+              >
+                <GraduationCap className="w-4 h-4 text-emerald-400" />
+                <span>{t('role.teacher')}</span>
+              </button>
+            </div>
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={async () => {
-                await setActiveRole('admin');
-                onBack();
-              }}
-              className="px-3 py-2.5 rounded-xl bg-stone-900 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm hover:opacity-90 cursor-pointer transition-all"
-            >
-              <Crown className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Admin</span>
-            </button>
-            <button
-              type="button"
-              onClick={async () => {
-                await setActiveRole('teacher');
-                onBack();
-              }}
-              className="px-3 py-2.5 rounded-xl bg-stone-900 text-stone-100 text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm hover:opacity-90 cursor-pointer transition-all"
-            >
-              <GraduationCap className="w-3.5 h-3.5 text-emerald-500" />
-              <span>Teacher</span>
-            </button>
-          </div>
-        </div>
         )}
-      </div>
+      </section>
+
+      <section className="ui-card space-y-3">
+        <h2 className="font-display text-lg font-semibold text-stone-950 flex items-center gap-2">
+          <Languages className="w-5 h-5 text-emerald-700" />
+          {t('lang.choose')}
+        </h2>
+        <LanguageChoices />
+      </section>
 
       <InstallAppCard appName={organisation.app_name} />
 
-      {/* Consent & Privacy Status */}
-      <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm space-y-3">
-        <div className="flex items-center gap-2 text-xs font-semibold text-stone-900">
-          <Shield className="w-4 h-4 text-emerald-600" />
-          <span>Privacy and consent</span>
-        </div>
-
-        <div className="flex items-center justify-between text-xs p-3 rounded-xl bg-stone-50">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-            <span className="text-stone-700">Consent Provided:</span>
-          </div>
-          <span className="font-medium text-stone-900 text-xs">
-            {formattedConsentDate}
+      <section className="ui-card space-y-3">
+        <h2 className="font-display text-lg font-semibold text-stone-950 flex items-center gap-2">
+          <Shield className="w-5 h-5 text-emerald-700" />
+          {t('profile.privacy')}
+        </h2>
+        <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl bg-stone-50 text-base">
+          <span className="flex items-center gap-2 text-stone-700">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+            {t('profile.consentGiven')}
           </span>
+          <span className="font-medium text-stone-900">{formattedConsentDate}</span>
         </div>
-        <p className="text-xs text-stone-500 leading-relaxed">
-          Stored consent governs the collection of your daily practice responses and timestamps for teacher guidance in {organisation.timezone}.
-        </p>
-      </div>
+        <p className="text-sm text-stone-600 leading-relaxed">{t('profile.privacyHelp')}</p>
+      </section>
 
-      {/* Account Actions */}
-      <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm space-y-3">
-        <button
-          type="button"
-          onClick={signOut}
-          className="w-full py-3 px-4 rounded-xl border border-stone-300 hover:bg-stone-100 text-stone-800 text-xs font-medium flex items-center justify-center gap-2 transition-colors cursor-pointer"
-        >
-          <LogOut className="w-4 h-4" />
-          <span>Sign Out</span>
+      <section className="ui-card space-y-3">
+        <button type="button" onClick={signOut} className="ui-btn-ghost w-full">
+          <LogOut className="w-4 h-4 rtl:rotate-180" />
+          <span>{t('profile.signOut')}</span>
         </button>
-
         <button
           type="button"
           onClick={() => setShowDeleteConfirm(true)}
-          className="w-full py-3 px-4 rounded-xl bg-red-50 border border-red-200 hover:bg-red-100 text-red-600 text-xs font-medium flex items-center justify-center gap-2 transition-colors cursor-pointer"
+          className="ui-btn w-full bg-red-50 text-red-700 hover:bg-red-100 ring-1 ring-red-200"
         >
           <Trash2 className="w-4 h-4" />
-          <span>Delete My Account</span>
+          <span>{t('profile.delete')}</span>
         </button>
-      </div>
+      </section>
 
-      {/* Delete account: confirmation */}
       <Sheet
         open={showDeleteConfirm}
-        onClose={() => {
-          setShowDeleteConfirm(false);
-          setDeleteError(null);
-        }}
+        onClose={closeDelete}
         busy={isDeleting}
         size="sm"
         tone="danger"
-        title="Delete your account?"
-        description="This removes your account, your programmes, your check-ins and your photos for good. It cannot be undone."
+        title={t('profile.deleteTitle')}
+        description={t('profile.deleteBody')}
         footer={
           <>
-            <button
-              type="button"
-              onClick={() => {
-                setShowDeleteConfirm(false);
-                setDeleteError(null);
-              }}
-              disabled={isDeleting}
-              className="ui-btn-ghost"
-            >
-              Cancel
+            <button type="button" onClick={closeDelete} disabled={isDeleting} className="ui-btn-ghost">
+              {t('common.cancel')}
             </button>
             <button type="button" onClick={handleDeleteAccount} disabled={isDeleting} className="ui-btn bg-red-600 text-white hover:bg-red-700">
-              {isDeleting ? 'Deleting...' : 'Delete everything'}
+              {isDeleting ? t('profile.deleting') : t('profile.deleteConfirm')}
             </button>
           </>
         }

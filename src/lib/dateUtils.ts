@@ -1,3 +1,4 @@
+import { currentLocale } from '../i18n/locale';
 /**
  * Date and timezone helper utilities for Sadhana Mandala.
  * Standardises day calculations based on batch start_date and organization timezone.
@@ -85,7 +86,7 @@ export function formatDateDisplay(
     if (isNaN(year) || isNaN(month) || isNaN(day)) return dateStr;
 
     const dateObj = new Date(Date.UTC(year, month - 1, day));
-    return new Intl.DateTimeFormat('en-GB', {
+    return new Intl.DateTimeFormat(currentLocale(), {
       timeZone,
       day: 'numeric',
       month: 'short',

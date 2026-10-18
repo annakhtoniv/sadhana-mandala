@@ -1,3 +1,4 @@
+import { translate } from '../i18n';
 import type { Lesson, LessonModule, ModuleUnlockRule } from '../types/database';
 
 /** Modules and lessons in display order (ties broken like the database: created_at, then id). */
@@ -50,11 +51,11 @@ export function moduleStates(
     let reason: string | null = null;
     if (module.unlock_rule === 'day') {
       unlocked = dayNumber >= (module.unlock_day ?? 1);
-      if (!unlocked) reason = `Opens on day ${module.unlock_day}`;
+      if (!unlocked) reason = translate('learn.opensDay', { day: module.unlock_day ?? '' });
     } else if (module.unlock_rule === 'sequential' && previous) {
       const prevLessons = publishedLessons(previous);
       unlocked = previousUnlocked && prevLessons.every((l) => completedLessonIds.has(l.id));
-      if (!unlocked) reason = `Opens when you finish "${previous.title}"`;
+      if (!unlocked) reason = translate('learn.opensAfter', { title: previous.title });
     }
 
     states.set(module.id, { unlocked, reason, completedCount, totalCount: lessons.length, complete });

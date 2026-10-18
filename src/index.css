@@ -11,7 +11,7 @@
   --org-primary: #18181b;
   --org-accent: #10b981;
   --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
-  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
+  font-family: Geist, 'Noto Sans Arabic', 'Noto Sans Devanagari', ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -173,7 +173,7 @@ textarea:focus {
 }
 
 .font-display {
-  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
+  font-family: Geist, 'Noto Sans Arabic', 'Noto Sans Devanagari', ui-sans-serif, system-ui, sans-serif;
   letter-spacing: -0.035em;
 }
 
@@ -184,4 +184,25 @@ textarea:focus {
     animation-duration: 1ms !important;
     transition-duration: 1ms !important;
   }
+}
+
+/* Arabic and Hindi: no italics or wide letter spacing (they break these scripts), a little more line height */
+:lang(ar) .italic,
+:lang(hi) .italic {
+  font-style: normal;
+}
+:lang(ar) [class*='tracking-'],
+:lang(hi) [class*='tracking-'] {
+  letter-spacing: 0;
+}
+:lang(ar) .font-mono,
+:lang(hi) .font-mono {
+  letter-spacing: 0.1em;
+}
+:lang(ar) body,
+:lang(hi) body {
+  line-height: 1.6;
+}
+:lang(ar) .uppercase {
+  text-transform: none;
 }
