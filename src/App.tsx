@@ -118,25 +118,26 @@ function MainApp() {
           </div>
         </header>
 
-        <main className="flex-1 w-full max-w-md mx-auto px-4 pt-10 pb-10 space-y-8">
-          <section className="text-center space-y-5 animate-fade-up">
-            <div className="relative mx-auto w-28 h-28">
+        <main className="flex-1 w-full max-w-md md:max-w-5xl mx-auto px-4 md:px-10 pt-10 md:pt-20 pb-10 space-y-8 md:space-y-0 md:grid md:grid-cols-2 md:gap-16 md:items-center">
+          <section className="text-center md:text-left space-y-5 animate-fade-up">
+            <div className="relative mx-auto md:mx-0 w-28 h-28">
               <div className="absolute inset-0 rounded-full bg-emerald-400/30 blur-2xl" />
               <BrandMark className="relative w-28 h-28 animate-float drop-shadow-[0_18px_30px_rgba(24,24,27,0.25)]" />
             </div>
             <span className="ui-eyebrow">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> {organisation.name}
             </span>
-            <h1 className="font-display text-[2.6rem] leading-[1.02] font-semibold text-stone-950">
+            <h1 className="font-display text-[2.6rem] md:text-6xl leading-[1.02] font-semibold text-stone-950">
               Your practice,
               <br />
               <span className="font-serif italic font-normal text-stone-500">gently kept.</span>
             </h1>
-            <p className="text-[15px] text-stone-500 leading-relaxed max-w-[19rem] mx-auto">
+            <p className="text-[15px] md:text-lg text-stone-500 leading-relaxed max-w-[19rem] md:max-w-md mx-auto md:mx-0">
               {organisation.footer_text || 'Daily practice, programmes and teacher guidance for your community.'}
             </p>
           </section>
 
+          <div className="space-y-8">
           {pendingJoin && (
             <section className="ui-card !p-4 space-y-2 animate-fade-up" role="status">
               <div className="flex items-center gap-2 text-[10px] font-medium uppercase tracking-[0.18em] text-emerald-700">
@@ -212,6 +213,7 @@ function MainApp() {
               </div>
             ))}
           </section>
+          </div>
         </main>
 
         <Footer />
@@ -221,7 +223,7 @@ function MainApp() {
 
   // Signed in
   return (
-    <div className="flex flex-col min-h-[100dvh] text-stone-900">
+    <div className="flex flex-col min-h-[100dvh] text-stone-900 md:pl-64">
       {!hasConsent && <ConsentModal />}
 
       {/* Navigation Header */}
@@ -240,10 +242,14 @@ function MainApp() {
           setShowTour(false);
           localStorage.setItem('sadhana_tour_completed', 'true');
         }}
+        onShowPractice={() => {
+          setActiveRole('student');
+          setCurrentTab('home');
+        }}
       />
 
       {/* Main Container */}
-      <main className="flex-1 w-full max-w-md mx-auto px-4 pt-5 pb-4 animate-fade-up">
+      <main className="flex-1 w-full max-w-md md:max-w-3xl lg:max-w-4xl mx-auto px-4 md:px-8 pt-5 md:pt-10 pb-4 animate-fade-up">
         {notice && (
           <div
             role="status"

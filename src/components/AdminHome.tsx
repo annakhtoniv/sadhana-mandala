@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { ProgrammesManager } from './ProgrammesManager';
 import { BatchSharePanel } from './BatchSharePanel';
+import { TeacherBatchDetail } from './TeacherBatchDetail';
 import { supabase, isDemoMode } from '../lib/supabase';
 import { FunnelReportPanel } from './FunnelReportPanel';
 import { ROLE_LABEL } from '../lib/roles';
@@ -75,6 +76,8 @@ export const AdminHome: React.FC = () => {
 
   // QR & Share Modal State
   const [qrBatch, setQrBatch] = useState<Batch | null>(null);
+  // Batch opened from the Batches tab (roster, edit, QR)
+  const [openBatch, setOpenBatch] = useState<Batch | null>(null);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
   const loadData = async () => {
@@ -271,6 +274,25 @@ export const AdminHome: React.FC = () => {
     { label: 'Teachers', value: teacherCount, icon: GraduationCap, note: `${volunteerCount} volunteer${volunteerCount === 1 ? '' : 's'}` },
   ];
 
+  if (openBatch) {
+    return (
+      <TeacherBatchDetail
+        batch={openBatch}
+        organisation={organisation}
+        canChangeTeacher
+        backLabel="Back to Admin"
+        onBatchUpdated={(updated) => {
+          setOpenBatch(updated);
+          setAllBatches((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
+        }}
+        onBack={() => {
+          setOpenBatch(null);
+          loadData();
+        }}
+      />
+    );
+  }
+
   return (
     <div className="w-full space-y-6 pb-6">
       {/* Title */}
@@ -290,7 +312,7 @@ export const AdminHome: React.FC = () => {
       </section>
 
       {/* Stats bento */}
-      <section className="grid grid-cols-2 gap-3">
+      <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {stats.map(({ label, value, icon: Icon, note }, i) => (
           <div key={label} className={`ui-card !p-4 ${i === 0 ? 'bg-stone-950 text-white' : ''}`} style={i === 0 ? { background: '#09090b' } : undefined}>
             <div className="flex items-center justify-between">
@@ -304,7 +326,7 @@ export const AdminHome: React.FC = () => {
       </section>
 
       {/* Quick actions */}
-      <section className="grid grid-cols-2 gap-2.5">
+      <section className="grid grid-cols-2 md:max-w-md gap-2.5">
         <button type="button" onClick={openNewBatch} className="group ui-btn-primary !justify-between !pl-5 !pr-1.5 !py-1.5">
           <span>New batch</span>
           <span className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-px">
@@ -468,6 +490,13 @@ export const AdminHome: React.FC = () => {
                           title="View QR Code"
                         >
                           <QrCode className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setOpenBatch(batch)}
+                          className="px-3 py-1.5 rounded-full bg-stone-900 text-white text-[11px] font-medium hover:bg-stone-800 transition-all cursor-pointer"
+                        >
+                          Open
                         </button>
                       </div>
                     </div>

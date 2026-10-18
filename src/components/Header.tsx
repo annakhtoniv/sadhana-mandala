@@ -39,7 +39,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <>
-      <header className="sticky top-0 z-30 w-full px-3 pt-3">
+      <header className="sticky top-0 z-30 w-full px-3 pt-3 md:hidden">
         <div className="ui-glass max-w-md mx-auto h-14 pl-2 pr-1.5 rounded-full flex items-center justify-between gap-2">
           <button
             type="button"
@@ -60,13 +60,11 @@ export const Header: React.FC<HeaderProps> = ({
                 <label className="relative">
                   <span className="sr-only">Active Role View</span>
                   <select
-                    id="tour-role-switcher"
                     aria-label="Active Role View"
                     value={currentRole}
                     onChange={(e) => {
                       const newRole = e.target.value as UserRole;
                       onRoleSwitch(newRole);
-                      window.dispatchEvent(new CustomEvent('sadhana_action_roleswitch', { detail: { role: newRole } }));
                     }}
                     className="appearance-none h-9 pl-3.5 pr-8 rounded-full bg-stone-900/[0.04] hover:bg-stone-900/[0.07] text-xs font-medium text-stone-700 cursor-pointer focus:outline-none transition-colors"
                   >
@@ -92,7 +90,7 @@ export const Header: React.FC<HeaderProps> = ({
       {user && (
         <nav
           aria-label="Main"
-          className="fixed bottom-0 inset-x-0 z-30 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pointer-events-none"
+          className="md:hidden fixed bottom-0 inset-x-0 z-30 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pointer-events-none"
         >
           <div className="ui-glass pointer-events-auto max-w-md mx-auto rounded-full p-1.5 flex items-center justify-between">
             {tabs.map(({ id, label, icon: Icon }) => {
@@ -116,6 +114,68 @@ export const Header: React.FC<HeaderProps> = ({
             })}
           </div>
         </nav>
+      )}
+      {user && (
+        <aside className="hidden md:flex fixed inset-y-0 left-0 z-30 w-64 p-4">
+          <div className="ui-glass rounded-[1.75rem] flex-1 flex flex-col p-4 gap-6">
+            <button type="button" onClick={() => onNavigate('home')} className="flex items-center gap-3 px-1 text-left cursor-pointer">
+              {organisation.logo_url ? (
+                <img src={organisation.logo_url} alt="" className="w-10 h-10 rounded-full object-cover" />
+              ) : (
+                <BrandMark className="w-10 h-10" />
+              )}
+              <span className="font-display font-semibold text-[15px] text-stone-900 leading-tight">{organisation.app_name}</span>
+            </button>
+
+            <nav aria-label="Main (desktop)" className="flex flex-col gap-1">
+              {tabs.map(({ id, label, icon: Icon }) => {
+                const active = currentTab === id || (id === 'home' && currentTab === 'lessons');
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => onNavigate(id)}
+                    aria-current={active ? 'page' : undefined}
+                    className={`h-11 px-3.5 rounded-full flex items-center gap-3 text-sm font-medium transition-all cursor-pointer ${
+                      active ? 'bg-stone-900 text-white shadow-[0_8px_20px_-10px_rgba(24,24,27,0.7)]' : 'text-stone-600 hover:bg-stone-900/5 hover:text-stone-900'
+                    }`}
+                  >
+                    <Icon className="w-[18px] h-[18px]" />
+                    {label}
+                  </button>
+                );
+              })}
+            </nav>
+
+            <div className="mt-auto space-y-2">
+              {onRoleSwitch && roleViews.length > 1 && (
+                <label className="block">
+                  <span className="block px-1 pb-1 text-[10px] font-medium uppercase tracking-[0.16em] text-stone-400">View</span>
+                  <span className="relative block">
+                    <select
+                      aria-label="Active Role View (desktop)"
+                      value={currentRole}
+                      onChange={(e) => onRoleSwitch(e.target.value as UserRole)}
+                      className="appearance-none w-full h-10 pl-3.5 pr-8 rounded-full bg-stone-900/[0.04] hover:bg-stone-900/[0.07] text-xs font-medium text-stone-700 cursor-pointer focus:outline-none"
+                    >
+                      {roleViews.map((r) => (
+                        <option key={r} value={r}>
+                          {ROLE_LABEL[r]} view
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-3.5 h-3.5 text-stone-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </span>
+                </label>
+              )}
+              {onOpenTour && (
+                <button type="button" onClick={onOpenTour} className="w-full h-10 px-3.5 rounded-full flex items-center gap-3 text-xs font-medium text-stone-500 hover:bg-stone-900/5 hover:text-stone-900 cursor-pointer">
+                  <HelpCircle className="w-4 h-4" /> Guided tour
+                </button>
+              )}
+            </div>
+          </div>
+        </aside>
       )}
     </>
   );

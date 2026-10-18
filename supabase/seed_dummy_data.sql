@@ -28,6 +28,8 @@
 --   admins and teachers see them). Leads invited to the intro talk are
 --   linked to its guest registrations; two leads are linked to student
 --   accounts (one registered, one completed). Org B has 1 lead.
+--   Phase 11: check-ins are Morning and Evening ticks (done and rest days
+--   become Morning ticks; some days also get an Evening tick).
 -- Organisation B "Prana Flow Academy": different name and colours,
 --   show_powered_by false, 1 batch, 5 students.
 --
@@ -39,7 +41,7 @@
 -- Real accounts are never deleted or changed by this script.
 -- Run supabase/phase4_security.sql, supabase/phase5_programmes.sql,
 -- supabase/phase6_lms.sql, supabase/phase7_followups.sql and
--- supabase/phase8_events.sql and supabase/phase9_crm.sql first,
+-- supabase/phase8_events.sql, supabase/phase9_crm.sql and supabase/phase11_checkins.sql first,
 -- and supabase/verify.sql after.
 --
 -- Expected teacher dashboard for "Autumn Awakening" (day 23 of 40):
@@ -631,5 +633,33 @@ begin
     (v_org_a_id, 'e5000000-0000-0000-0000-000000000007', 'email', 'Sent the intro talk invitation.', v_vol_sara_id, now() - interval '2 days'),
     (v_org_a_id, 'e5000000-0000-0000-0000-000000000011', 'note', 'Opted out by phone.', v_teacher_a1_id, now() - interval '30 days'),
     (v_org_b_id, 'e5000000-0000-0000-0000-000000000012', 'note', 'Org B note.', v_teacher_b_id, now() - interval '3 days');
+end;
+$$;
+
+-- ----------------------------------------------------------------------------
+-- Phase 11: Morning and Evening check-ins. The seed above still writes the
+-- older done / rest / not_yet answers; turn them into ticks: done and rest
+-- become a Morning tick, and some done days also get an Evening tick.
+-- (Runs only if phase11_checkins.sql has been applied.)
+-- ----------------------------------------------------------------------------
+do $$
+begin
+  if exists (select 1 from information_schema.columns
+             where table_schema = 'public' and table_name = 'checkins' and column_name = 'morning') then
+    alter table public.checkins disable trigger tr_checkin_before_save;
+    update public.checkins c
+    set morning = c.status in ('done', 'rest'),
+        evening = c.status = 'done' and (c.day_number + right(c.student_id::text, 2)::int) % 3 <> 0,
+        late = false
+    from public.profiles p
+    where p.id = c.student_id and p.email like '%example.com';
+    update public.checkins c
+    set morning_at = case when c.morning then c.created_at end,
+        evening_at = case when c.evening then c.created_at + interval '12 hours' end,
+        status = case when c.morning or c.evening then 'done' else 'not_yet' end
+    from public.profiles p
+    where p.id = c.student_id and p.email like '%example.com';
+    alter table public.checkins enable trigger tr_checkin_before_save;
+  end if;
 end;
 $$;

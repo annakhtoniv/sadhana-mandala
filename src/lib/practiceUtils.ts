@@ -2,8 +2,22 @@ import type { CheckinStatus } from '../types/database';
 import { calculateDayNumber as calcDayNumberFromDate } from './dateUtils';
 
 /**
- * Re-export day number calculation using organization timezone.
- * Batch start_date is Day 1.
+ * Daily practice rules (PM decision 2026-10-18):
+ * - Each day has two ticks: Morning and Evening. There are no rest days.
+ * - A day counts (streak, trail, reports) when at least one tick is set.
+ * - A student may check in for any past day of the batch (marked "late").
+ */
+
+/** What a check-in row needs for the practice rules (older rows only have status). */
+export interface PracticeMark {
+  day_number: number;
+  morning?: boolean | null;
+  evening?: boolean | null;
+  status?: CheckinStatus | null;
+}
+
+/**
+ * Batch start_date is Day 1, in the organisation time zone.
  * Allows passing an optional reference Date for deterministic testing.
  */
 export function calculateDayNumber(
@@ -14,188 +28,96 @@ export function calculateDayNumber(
   return calcDayNumberFromDate(startDateStr, timeZone, refDate);
 }
 
-/**
- * Visual trail status for a day in the practice trail.
- */
-export type DayTrailStatus = 'done' | 'not_yet' | 'rest' | 'missed' | 'today' | 'future';
+export function hasMorning(c: PracticeMark | null | undefined): boolean {
+  if (!c) return false;
+  if (c.morning === undefined || c.morning === null) return c.status === 'done'; // row from before the ticks
+  return c.morning;
+}
+
+export function hasEvening(c: PracticeMark | null | undefined): boolean {
+  return Boolean(c?.evening);
+}
+
+/** The day counts when morning or evening is ticked. */
+export function isPractised(c: PracticeMark | null | undefined): boolean {
+  return hasMorning(c) || hasEvening(c);
+}
 
 /**
- * Determines the status of a specific day in the practice trail.
- *
- * @param dayNumber The 1-indexed day number of the practice trail
- * @param currentDay The current active day number of the batch
- * @param checkinStatus The check-in status recorded for that day, if any
+ * How a day looks on the practice trail:
+ * full = morning and evening, half = one of them, missed = a passed day
+ * without a tick, today = today without a tick yet, future = not reached.
  */
-export function getTrailDayStatus(
-  dayNumber: number,
-  currentDay: number,
-  checkinStatus?: CheckinStatus | null
-): DayTrailStatus {
-  // If a check-in exists for this day, reflect its recorded status
-  if (checkinStatus) {
-    return checkinStatus;
-  }
+export type DayTrailStatus = 'full' | 'half' | 'missed' | 'today' | 'future';
 
-  // Today with no check-in yet
-  if (dayNumber === currentDay) {
-    return 'today';
-  }
-
-  // A passed day with no check-in is missed
-  if (dayNumber < currentDay) {
-    return 'missed';
-  }
-
-  // Future day not reached yet
+export function getTrailDayStatus(dayNumber: number, currentDay: number, checkin?: PracticeMark | null): DayTrailStatus {
+  const m = hasMorning(checkin);
+  const e = hasEvening(checkin);
+  if (m && e) return 'full';
+  if (m || e) return 'half';
+  if (dayNumber === currentDay) return 'today';
+  if (dayNumber < currentDay) return 'missed';
   return 'future';
 }
 
 /**
- * Calculates current practice streak count.
- *
- * Business Rules (per SPEC.md):
- * - Consecutive "done" days form the streak.
- * - A "rest" day neither adds to nor breaks the streak.
- * - A passed day with "not_yet" or no check-in breaks the streak.
- * - An unanswered "today" does not break yesterday's streak (today is still in progress).
- * - An answered "not_yet" today breaks the streak (streak is 0).
- * - An answered "rest" today preserves yesterday's streak without incrementing.
- * - An answered "done" today increments the streak.
- * - For finished cohorts (currentDay > durationDays), evaluates up to durationDays.
- *
- * @param checkins Array of check-in records containing day_number and status
- * @param currentDay The current day number of the batch. Defaults to highest day_number in checkins or 1.
- * @param durationDays Optional maximum duration of the course (e.g. 40).
- * @returns The consecutive 'done' streak count
+ * Current streak: consecutive practised days ending today (or yesterday, if
+ * today has no tick yet: today is still in progress). For a finished batch it
+ * is counted up to the last day of the practice.
  */
-export function calculateStreak(
-  checkins: Array<{ day_number: number; status: CheckinStatus }>,
-  currentDay?: number,
-  durationDays?: number
-): number {
-  if (!checkins || checkins.length === 0) {
-    return 0;
-  }
+export function calculateStreak(checkins: PracticeMark[], currentDay?: number, durationDays?: number): number {
+  if (!checkins || checkins.length === 0) return 0;
+  const practised = new Set(checkins.filter(isPractised).map((c) => c.day_number));
 
-  // Create a fast lookup map of day_number -> status
-  const checkinMap = new Map<number, CheckinStatus>();
-  for (const c of checkins) {
-    checkinMap.set(c.day_number, c.status);
-  }
-
-  // Determine effective currentDay
-  const maxRecordedDay = Math.max(...checkins.map((c) => c.day_number));
-  let effectiveCurrentDay = currentDay !== undefined ? currentDay : Math.max(maxRecordedDay, 1);
-
-  // If course has finished, bound evaluation day to durationDays
-  if (durationDays !== undefined && durationDays > 0 && effectiveCurrentDay > durationDays) {
-    effectiveCurrentDay = durationDays;
-  }
-
-  if (effectiveCurrentDay < 1) {
-    return 0;
-  }
+  let day = currentDay !== undefined ? currentDay : Math.max(1, ...checkins.map((c) => c.day_number));
+  if (durationDays !== undefined && durationDays > 0 && day > durationDays) day = durationDays;
+  if (day < 1) return 0;
 
   let streak = 0;
-
-  // Check today (effectiveCurrentDay) first:
-  // - If today has 'done', streak starts at 1, then we look back into past days.
-  // - If today has 'rest', streak starts at 0, and we look back into past days (rest neither adds nor breaks).
-  // - If today has 'not_yet', the streak is broken today (return 0).
-  // - If today has no check-in yet, today is not passed, so streak can continue from yesterday.
-  const todayStatus = checkinMap.get(effectiveCurrentDay);
-
-  if (todayStatus === 'not_yet') {
-    return 0;
-  }
-
-  if (todayStatus === 'done') {
+  if (practised.has(day)) streak += 1;
+  for (let d = day - 1; d >= 1; d--) {
+    if (!practised.has(d)) break;
     streak += 1;
   }
-
-  // Now scan backwards through all passed days (effectiveCurrentDay - 1 down to 1)
-  for (let d = effectiveCurrentDay - 1; d >= 1; d--) {
-    const status = checkinMap.get(d);
-
-    if (status === 'done') {
-      streak += 1;
-    } else if (status === 'rest') {
-      // Rest day neither adds to nor breaks the streak; continue scanning backwards
-      continue;
-    } else {
-      // 'not_yet' or missing check-in (gap day) breaks the streak
-      break;
-    }
-  }
-
   return streak;
 }
 
+/** Practised days so far (for "x of 40"). */
+export function countPractisedDays(checkins: PracticeMark[], upToDay?: number): number {
+  return checkins.filter((c) => isPractised(c) && (upToDay === undefined || c.day_number <= upToDay)).length;
+}
+
 /**
- * Detects whether a student has gone "Quiet".
- *
- * Business Rule (per SPEC.md):
- * "Quiet: no check-in of any kind for 4 consecutive days."
- * Evaluated up to the current batch day.
- *
- * @param checkins Array of check-in records
- * @param currentDay The current day number of the batch
- * @param thresholdDays Number of consecutive silent days to trigger quiet flag (default 4)
- * @param durationDays Optional duration of the batch
- * @returns boolean true if student has no check-in of any kind for `thresholdDays` consecutive days up to currentDay
+ * Quiet: no practised day for `thresholdDays` days in a row, up to today.
  */
 export function isQuietStudent(
-  checkins: Array<{ day_number: number }>,
+  checkins: PracticeMark[],
   currentDay: number,
   thresholdDays: number = 4,
   durationDays?: number
 ): boolean {
-  let effectiveCurrentDay = currentDay;
-  if (durationDays !== undefined && durationDays > 0 && effectiveCurrentDay > durationDays) {
-    effectiveCurrentDay = durationDays;
+  let day = currentDay;
+  if (durationDays !== undefined && durationDays > 0 && day > durationDays) day = durationDays;
+  if (day < thresholdDays) return false;
+
+  const practised = new Set(checkins.filter(isPractised).map((c) => c.day_number));
+  let silent = 0;
+  for (let d = day; d >= 1; d--) {
+    if (practised.has(d)) break;
+    silent += 1;
+    if (silent >= thresholdDays) return true;
   }
-
-  // If the batch hasn't run for at least thresholdDays, cannot be quiet yet
-  if (effectiveCurrentDay < thresholdDays) {
-    return false;
-  }
-
-  const checkinDays = new Set(checkins.map((c) => c.day_number));
-
-  // Count consecutive days without check-in starting from effectiveCurrentDay going backwards
-  let consecutiveQuietDays = 0;
-  for (let d = effectiveCurrentDay; d >= 1; d--) {
-    if (!checkinDays.has(d)) {
-      consecutiveQuietDays++;
-      if (consecutiveQuietDays >= thresholdDays) {
-        return true;
-      }
-    } else {
-      // Encountered any check-in; the consecutive quiet streak ending at effectiveCurrentDay is terminated
-      break;
-    }
-  }
-
-  return consecutiveQuietDays >= thresholdDays;
+  return false;
 }
 
 /**
- * Idempotently updates or appends a check-in in an in-memory list.
- * Guarantees that updating or tapping twice updates today's record and never duplicates it.
- * Preserves the database ID and created_at timestamp when updating an existing day.
- *
- * @param existingCheckins Current list of check-ins
- * @param newCheckin The check-in to upsert
- * @returns Updated array of check-ins with exactly one record for this day
+ * Idempotently updates or appends a check-in in an in-memory list: one record
+ * per day, keeping the database id and created_at of an existing day.
  */
 export function upsertCheckinInMemory<
-  T extends { day_number: number; status: CheckinStatus; id?: string; created_at?: string; updated_at?: string; [key: string]: any }
->(
-  existingCheckins: T[],
-  newCheckin: T
-): T[] {
+  T extends { day_number: number; id?: string; created_at?: string; updated_at?: string }
+>(existingCheckins: T[], newCheckin: T): T[] {
   const index = existingCheckins.findIndex((c) => c.day_number === newCheckin.day_number);
-
   if (index >= 0) {
     const updated = [...existingCheckins];
     const existing = updated[index];
@@ -208,6 +130,5 @@ export function upsertCheckinInMemory<
     };
     return updated;
   }
-
   return [...existingCheckins, newCheckin].sort((a, b) => a.day_number - b.day_number);
 }

@@ -176,14 +176,16 @@ export function getDemoCheckinsForStudent(studentId: string, batchId = DEMO_BATC
 
   const checkins: Checkin[] = [];
   for (let day = 1; day <= 22; day++) {
-    const isRest = day === 7 || day === 14 || day === 21;
+    const skipped = day === 7 || day === 14;
     checkins.push({
       id: `checkin-demo-${studentId}-${day}`,
       org_id: DEMO_ORG_ID,
       batch_id: batchId,
       student_id: studentId,
       day_number: day,
-      status: isRest ? 'rest' : 'done',
+      status: skipped ? 'not_yet' : 'done',
+      morning: !skipped,
+      evening: !skipped && day % 3 !== 0,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     });
@@ -226,10 +228,8 @@ export function getDemoBatchCheckins(): Checkin[] {
     const maxDay = isQuiet ? 18 : 23;
 
     for (let day = 1; day <= maxDay; day++) {
-      let status: 'done' | 'rest' | 'not_yet' = 'done';
-      if (day === 7 || day === 14 || day === 21) {
-        status = 'rest';
-      } else if (idx === 10 && day === 12) {
+      let status: 'done' | 'not_yet' = 'done';
+      if (idx === 10 && day === 12) {
         status = 'not_yet';
       } else if (idx === 15 && (day === 5 || day === 18)) {
         status = 'not_yet';
@@ -242,6 +242,8 @@ export function getDemoBatchCheckins(): Checkin[] {
         student_id: student.id,
         day_number: day,
         status,
+        morning: status === 'done',
+        evening: status === 'done' && (day + idx) % 3 !== 0,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       });

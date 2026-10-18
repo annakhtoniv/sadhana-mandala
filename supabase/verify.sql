@@ -1,9 +1,9 @@
 -- ============================================================================
--- Sadhana Mandala: verification (phases 4 to 9)
+-- Sadhana Mandala: verification (phases 4 to 11)
 --
 -- Run in the Supabase SQL editor after phase4_security.sql,
 -- phase5_programmes.sql, phase6_lms.sql, phase7_followups.sql,
--- phase8_events.sql, phase9_crm.sql and seed_dummy_data.sql. It signs in as the fictional seed users one at a time
+-- phase8_events.sql, phase9_crm.sql, phase11_checkins.sql and seed_dummy_data.sql. It signs in as the fictional seed users one at a time
 -- (by setting the same JWT claims Supabase sets for a real sign-in) and checks
 -- what each of them can see and change. Nothing is saved: every write attempt
 -- is rolled back immediately.
@@ -84,10 +84,10 @@ begin
   select count(*) into v_n from public.enrolments e join public.profiles p on p.id = e.student_id where e.batch_id = v_autumn;
   r := r || array['Teacher A (Ananda)|Autumn roster names visible|30', v_n::text];
 
-  select string_agg(s || '=' || coalesce(c, 0), ' ' order by s) into v_txt
-  from unnest(array['done', 'rest', 'not_yet']) s
-  left join (select status, count(*) c from public.checkins where batch_id = v_autumn and day_number = v_day group by status) x on x.status = s;
-  r := r || array['Teacher A (Ananda)|Autumn today (day ' || v_day || ') counts|done=6 not_yet=2 rest=2', v_txt];
+  select 'morning=' || count(*) filter (where morning) || ' evening=' || count(*) filter (where evening)
+         || ' neither=' || count(*) filter (where not morning and not evening)
+  into v_txt from public.checkins where batch_id = v_autumn and day_number = v_day;
+  r := r || array['Teacher A (Ananda)|Autumn today (day ' || v_day || ') ticks|morning=8 evening=4 neither=2', v_txt];
 
   select count(*) into v_n from public.enrolments e where e.batch_id = v_autumn
     and not exists (select 1 from public.checkins c where c.batch_id = v_autumn and c.student_id = e.student_id and c.day_number = v_day);
@@ -212,6 +212,23 @@ begin
   exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
   r := r || array['Teacher A (Ananda)|add a guest to a full event|blocked', v_txt];
 
+  -- Batch editing (phase 11)
+  begin
+    update public.batches set name = name || ' (edited)' where id = v_autumn;
+    get diagnostics v_n = row_count;
+    v_txt := case when v_n = 1 then 'allowed' else 'blocked' end;
+    raise exception 'PROBE_DONE';
+  exception when others then if sqlerrm <> 'PROBE_DONE' then v_txt := 'blocked'; end if; end;
+  r := r || array['Teacher A (Ananda)|edit own batch (phase 11)|allowed', v_txt];
+
+  begin
+    update public.batches set name = name || ' (edited)' where id = 'd1000000-0000-0000-0000-000000000005';
+    get diagnostics v_n = row_count;
+    v_txt := case when v_n = 1 then 'allowed' else 'blocked' end;
+    raise exception 'PROBE_DONE';
+  exception when others then if sqlerrm <> 'PROBE_DONE' then v_txt := 'blocked'; end if; end;
+  r := r || array['Teacher A (Ananda)|edit another teacher''s batch|blocked', v_txt];
+
   -- Phase 9: CRM
   select count(*) into v_n from public.crm_contacts;
   r := r || array['Teacher A (Ananda)|sees every Org A lead (phase 9)|11', v_n::text];
@@ -262,27 +279,43 @@ begin
   r := r || array['Student (Aarav)|profiles visible (self + 2 teachers)|3', v_n::text];
 
   begin
-    insert into public.checkins (org_id, student_id, batch_id, day_number, status)
-    values (v_org_a, v_student01, v_autumn, v_day, 'rest')
-    on conflict (student_id, batch_id, day_number) do update set status = 'rest';
+    insert into public.checkins (org_id, student_id, batch_id, day_number, evening)
+    values (v_org_a, v_student01, v_autumn, v_day, true)
+    on conflict (student_id, batch_id, day_number) do update set evening = true;
     raise exception 'PROBE_WROTE';
   exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked: ' || sqlerrm end; end;
-  r := r || array['Student (Aarav)|check in for today (twice = update)|allowed', v_txt];
+  r := r || array['Student (Aarav)|tick today''s evening (twice = update)|allowed', v_txt];
 
   begin
-    update public.checkins set status = 'not_yet' where student_id = v_student01 and batch_id = v_autumn and day_number = v_day - 1;
-    get diagnostics v_n = row_count;
-    if v_n > 0 then raise exception 'PROBE_WROTE'; end if;
-    v_txt := 'blocked';
+    update public.checkins set evening = not evening
+    where student_id = v_student01 and batch_id = v_autumn and day_number = 5
+    returning case when late then 'allowed, marked late' else 'allowed, not marked late' end into v_txt;
+    if v_txt is null then v_txt := 'no row'; end if;
+    raise exception 'PROBE_DONE';
+  exception when others then if sqlerrm <> 'PROBE_DONE' then v_txt := 'blocked'; end if; end;
+  r := r || array['Student (Aarav)|change a past day (day 5) (phase 11)|allowed, marked late', v_txt];
+
+  begin
+    insert into public.checkins (org_id, student_id, batch_id, day_number, morning)
+    values (v_org_a, v_student01, v_autumn, v_day + 1, true);
+    raise exception 'PROBE_WROTE';
   exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
-  r := r || array['Student (Aarav)|change yesterday''s answer|blocked', v_txt];
+  r := r || array['Student (Aarav)|check in for tomorrow|blocked', v_txt];
+
+  begin
+    insert into public.checkins (org_id, student_id, batch_id, day_number, morning)
+    values (v_org_a, 'd0000000-0000-0000-0000-000000000002', v_autumn, 5, true)
+    on conflict (student_id, batch_id, day_number) do update set morning = true;
+    raise exception 'PROBE_WROTE';
+  exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
+  r := r || array['Student (Aarav)|tick another student''s day|blocked', v_txt];
 
   select count(*) into v_n from public.enrolments where student_id = v_student01;
   r := r || array['Student (Aarav)|own programmes (HP x2, Silence, VTP)|4', v_n::text];
 
   begin
-    insert into public.checkins (org_id, student_id, batch_id, day_number, status)
-    values (v_org_a, v_student01, v_vtp, 4, 'done');
+    insert into public.checkins (org_id, student_id, batch_id, day_number, morning)
+    values (v_org_a, v_student01, v_vtp, 4, true);
     raise exception 'PROBE_WROTE';
   exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
   r := r || array['Student (Aarav)|daily check-in on VTP (no practice track)|blocked', v_txt];

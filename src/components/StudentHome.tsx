@@ -3,13 +3,10 @@ import { useAuth } from '../context/AuthContext';
 import { isDemoMode } from '../lib/supabase';
 import { ProgrammeLearning } from './ProgrammeLearning';
 import { ProgrammeFollowups } from './ProgrammeFollowups';
+import { PracticeCheckin } from './PracticeCheckin';
 import { calculateDayNumber, formatDateDisplay } from '../lib/dateUtils';
 import {
   fetchStudentCheckins,
-  recordCheckin,
-  calculateStreak,
-  getTrailDayStatus,
-  upsertCheckinInMemory,
 } from '../lib/checkinService';
 import {
   hasPracticeTrack,
@@ -17,19 +14,14 @@ import {
   programmeRunStatus,
   RUN_STATUS_LABEL,
 } from '../lib/programmeUtils';
-import type { Checkin, CheckinStatus, Enrolment } from '../types/database';
+import type { Checkin, Enrolment } from '../types/database';
 import {
-  Check,
-  X,
-  Moon,
   Flame,
   Users,
   ArrowRight,
   BookOpen,
   AlertCircle,
   Loader2,
-  Lock,
-  Calendar,
   Sparkles,
 } from 'lucide-react';
 
@@ -45,8 +37,6 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
 
   // Checkins state
   const [checkins, setCheckins] = useState<Checkin[]>([]);
-  const [savingCheckin, setSavingCheckin] = useState(false);
-  const [saveFeedback, setSaveFeedback] = useState<string | null>(null);
 
   const batch = enrolment?.batch;
   const course = batch?.course;
@@ -59,8 +49,6 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
     ? calculateDayNumber(batch.start_date, organisation.timezone)
     : 1;
 
-  // Inspected day in the practice trail (for read-only viewing of past/future days)
-  const [inspectedDay, setInspectedDay] = useState<number | null>(null);
 
   // Load student check-ins when enrolment or profile changes
   useEffect(() => {
@@ -86,20 +74,6 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
     };
   }, [batch?.id, profile?.id]);
 
-  // Map of day_number -> Checkin
-  const checkinsByDay = React.useMemo(() => {
-    const map = new Map<number, Checkin>();
-    for (const c of checkins) {
-      map.set(c.day_number, c);
-    }
-    return map;
-  }, [checkins]);
-
-  // Streak calculated using official business rules
-  const currentStreak = React.useMemo(() => {
-    return calculateStreak(checkins, todayDayNumber, durationDays);
-  }, [checkins, todayDayNumber, durationDays]);
-
   // Handle joining batch with code
   const handleJoinByCode = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -116,65 +90,6 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
     }
     setJoining(false);
   };
-
-  // Handle recording check-in for TODAY only (per SPEC.md: "A student can check in for today only and can change today's answer")
-  const handleCheckin = async (status: CheckinStatus) => {
-    if (!batch?.id || !profile?.id || savingCheckin || !practice) return;
-
-    if (todayDayNumber < 1) {
-      setSaveFeedback('Cohort has not started yet. Daily check-in opens on Day 1.');
-      return;
-    }
-
-    if (todayDayNumber > durationDays) {
-      setSaveFeedback('This course has completed. Daily check-ins are closed.');
-      return;
-    }
-
-    setSavingCheckin(true);
-    setSaveFeedback(null);
-
-    // Optimistically update local check-in state
-    const prevCheckins = [...checkins];
-    const existingIndex = checkins.findIndex((c) => c.day_number === todayDayNumber);
-    const optimisticCheckin: Checkin = {
-      id: existingIndex >= 0 ? checkins[existingIndex].id : `temp-${Date.now()}`,
-      org_id: organisation.id,
-      batch_id: batch.id,
-      student_id: profile.id,
-      day_number: todayDayNumber,
-      status,
-      created_at: existingIndex >= 0 ? checkins[existingIndex].created_at : new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-
-    setCheckins(upsertCheckinInMemory(checkins, optimisticCheckin));
-
-    // Persist to Supabase with upsert matching unique(student_id, batch_id, day_number)
-    const res = await recordCheckin(
-      organisation.id,
-      batch.id,
-      profile.id,
-      todayDayNumber,
-      status
-    );
-
-    if (res.success && res.checkin) {
-      setCheckins((prev) => upsertCheckinInMemory(prev, res.checkin!));
-      setSaveFeedback(
-        `Recorded for today (Day ${todayDayNumber}): ${status.replace('_', ' ')}`
-      );
-    } else {
-      setCheckins(prevCheckins);
-      setSaveFeedback(`Failed to save: ${res.error || 'Please try again'}`);
-    }
-
-    setSavingCheckin(false);
-  };
-
-  // Today's recorded checkin
-  const todayCheckin = checkinsByDay.get(todayDayNumber);
-  const todayStatus = todayCheckin?.status || null;
 
   // Un-enrolled View
   if (!enrolment) {
@@ -420,312 +335,22 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
         </div>
       ) : (
       <>
-      {/* Check-in Question Card */}
-      <div id="tour-checkin-card" className="bg-white dark:bg-stone-900 p-6 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-5">
-        <div className="space-y-1.5 text-center">
-          <div className="flex items-center justify-center gap-2">
-            <span className="inline-flex items-center gap-1 text-xs font-semibold tracking-wider uppercase px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-              <Calendar className="w-3 h-3" />
-              <span>
-                {todayDayNumber < 1
-                  ? `Cohort Starts in ${Math.abs(todayDayNumber - 1)} Days`
-                  : todayDayNumber <= durationDays
-                  ? `Day ${todayDayNumber} of ${durationDays} (Today)`
-                  : `Course Completed (${durationDays} Days)`}
-              </span>
-            </span>
-          </div>
-
-          <h2 className="text-base font-medium text-stone-900 dark:text-stone-100 leading-snug pt-1">
-            {todayDayNumber < 1
-              ? `Your course will begin on Day 1. Prepare your daily intention.`
-              : todayDayNumber > durationDays
-              ? `You have reached the end of this journey. Well done!`
-              : organisation.checkin_question}
-          </h2>
-        </div>
-
-        {/* 3 Option Buttons (Done, Not yet, Rest day) for Today */}
-        {todayDayNumber < 1 ? (
-          <div className="p-4 rounded-2xl bg-stone-50 dark:bg-stone-800/40 border border-stone-200 dark:border-stone-800 text-center space-y-1">
-            <div className="flex items-center justify-center gap-1.5 text-xs font-medium text-stone-500 dark:text-stone-400">
-              <Lock className="w-3.5 h-3.5" />
-              <span>Check-in Not Started</span>
-            </div>
-            <p className="text-[11px] text-stone-400">
-              Your batch starts on {batch?.start_date ? formatDateDisplay(batch.start_date, organisation.timezone) : 'soon'}. Daily check-ins will unlock on Day 1.
-            </p>
-          </div>
-        ) : todayDayNumber > durationDays ? (
-          <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-center space-y-1">
-            <div className="flex items-center justify-center gap-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-400">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Practice Completed</span>
-            </div>
-            <p className="text-[11px] text-emerald-600 dark:text-emerald-400">
-              Congratulations on reaching Day {durationDays}! Your practice trail reflects your dedication.
-            </p>
-          </div>
-        ) : (
-          /* Active Check-in Buttons for Today */
-          <div className="space-y-3">
-            <div id="tour-checkin-buttons" className="grid grid-cols-3 gap-2.5">
-              <button
-                type="button"
-                onClick={() => handleCheckin('done')}
-                disabled={savingCheckin}
-                className={`p-3.5 rounded-2xl flex flex-col items-center justify-center gap-1.5 border transition-all cursor-pointer disabled:opacity-50 ${
-                  todayStatus === 'done'
-                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-md scale-[1.02]'
-                    : 'bg-stone-50 dark:bg-stone-800/60 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-stone-700/80 active:scale-95'
-                }`}
-              >
-                <Check className="w-5 h-5" />
-                <span className="text-xs font-semibold">Done</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleCheckin('not_yet')}
-                disabled={savingCheckin}
-                className={`p-3.5 rounded-2xl flex flex-col items-center justify-center gap-1.5 border transition-all cursor-pointer disabled:opacity-50 ${
-                  todayStatus === 'not_yet'
-                    ? 'bg-amber-600 text-white border-amber-600 shadow-md scale-[1.02]'
-                    : 'bg-stone-50 dark:bg-stone-800/60 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-stone-700/80 active:scale-95'
-                }`}
-              >
-                <X className="w-5 h-5" />
-                <span className="text-xs font-semibold">Not yet</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleCheckin('rest')}
-                disabled={savingCheckin}
-                className={`p-3.5 rounded-2xl flex flex-col items-center justify-center gap-1.5 border transition-all cursor-pointer disabled:opacity-50 ${
-                  todayStatus === 'rest'
-                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-md scale-[1.02]'
-                    : 'bg-stone-50 dark:bg-stone-800/60 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-stone-700/80 active:scale-95'
-                }`}
-              >
-                <Moon className="w-5 h-5" />
-                <span className="text-xs font-semibold">Rest day</span>
-              </button>
-            </div>
-
-            {/* Status Feedback */}
-            <div className="min-h-[20px] text-center">
-              {savingCheckin ? (
-                <div className="inline-flex items-center gap-1.5 text-xs text-stone-500">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Saving to database...</span>
-                </div>
-              ) : todayStatus ? (
-                <p className="text-[11px] text-stone-500 dark:text-stone-400">
-                  Recorded for today (Day {todayDayNumber}):{' '}
-                  <strong className="capitalize text-stone-800 dark:text-stone-200">
-                    {todayStatus.replace('_', ' ')}
-                  </strong>
-                  . Tapping again updates your answer.
-                </p>
-              ) : (
-                <p className="text-[11px] text-stone-400 italic">
-                  No answer recorded yet for today (Day {todayDayNumber}). Tap an option above.
-                </p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {saveFeedback && !savingCheckin && (
-          <div className="p-2.5 bg-stone-100 dark:bg-stone-800 rounded-xl text-center text-xs text-stone-600 dark:text-stone-300 animate-in fade-in">
-            {saveFeedback}
-          </div>
-        )}
-      </div>
-
-      {/* Streak and Practice Trail (Rows of 7 for duration_days) */}
-      <div className="bg-white dark:bg-stone-900 p-5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-4">
-
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-500 flex items-center justify-center border border-amber-200/60 dark:border-amber-900/60">
-              <Flame className="w-4 h-4 fill-amber-500" />
-            </div>
-            <div>
-              <span className="text-sm font-semibold text-stone-900 dark:text-stone-100 block">
-                Practice Streak
-              </span>
-              <span className="text-[10px] text-stone-400">
-                Consecutive practice days
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            <span className="text-sm font-bold px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800 flex items-center gap-1">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>{currentStreak} {currentStreak === 1 ? 'Day' : 'Days'}</span>
-            </span>
-          </div>
-        </div>
-
-        {/* Trail in rows of seven using duration_days (per SPEC) */}
-        <div id="tour-practice-trail" className="space-y-2.5 pt-1">
-          <div className="flex items-center justify-between text-[11px] text-stone-500 dark:text-stone-400">
-            <span>{durationDays}-Day Practice Trail (rows of 7):</span>
-            <span className="text-[10px] text-stone-400">Tap day to inspect</span>
-          </div>
-
-          {/* Inspected Day Detail Card (Read-only status banner) */}
-          {inspectedDay !== null && (
-            <div className="p-3 bg-stone-50 dark:bg-stone-800/80 border border-stone-200 dark:border-stone-700 rounded-xl flex items-center justify-between text-xs animate-in fade-in">
-              <div className="space-y-0.5">
-                <span className="font-semibold text-stone-900 dark:text-stone-100">
-                  Day {inspectedDay}{inspectedDay === todayDayNumber ? ' (Today)' : ''}
-                </span>
-                <p className="text-[11px] text-stone-500 dark:text-stone-400">
-                  {inspectedDay > todayDayNumber
-                    ? 'Future day — locked until this day arrives.'
-                    : inspectedDay === todayDayNumber
-                    ? `Today — answer above: ${todayStatus ? todayStatus.replace('_', ' ') : 'Pending'}`
-                    : `Past day — status: ${getTrailDayStatus(inspectedDay, todayDayNumber, checkinsByDay.get(inspectedDay)?.status).replace('_', ' ')}. Past check-ins cannot be edited.`}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setInspectedDay(null);
-                }}
-                className="text-[10px] text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 px-2 py-1 rounded"
-              >
-                Close
-              </button>
-            </div>
-          )}
-
-          <div className="grid grid-cols-7 gap-2">
-            {Array.from({ length: durationDays }).map((_, idx) => {
-              const dayNum = idx + 1;
-              const isToday = dayNum === todayDayNumber;
-              const isFuture = dayNum > todayDayNumber;
-              const isInspected = dayNum === inspectedDay;
-
-              const checkinRecord = checkinsByDay.get(dayNum);
-              const trailStatus = getTrailDayStatus(dayNum, todayDayNumber, checkinRecord?.status);
-
-              // Tile Styling
-              let bgClass = '';
-              let textClass = '';
-              let borderClass = '';
-
-              if (trailStatus === 'future') {
-                // Future days: visible but greyed out / locked
-                bgClass = 'bg-stone-100/50 dark:bg-stone-900/40 opacity-40';
-                textClass = 'text-stone-400 dark:text-stone-600';
-                borderClass = 'border-stone-200/40 dark:border-stone-800/40 border-dashed';
-              } else if (trailStatus === 'done') {
-                bgClass = 'bg-emerald-600 dark:bg-emerald-600';
-                textClass = 'text-white font-bold';
-                borderClass = 'border-emerald-700';
-              } else if (trailStatus === 'rest') {
-                bgClass = 'bg-indigo-600 dark:bg-indigo-600';
-                textClass = 'text-white font-bold';
-                borderClass = 'border-indigo-700';
-              } else if (trailStatus === 'not_yet') {
-                bgClass = 'bg-amber-500 dark:bg-amber-600';
-                textClass = 'text-white font-bold';
-                borderClass = 'border-amber-600';
-              } else if (trailStatus === 'today') {
-                // Today with no answer yet
-                bgClass = 'bg-emerald-50 dark:bg-emerald-950/60';
-                textClass = 'text-emerald-700 dark:text-emerald-300 font-bold';
-                borderClass = 'border-emerald-400 dark:border-emerald-600';
-              } else {
-                // Past day missed (no answer)
-                bgClass = 'bg-stone-100 dark:bg-stone-800/70';
-                textClass = 'text-stone-500 dark:text-stone-400';
-                borderClass = 'border-stone-300 dark:border-stone-700';
-              }
-
-              return (
-                <button
-                  key={dayNum}
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setInspectedDay(dayNum === inspectedDay ? null : dayNum);
-                  }}
-                  className={`aspect-square rounded-xl flex flex-col items-center justify-center text-[10px] border transition-all cursor-pointer relative ${bgClass} ${textClass} ${borderClass} ${
-                    isInspected ? 'ring-2 ring-stone-900 dark:ring-stone-100 ring-offset-2 dark:ring-offset-stone-950 scale-105 z-10' : ''
-                  } ${isFuture ? 'cursor-default' : 'hover:scale-105 active:scale-95'}`}
-                  title={
-                    isFuture
-                      ? `Day ${dayNum} (Future - locked)`
-                      : isToday
-                      ? `Day ${dayNum} (Today)`
-                      : `Day ${dayNum} (Past - ${trailStatus})`
-                  }
-                >
-                  {isFuture ? (
-                    <div className="flex flex-col items-center justify-center">
-                      <Lock className="w-2.5 h-2.5 mb-0.5 text-stone-400" />
-                      <span className="text-[9px]">{dayNum}</span>
-                    </div>
-                  ) : trailStatus === 'done' ? (
-                    <div className="flex flex-col items-center justify-center">
-                      <Check className="w-3 h-3 stroke-[3]" />
-                      <span className="text-[9px] leading-none">{dayNum}</span>
-                    </div>
-                  ) : trailStatus === 'rest' ? (
-                    <div className="flex flex-col items-center justify-center">
-                      <Moon className="w-3 h-3" />
-                      <span className="text-[9px] leading-none">{dayNum}</span>
-                    </div>
-                  ) : trailStatus === 'not_yet' ? (
-                    <div className="flex flex-col items-center justify-center">
-                      <X className="w-3 h-3 stroke-[3]" />
-                      <span className="text-[9px] leading-none">{dayNum}</span>
-                    </div>
-                  ) : (
-                    <span>{dayNum}</span>
-                  )}
-
-                  {/* Indicator dot for today */}
-                  {isToday && (
-                    <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-stone-900" />
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Legend */}
-          <div className="pt-2 flex flex-wrap items-center justify-center gap-3 text-[10px] text-stone-500 dark:text-stone-400">
-            <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-md bg-emerald-600 inline-block" />
-              <span>Done</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-md bg-indigo-600 inline-block" />
-              <span>Rest day</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-md bg-amber-500 inline-block" />
-              <span>Not yet</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-md bg-stone-200 dark:bg-stone-700 inline-block" />
-              <span>Missed</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-md border border-stone-300 dark:border-stone-700 opacity-40 inline-block" />
-              <span>Future</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      {batch && profile && (
+        <PracticeCheckin
+          key={batch.id}
+          orgId={organisation.id}
+          batchId={batch.id}
+          studentId={profile.id}
+          startDate={batch.start_date}
+          timeZone={organisation.timezone}
+          todayDay={todayDayNumber}
+          durationDays={durationDays}
+          practiceName={practiceTrackName(course)}
+          question={organisation.checkin_question}
+          checkins={checkins}
+          onCheckinsChange={setCheckins}
+        />
+      )}
       </>
       )}
 
