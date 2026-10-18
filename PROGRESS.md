@@ -142,21 +142,18 @@
   3. Leads > Reports, and Admin > Reports: the funnel matches the seed (11 leads, 9 invited, 4 attended, 2 registered).
   4. Admin > People: give a test Google account the Volunteer role; signed in as that account, Leads shows only that account's leads.
   5. Profile > Install the app.
-- PM: present the app to the teacher (and Shubham Ji) and collect feedback.
+- PM: present the app to the teacher (and Shubham Ji) and collect feedback. Shubham Ji is at the AOL ashram; the plan is to introduce the app to the next batch when she is back. Her account (blessedshubh@gmail.com) is Admin since 2026-10-14; decide whether Teacher is enough.
 - Decide: automatic invites (Phase 10 remainder). Options: email through a provider such as Resend or Brevo (free tiers exist), WhatsApp Business API (paid per message). Both need the consent text approved first.
 - Before a demo on any later day, re-run `supabase/seed_dummy_data.sql` that morning, so the batches sit on day 23 / day 2 / finished again.
-- To check the dashboard against the seed, sign out first and sign in with Google. The 1-click demo button shows sample data from `mockData.ts`, not the database.
 
 ## Before working with a real batch
 Decided 2026-10-12: keep the demo data and the 1-click demo login until after the teacher's feedback. Then, before the first real batch:
 - Clean the database: remove all fictional `@example.com` profiles, the seeded batches, enrolments, check-ins, invites and placeholder lessons in both organisations. Keep real accounts. Decide whether Organisation B (Prana Flow) stays.
-- Decide about the 1-click demo login: remove it, or keep it with a visible "Demo – sample data" banner.
+- Done 2026-10-18: the 1-click demo login is removed (PM decision). Any demo session a browser had saved is cleared on the next visit, so everyone sees the real database.
 - Remove the seeded CRM leads and the two dummy volunteers, and get the consent wording for leads (PDPL) approved by the organisation before volunteers enter real people.
-- Clear demo logins saved in browsers from before 2026-10-11 (the old automatic demo login). Until then, anyone who visited the site earlier sees sample data until they sign out once.
 
 ## Known Issues
-- Anyone who visited before 2026-10-11 still has the old automatic demo login saved in their browser and sees sample data until they sign out (see "Before working with a real batch").
-- Demo mode is not labelled on screen, so sample data can be mistaken for real data.
+- The sample-data code for the old demo login (`mockData.ts` and the demo branches in the services) is no longer reachable; it can be deleted in a later clean-up.
 - `RUN_THIS_IN_SUPABASE.sql` still contains the old unsafe policies; never run it without `supabase/phase4_security.sql` after it.
 - Admin home in a local preview without Supabase keys shows zeros (the organisation is not loaded); the live site is not affected.
 - The app bundle is about 690 kB (one file); it loads fine but could be split later for faster first load on slow phones.

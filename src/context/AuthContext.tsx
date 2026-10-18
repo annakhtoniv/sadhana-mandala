@@ -34,7 +34,6 @@ interface AuthContextType {
   /** A one-off message for the user, e.g. the result of an event QR check-in */
   notice: { tone: 'success' | 'error'; text: string } | null;
   clearNotice: () => void;
-  signInDemo: (role?: UserRole) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -44,6 +43,15 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 // device across the Google sign-in redirect and use it once signed in.
 // The programme a student last opened on this device
 const SELECTED_ENROLMENT_KEY = 'sadhana_selected_enrolment';
+// The 1-click demo login was removed on 2026-10-18: forget any demo session a
+// browser still has, so everyone sees the real database.
+try {
+  localStorage.removeItem(DEMO_SESSION_KEY);
+  localStorage.removeItem('sadhana_demo_enrolment');
+  localStorage.removeItem('sadhana_demo_my_events');
+} catch {
+  // ignore (storage blocked)
+}
 try {
   const { joinCode, eventCode } = readLinkParams(window.location.search);
   if (joinCode) savePending(PENDING_JOIN_KEY, joinCode);
@@ -244,20 +252,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(initialSession.user);
           await fetchProfileForUser(initialSession.user, loadedOrg);
         } else {
-          // Resume an explicit 1-click demo session, if one was started
-          const savedDemo = localStorage.getItem(DEMO_SESSION_KEY);
-          if (savedDemo) {
-            try {
-              const parsed = JSON.parse(savedDemo) as User;
-              setUser(parsed);
-              await fetchProfileForUser(parsed, loadedOrg);
-            } catch {
-              localStorage.removeItem(DEMO_SESSION_KEY);
-              setUser(null);
-            }
-          } else {
-            setUser(null);
-          }
+          setUser(null);
         }
       } catch (err) {
         console.error('Error in auth initialization:', err);
@@ -336,36 +331,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // 1-Click Demo login for testing, PM preview, and embedded IDE preview
-  const signInDemo = async (roleToUse: UserRole = 'admin') => {
-    setIsLoading(true);
-    localStorage.removeItem('sadhana_signed_out');
-    try {
-      const demoId = DEMO_TEACHER_PROFILE.id;
-      const demoUser = {
-        id: demoId,
-        app_metadata: {},
-        user_metadata: { full_name: 'Vinoth Rajaasekaran' },
-        aud: 'authenticated',
-        created_at: new Date().toISOString(),
-        email: 'annakhtoniv@gmail.com',
-      } as unknown as User;
-
-      localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify(demoUser));
-      localStorage.setItem('sadhana_active_role', roleToUse);
-      localStorage.setItem(`sadhana_consent_${demoId}`, new Date().toISOString());
-
-      setUser(demoUser);
-      setProfile(DEMO_TEACHER_PROFILE);
-      setActiveRoleState(roleToUse);
-      await fetchProfileForUser(demoUser, orgRef.current);
-    } catch (err) {
-      console.error('Demo sign-in failed:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const signOut = async () => {
     localStorage.setItem('sadhana_signed_out', 'true');
     if (user) {
@@ -412,7 +377,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         refreshProfile,
         refreshEnrolment,
         joinBatch,
-        signInDemo,
       }}
     >
       {children}
