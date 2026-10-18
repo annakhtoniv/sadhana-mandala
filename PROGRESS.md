@@ -147,7 +147,7 @@
   - [supabase/verify.sql](supabase/verify.sql): 89 checks (6 new: today's ticks, change a past day and it is marked late, no future day, not another student's day, teacher edits own batch but not another teacher's), all PASS on a local copy; the seed runs twice cleanly.
   - 102 unit tests (the old rest-day tests were replaced by tests for the new rules), clean build.
 
-- Phase 12 built on 2026-10-18 (pull request open; SQL not yet run in Supabase):
+- Phase 12 built and deployed on 2026-10-18 (PR merged; phase12_media.sql and the seed ran in Supabase; verify.sql stopped because Supabase does not allow deleting storage rows with SQL. Fixed: verify.sql now undoes all its checks at the end instead of deleting its two test files; reproduced and passing 98/98 twice on a local copy with the same protection; live checked: no test files left behind):
   - Profile pictures: everyone gets their Google photo automatically at sign-in (existing users too, filled in by the SQL). Profile > camera button uploads your own picture (resized to a small square); "Use my Google photo" switches back. Pictures show on the Profile tab, the admin People list and the batch roster.
   - Admin overview: the four cards (Batches, People, Programmes, Reports) are now the tabs; the separate buttons that repeated the same numbers are gone. Settings moved to a gear icon next to refresh.
   - Batch cards redesigned: the whole card opens the batch; it shows the programme, a status pill (Day x of N / Starts in n days / Finished), a progress bar, the start date, the teacher with their picture, the join code (tap to copy) and the QR button. Batches are grouped into Running, Starting soon and Finished.
@@ -157,7 +157,7 @@
   - 105 unit tests (3 new), clean build.
 
 ## Next
-- PM: merge the Phase 12 pull request, then in the Supabase SQL editor run (from `main`): `supabase/phase12_media.sql`, `supabase/seed_dummy_data.sql`, `supabase/verify.sql` (all 98 rows PASS). Until the SQL is run, pictures and the Materials screen show errors.
+- PM: merge the verify fix pull request, then in the Supabase SQL editor run only `supabase/verify.sql` from `main` (all 98 rows PASS). phase12_media.sql and the seed are already done.
 - PM: test Phase 12: sign out and in (your Google photo appears); Profile > camera > pick a picture; Admin > tap each overview card; tap a batch card; Admin > Programmes > Happiness Program > Materials > upload a PDF and an MP3; as a student of that programme, see "Study materials" on the home screen.
 - Storage limits (Supabase free plan): 50 MB per file, about 1 GB in total. Long videos are better as YouTube (unlisted) links.
 - PM: test Phase 11: tick Morning and Evening today; tap an earlier circle and tick it (it gets the clock badge); try the guided tour (? button); open the site on a computer (side menu) and on the phone (bottom tabs); Admin > Batches > Open > Edit and rename a batch.

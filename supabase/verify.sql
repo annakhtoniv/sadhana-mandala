@@ -69,7 +69,12 @@ declare
          + (select count(*) from public.crm_activities where org_id = $1)
   $q$;
 begin
-  -- Phase 12: two test files in the materials bucket (removed again at the end):
+  -- Every check runs inside this inner block, which is undone at the end
+  -- (raise VERIFY_UNDO). Supabase does not allow deleting storage rows with
+  -- SQL, so the two test files below disappear through that undo instead.
+  -- The results stay in the variable r, which the undo does not touch.
+  begin
+  -- Phase 12: two test files in the materials bucket (undone at the end):
   -- one for the Happiness Program, one for Sri Sri Yoga (student 1 is not enrolled)
   insert into storage.objects (id, bucket_id, name) values
     ('ab000000-0000-0000-0000-000000000001', 'materials', v_org_a::text || '/' || v_hp_course::text || '/verify-a.pdf'),
@@ -469,7 +474,8 @@ begin
   exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
   r := r || array['Student (Aarav)|add a study material|blocked', v_txt];
 
-  select count(*) into v_n from storage.objects where bucket_id = 'materials';
+  select count(*) into v_n from storage.objects
+  where bucket_id = 'materials' and name in (v_org_a::text || '/' || v_hp_course::text || '/verify-a.pdf', v_org_a::text || '/c1000000-0000-0000-0000-000000000004/verify-b.pdf');
   r := r || array['Student (Aarav)|material files visible (own programme only)|1', v_n::text];
 
   begin
@@ -620,7 +626,10 @@ begin
   r := r || array['Anonymous visitor|batch QR shows the batch before sign-in|Autumn Awakening Cohort', v_txt];
   reset role;
 
-  delete from storage.objects where id in ('ab000000-0000-0000-0000-000000000001', 'ab000000-0000-0000-0000-000000000002');
+  raise exception 'VERIFY_UNDO';
+  exception when others then
+    if sqlerrm <> 'VERIFY_UNDO' then raise; end if;
+  end;
 
   -- ------------------------------------------------------------------ Results
   for i in 1 .. array_length(r, 1) / 2 loop
