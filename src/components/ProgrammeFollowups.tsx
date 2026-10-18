@@ -44,35 +44,35 @@ export const ProgrammeFollowups: React.FC<ProgrammeFollowupsProps> = ({ batchId,
     <>
       {reminders.map((r) => (
         <div key={r.id} role="status"
-          className="p-4 rounded-2xl border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 flex gap-3">
-          <Bell className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          className="p-4 rounded-2xl border border-amber-200 bg-amber-50 flex gap-3">
+          <Bell className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
           <div>
-            <div className="text-sm font-semibold text-amber-900 dark:text-amber-200">{r.title}</div>
-            {r.description && <div className="text-xs text-amber-800 dark:text-amber-300">{r.description}</div>}
+            <div className="text-sm font-semibold text-amber-900">{r.title}</div>
+            {r.description && <div className="text-xs text-amber-800">{r.description}</div>}
           </div>
         </div>
       ))}
 
       {coming.length > 0 && (
-        <div className="bg-white dark:bg-stone-900 p-5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-3">
+        <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm space-y-3">
           <div className="flex items-center gap-2">
-            <CalendarClock className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-            <h2 className="text-sm font-semibold text-stone-900 dark:text-stone-100">Follow-up sessions</h2>
+            <CalendarClock className="w-4 h-4 text-emerald-600" />
+            <h2 className="text-sm font-semibold text-stone-900">Follow-up sessions</h2>
           </div>
-          <div className="divide-y divide-stone-100 dark:divide-stone-800">
+          <div className="divide-y divide-stone-100">
             {coming.map((s) => (
               <div key={s.step_id} className="py-2.5 space-y-0.5">
-                <div className="text-sm font-medium text-stone-900 dark:text-stone-100">{s.title}</div>
+                <div className="text-sm font-medium text-stone-900">{s.title}</div>
                 {s.status === 'scheduled' && s.scheduled_for ? (
-                  <div className="text-xs text-stone-600 dark:text-stone-300">{formatSessionTime(s.scheduled_for, timeZone)}</div>
+                  <div className="text-xs text-stone-600">{formatSessionTime(s.scheduled_for, timeZone)}</div>
                 ) : (
-                  <div className="text-xs text-stone-400">Around day {s.offset_day} · your teacher will share the time</div>
+                  <div className="text-xs text-stone-500">Around day {s.offset_day} · your teacher will share the time</div>
                 )}
                 {s.status === 'scheduled' && s.location && (
                   <div className="inline-flex items-center gap-1 text-xs text-stone-500">
                     <MapPin className="w-3 h-3" />
                     {/^https:\/\//i.test(s.location) ? (
-                      <a href={s.location} target="_blank" rel="noopener noreferrer" className="underline text-emerald-700 dark:text-emerald-400">
+                      <a href={s.location} target="_blank" rel="noopener noreferrer" className="underline text-emerald-700">
                         Join online
                       </a>
                     ) : (

@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import type { Organisation } from '../types/database';
-import { Loader2, Settings, X } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import { Sheet } from './Sheet';
+import { friendlyError } from '../lib/errors';
 
 const TIMEZONES = [
   'Asia/Dubai',
@@ -20,8 +22,8 @@ interface OrganisationSettingsProps {
   onSaved: (org: Organisation) => void;
 }
 
-const inputClass = 'w-full px-3.5 py-2.5 rounded-xl border border-stone-200 bg-white text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/30';
-const labelClass = 'block text-xs font-medium text-stone-600 mb-1';
+const inputClass = 'ui-input';
+const labelClass = 'ui-label';
 
 /** Organisation settings (admins): name, app name, contact email, time zone, footer. */
 export const OrganisationSettings: React.FC<OrganisationSettingsProps> = ({ organisation, onClose, onSaved }) => {
@@ -63,7 +65,7 @@ export const OrganisationSettings: React.FC<OrganisationSettingsProps> = ({ orga
       .single();
     setSaving(false);
     if (err || !data) {
-      setError(`Could not save: ${err?.message || 'no permission'}`);
+      setError(err ? friendlyError(err) : 'You do not have permission to change these settings.');
       return;
     }
     onSaved(data as Organisation);
@@ -71,27 +73,8 @@ export const OrganisationSettings: React.FC<OrganisationSettingsProps> = ({ orga
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <form
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="org-settings-title"
-        onSubmit={save}
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md max-h-[90dvh] overflow-y-auto bg-white rounded-[1.5rem] p-5 shadow-2xl space-y-4 animate-fade-up"
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Settings className="w-4 h-4 text-stone-900" />
-            <h2 id="org-settings-title" className="font-display text-lg font-semibold text-stone-950">
-              Organisation settings
-            </h2>
-          </div>
-          <button type="button" onClick={onClose} className="ui-icon-btn -mr-1 -mt-1" aria-label="Close settings">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
+    <Sheet open onClose={onClose} title="Organisation settings" busy={saving}>
+      <form onSubmit={save} className="space-y-4">
         <div>
           <label className={labelClass} htmlFor="org-name">Organisation name</label>
           <input id="org-name" className={inputClass} value={form.name} onChange={(e) => set('name', e.target.value)} />
@@ -112,7 +95,7 @@ export const OrganisationSettings: React.FC<OrganisationSettingsProps> = ({ orga
             ))}
           </select>
           {form.timezone !== organisation.timezone && (
-            <p className="mt-1 text-[11px] text-amber-700">
+            <p className="mt-1 text-xs text-amber-700">
               Each day of a batch starts at midnight in this time zone. Changing it can move today's day number for running batches.
             </p>
           )}
@@ -121,9 +104,9 @@ export const OrganisationSettings: React.FC<OrganisationSettingsProps> = ({ orga
           <label className={labelClass} htmlFor="org-footer">Footer text</label>
           <input id="org-footer" className={inputClass} value={form.footer_text} onChange={(e) => set('footer_text', e.target.value)} />
         </div>
-        <p className="text-[11px] text-stone-400">Web address name: {organisation.slug} (fixed)</p>
+        <p className="text-xs text-stone-500">Web address name: {organisation.slug} (fixed)</p>
 
-        {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
+        {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
 
         <div className="flex gap-2 pt-1">
           <button type="button" onClick={onClose} className="ui-btn-ghost flex-1 justify-center">
@@ -134,6 +117,6 @@ export const OrganisationSettings: React.FC<OrganisationSettingsProps> = ({ orga
           </button>
         </div>
       </form>
-    </div>
+    </Sheet>
   );
 };

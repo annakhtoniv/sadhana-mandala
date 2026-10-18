@@ -6,7 +6,8 @@ import { formatDateDisplay, getTodayInTimezone, calculateDayNumber } from '../li
 import { TeacherBatchDetail } from './TeacherBatchDetail';
 import { ProgrammesManager } from './ProgrammesManager';
 import type { Batch, Course } from '../types/database';
-import { GraduationCap, Users, PlusCircle, ChevronRight, Calendar, RefreshCw, BookOpen } from 'lucide-react';
+import { GraduationCap, Users, PlusCircle, ChevronRight, RefreshCw, BookOpen } from 'lucide-react';
+import { Sheet } from './Sheet';
 
 export const TeacherHome: React.FC = () => {
   const { organisation, user, profile, role } = useAuth();
@@ -113,224 +114,173 @@ export const TeacherHome: React.FC = () => {
     );
   }
 
+  const openCreate = () => {
+    setCreateError(null);
+    setShowCreateModal(true);
+  };
+
   return (
-    <div className="w-full space-y-6 animate-in fade-in duration-150">
-      {/* Header card */}
-      <div className="bg-white dark:bg-stone-900 p-5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-            <GraduationCap className="w-4 h-4" />
-            <span>Teacher Dashboard &bull; {organisation.app_name}</span>
+    <div className="w-full space-y-5 animate-fade-up">
+      <section className="ui-card space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <span className="ui-eyebrow">
+              <GraduationCap className="w-3.5 h-3.5" /> Teacher
+            </span>
+            <h1 className="font-display text-2xl font-semibold text-stone-950 mt-3 user-text">
+              Welcome, {profile?.full_name || 'Teacher'}
+            </h1>
+            <p className="text-sm text-stone-600 mt-1">Your batches, your students and their daily practice.</p>
           </div>
-          <button
-            type="button"
-            onClick={loadData}
-            disabled={loading}
-            className="p-1 text-stone-400 hover:text-stone-700 dark:hover:text-stone-200"
-            title="Refresh Batches"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+          <button type="button" onClick={loadData} disabled={loading} className="ui-icon-btn shrink-0" aria-label="Refresh">
+            <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
-        <h1 className="text-xl font-semibold text-stone-900 dark:text-stone-100">
-          Welcome, {profile?.full_name || 'Teacher'}
-        </h1>
-        <p className="text-xs text-stone-500 dark:text-stone-400">
-          Manage your batches, invite students, and view daily practice commitments in {organisation.timezone}.
-        </p>
-        <button
-          type="button"
-          onClick={() => setShowProgrammes(true)}
-          className="mt-2 w-full py-2.5 rounded-xl border border-stone-200 dark:border-stone-700 text-xs font-semibold text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 flex items-center justify-center gap-2 cursor-pointer"
-        >
+        <button type="button" onClick={() => setShowProgrammes(true)} className="ui-btn-ghost w-full">
           <BookOpen className="w-4 h-4" />
-          <span>Programmes ({courses.length} active)</span>
+          <span>Programmes ({courses.length})</span>
         </button>
-      </div>
+      </section>
 
-      {/* Batches List Section */}
-      <div className="bg-white dark:bg-stone-900 p-5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Users className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-            <h2 className="text-sm font-semibold text-stone-900 dark:text-stone-100">
-              My Batches ({batches.length})
-            </h2>
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowCreateModal(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-900 dark:bg-stone-100 text-stone-100 dark:text-stone-900 text-xs font-semibold cursor-pointer hover:opacity-90 transition-opacity shadow-sm"
-          >
-            <PlusCircle className="w-3.5 h-3.5" />
-            <span>New Batch</span>
+      <section className="ui-card space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-display text-lg font-semibold text-stone-950 flex items-center gap-2">
+            <Users className="w-5 h-5 text-emerald-700" />
+            My batches ({batches.length})
+          </h2>
+          <button type="button" onClick={openCreate} className="ui-btn-primary !px-4">
+            <PlusCircle className="w-4 h-4" />
+            <span>New batch</span>
           </button>
         </div>
 
         {loadError && (
-          <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-900 text-xs text-red-700 dark:text-red-300">
-            Could not load batches: {loadError}
+          <div role="alert" className="p-3 rounded-xl bg-red-50 text-sm text-red-700 flex items-center justify-between gap-3">
+            <span>Your batches could not be loaded. {loadError}</span>
+            <button type="button" onClick={loadData} className="ui-btn-ghost !min-h-9 !py-1.5 shrink-0">
+              Try again
+            </button>
           </div>
         )}
 
-        {batches.length === 0 ? (
-          <div className="p-8 text-center rounded-xl bg-stone-50 dark:bg-stone-800/40 border border-dashed border-stone-200 dark:border-stone-700/80 space-y-3">
-            <div className="w-10 h-10 mx-auto rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-              <Users className="w-5 h-5" />
+        {batches.length === 0 && !loading && !loadError ? (
+          <div className="p-8 text-center rounded-2xl bg-stone-50 space-y-3">
+            <div className="w-12 h-12 mx-auto rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center">
+              <Users className="w-6 h-6" />
             </div>
-            <div className="space-y-1">
-              <div className="text-xs font-semibold text-stone-800 dark:text-stone-200">
-                No batches created yet
-              </div>
-              <p className="text-[11px] text-stone-500 dark:text-stone-400 max-w-xs mx-auto">
-                Create a batch to generate a unique join code and QR code, paste student emails, and begin tracking practice.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowCreateModal(true)}
-              className="px-4 py-2 rounded-xl bg-stone-900 dark:bg-stone-100 text-stone-100 dark:text-stone-900 text-xs font-medium cursor-pointer shadow"
-            >
-              Create Your First Batch
+            <p className="text-base font-semibold text-stone-900">No batches yet</p>
+            <p className="text-sm text-stone-600 max-w-xs mx-auto">
+              A batch is one group of students doing a programme together. It gets its own join code and QR code.
+            </p>
+            <button type="button" onClick={openCreate} className="ui-btn-primary">
+              Create your first batch
             </button>
           </div>
         ) : (
-          <div className="divide-y divide-stone-100 dark:divide-stone-800">
+          <ul className="divide-y divide-stone-100">
             {batches.map((b) => {
               const currentDay = calculateDayNumber(b.start_date, organisation.timezone);
               const durationDays = b.course?.duration_days || 40;
-
+              const status =
+                currentDay < 1
+                  ? `Starts ${formatDateDisplay(b.start_date, organisation.timezone)}`
+                  : currentDay <= durationDays
+                  ? `Day ${currentDay} of ${durationDays}`
+                  : 'Finished';
               return (
-                <button
-                  type="button"
-                  key={b.id}
-                  onClick={() => setSelectedBatch(b)}
-                  className="w-full py-3.5 flex items-center justify-between text-left hover:bg-stone-50 dark:hover:bg-stone-800/50 rounded-xl px-2 transition-colors cursor-pointer"
-                >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-sm text-stone-900 dark:text-stone-100">
-                        {b.name}
-                      </span>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 font-bold">
-                        {b.join_code}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-3 text-xs text-stone-500 dark:text-stone-400">
-                      <span>{b.course?.name || 'Sadhana Course'}</span>
-                      <span>&bull;</span>
-                      <span>Starts {formatDateDisplay(b.start_date, organisation.timezone)}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                      {currentDay < 1
-                        ? `Starts in ${Math.abs(currentDay - 1)}d`
-                        : currentDay <= durationDays
-                        ? `Day ${currentDay}/${durationDays}`
-                        : `Finished`}
+                <li key={b.id}>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedBatch(b)}
+                    className="w-full min-h-14 py-3 px-2 -mx-2 flex items-center justify-between gap-3 text-start hover:bg-stone-50 rounded-xl transition-colors cursor-pointer"
+                  >
+                    <span className="min-w-0">
+                      <span className="block font-semibold text-base text-stone-900 truncate user-text">{b.name}</span>
+                      <span className="block text-sm text-stone-600 truncate">{b.course?.name || 'Programme'}</span>
                     </span>
-                    <ChevronRight className="w-4 h-4 text-stone-400" />
-                  </div>
-                </button>
+                    <span className="flex items-center gap-1.5 shrink-0">
+                      <span
+                        className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                          currentDay > durationDays ? 'bg-stone-100 text-stone-600' : 'bg-emerald-50 text-emerald-800'
+                        }`}
+                      >
+                        {status}
+                      </span>
+                      <ChevronRight className="w-5 h-5 text-stone-500 rtl:rotate-180" />
+                    </span>
+                  </button>
+                </li>
               );
             })}
-          </div>
+          </ul>
         )}
-      </div>
+      </section>
 
-      {/* Create Batch Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/70 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="w-full max-w-md bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 p-6 shadow-xl space-y-4">
-            <div>
-              <h2 className="text-base font-semibold text-stone-900 dark:text-stone-100">
-                Create New Batch
-              </h2>
-              <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
-                Set up a student cohort for daily practice.
-              </p>
-            </div>
-
-            <form onSubmit={handleCreateBatch} className="space-y-3.5">
-              {/* Course select */}
-              <div>
-                <label className="block text-xs font-medium text-stone-600 dark:text-stone-300 mb-1">
-                  Course Programme
-                </label>
-                <select
-                  value={selectedCourseId || courses[0]?.id || ''}
-                  onChange={(e) => setSelectedCourseId(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs focus:outline-none cursor-pointer"
-                >
-                  {courses.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.duration_days} days)
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Batch Name */}
-              <div>
-                <label className="block text-xs font-medium text-stone-600 dark:text-stone-300 mb-1">
-                  Batch Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. October 2026 Morning Sadhana"
-                  value={batchName}
-                  onChange={(e) => setBatchName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs focus:outline-none focus:ring-2 focus:ring-stone-500"
-                />
-              </div>
-
-              {/* Start Date */}
-              <div>
-                <label className="block text-xs font-medium text-stone-600 dark:text-stone-300 mb-1">
-                  Start Date (Day 1)
-                </label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    required
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs focus:outline-none cursor-pointer"
-                  />
-                  <Calendar className="w-4 h-4 text-stone-400 absolute right-3 top-3 pointer-events-none" />
-                </div>
-              </div>
-
-              {createError && (
-                <div className="p-3 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-900 rounded-xl text-xs text-red-600 dark:text-red-400">
-                  {createError}
-                </div>
-              )}
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2.5 rounded-xl text-xs text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 cursor-pointer transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isCreating || !batchName.trim()}
-                  className="px-5 py-2.5 rounded-xl bg-stone-900 dark:bg-stone-100 text-stone-100 dark:text-stone-900 text-xs font-semibold hover:opacity-90 transition-all disabled:opacity-50 cursor-pointer shadow"
-                >
-                  {isCreating ? 'Creating...' : 'Create Batch'}
-                </button>
-              </div>
-            </form>
+      <Sheet
+        open={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        title="New batch"
+        description="A group of students who do a programme together."
+        busy={isCreating}
+        footer={
+          <>
+            <button type="button" onClick={() => setShowCreateModal(false)} className="ui-btn-ghost">
+              Cancel
+            </button>
+            <button type="submit" form="create-batch" disabled={isCreating || !batchName.trim()} className="ui-btn-primary">
+              {isCreating ? 'Creating...' : 'Create batch'}
+            </button>
+          </>
+        }
+      >
+        <form id="create-batch" onSubmit={handleCreateBatch} className="space-y-4">
+          <div>
+            <label className="ui-label" htmlFor="cb-course">Programme</label>
+            <select
+              id="cb-course"
+              value={selectedCourseId || courses[0]?.id || ''}
+              onChange={(e) => setSelectedCourseId(e.target.value)}
+              className="ui-input cursor-pointer"
+            >
+              {courses.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                  {c.duration_days ? ` (${c.duration_days} days)` : ''}
+                </option>
+              ))}
+            </select>
           </div>
-        </div>
-      )}
+          <div>
+            <label className="ui-label" htmlFor="cb-name">Batch name</label>
+            <input
+              id="cb-name"
+              type="text"
+              required
+              maxLength={100}
+              placeholder="For example: October 2026 mornings"
+              value={batchName}
+              onChange={(e) => setBatchName(e.target.value)}
+              className="ui-input"
+            />
+          </div>
+          <div>
+            <label className="ui-label" htmlFor="cb-start">First day</label>
+            <input
+              id="cb-start"
+              type="date"
+              required
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="ui-input cursor-pointer"
+            />
+          </div>
+          {createError && (
+            <p role="alert" className="text-sm text-red-700">
+              {createError}
+            </p>
+          )}
+        </form>
+      </Sheet>
     </div>
   );
 };

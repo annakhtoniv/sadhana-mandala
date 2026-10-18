@@ -74,20 +74,20 @@ export const BatchSharePanel: React.FC<BatchSharePanelProps> = ({ batchName, cou
   };
 
   const buttonClass =
-    'py-2.5 rounded-xl border border-stone-200 dark:border-stone-700 text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 flex items-center justify-center gap-1.5 cursor-pointer';
+    'py-2.5 rounded-xl border border-stone-200 text-xs font-medium text-stone-700 hover:bg-stone-100 flex items-center justify-center gap-1.5 cursor-pointer';
 
   return (
     <div className="space-y-3">
-      <div className="p-4 bg-stone-50 dark:bg-stone-800 rounded-2xl flex flex-col items-center gap-2">
+      <div className="p-4 bg-stone-50 rounded-2xl flex flex-col items-center gap-2">
         <div className="p-3 bg-white rounded-xl shadow-sm">
           <QRCodeSVG value={url} size={180} level="M" aria-label={`QR code to join ${batchName}`} />
         </div>
-        <div className="font-mono text-lg font-bold tracking-widest text-stone-900 dark:text-stone-100">{joinCode}</div>
-        <p className="text-[11px] text-stone-500 dark:text-stone-400 text-center max-w-xs">
+        <div className="font-mono text-lg font-bold tracking-widest text-stone-900">{joinCode}</div>
+        <p className="text-xs text-stone-500 text-center max-w-xs">
           Students scan this with their phone camera, sign in with Google, and are added to this batch automatically.
           No app or link needed beforehand.
         </p>
-        <div className="text-[10px] text-stone-400 break-all text-center">{url}</div>
+        <div className="text-xs text-stone-500 break-all text-center">{url}</div>
       </div>
 
       <div className="grid grid-cols-2 gap-2">

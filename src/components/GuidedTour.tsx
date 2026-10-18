@@ -77,12 +77,12 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ isOpen, onClose, onShowP
     <div
       role="dialog"
       aria-labelledby="tour-step-title"
-      className="fixed z-50 inset-x-3 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] md:bottom-6 md:left-auto md:right-6 md:w-[22rem] animate-fade-up"
+      className="fixed z-50 inset-x-3 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] md:bottom-6 md:left-auto md:end-6 md:w-[22rem] animate-fade-up"
     >
       <div className="ui-glass !bg-white/95 rounded-[1.5rem] p-4 max-w-md mx-auto">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-[10px] font-medium uppercase tracking-[0.16em] text-emerald-700">
+            <div className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-700">
               Step {index + 1} of {TOUR_STEPS.length}
             </div>
             <h3 id="tour-step-title" className="font-display text-base font-semibold text-stone-950">

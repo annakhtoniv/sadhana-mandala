@@ -137,111 +137,96 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
     setJoining(false);
   };
 
-  // Un-enrolled View
+  const joinForm = (id: string, label: string) => (
+    <form onSubmit={handleJoinByCode} className="space-y-2">
+      <label htmlFor={id} className="ui-label">
+        {label}
+      </label>
+      <div className="flex gap-2">
+        <input
+          id={id}
+          type="text"
+          inputMode="text"
+          autoCapitalize="characters"
+          autoComplete="off"
+          placeholder="K7PM3QXA"
+          value={joinCode}
+          onChange={(e) => setJoinCode(e.target.value.toUpperCase().replace(/\s/g, ''))}
+          maxLength={12}
+          required
+          className="ui-input flex-1 min-w-0 font-mono tracking-widest uppercase"
+        />
+        <button type="submit" disabled={joining || !joinCode.trim()} className="ui-btn-primary shrink-0">
+          {joining ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>Join</span>}
+          {!joining && <ArrowRight className="w-4 h-4 rtl:rotate-180" />}
+        </button>
+      </div>
+      {joinError && (
+        <p role="alert" className="p-3 bg-red-50 rounded-xl text-sm text-red-700 flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+          <span>{joinError}</span>
+        </p>
+      )}
+    </form>
+  );
+
+  // Not in a batch yet
   if (!enrolment) {
     return (
-      <div className="w-full space-y-6 animate-in fade-in duration-150">
-        <div className="bg-white dark:bg-stone-900 p-5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-1">
-          <div className="text-xs font-medium text-stone-500 dark:text-stone-400">
-            Welcome to {organisation.app_name}
-          </div>
-          <h1 className="text-lg font-semibold text-stone-900 dark:text-stone-100">
-            {profile?.full_name || 'Practitioner'}
-          </h1>
-        </div>
+      <div className="w-full space-y-5 animate-fade-up">
+        <section className="ui-card">
+          <span className="ui-eyebrow">Welcome to {organisation.app_name}</span>
+          <h1 className="font-display text-2xl font-semibold text-stone-950 mt-3 user-text">{profile?.full_name || 'Welcome'}</h1>
+        </section>
 
-        <div className="bg-white dark:bg-stone-900 p-6 rounded-2xl border border-amber-200/80 dark:border-amber-900/60 shadow-sm space-y-5">
+        <section className="ui-card space-y-4">
           <div className="flex items-start gap-3.5">
-            <div className="w-10 h-10 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 border border-amber-200/60 dark:border-amber-900/60">
+            <div className="w-11 h-11 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
               <Users className="w-5 h-5" />
             </div>
             <div className="space-y-1">
-              <h2 className="text-base font-semibold text-stone-900 dark:text-stone-100">
-                You are not in a batch yet
-              </h2>
-              <p className="text-xs text-stone-500 dark:text-stone-400 leading-relaxed">
-                If your teacher gave you a 6-character join code, enter it below to join your batch and begin your daily practice trail.
+              <h2 className="font-display text-lg font-semibold text-stone-950">You are not in a batch yet</h2>
+              <p className="text-base text-stone-600 leading-relaxed">
+                Scan the QR code from your teacher, or type the join code they gave you.
               </p>
             </div>
           </div>
-
-          <form onSubmit={handleJoinByCode} className="space-y-3">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder="e.g. AUTUMN23"
-                value={joinCode}
-                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                maxLength={10}
-                required
-                className="flex-1 px-4 py-3 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-sm font-mono tracking-widest uppercase focus:outline-none focus:ring-2 focus:ring-stone-500"
-              />
-              <button
-                type="submit"
-                disabled={joining || !joinCode.trim()}
-                className="px-5 py-3 rounded-xl bg-stone-900 dark:bg-stone-100 text-stone-100 dark:text-stone-900 text-xs font-semibold flex items-center gap-2 hover:opacity-90 active:scale-[0.99] transition-all disabled:opacity-50 cursor-pointer shadow-sm"
-              >
-                {joining ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>Join</span>}
-                {!joining && <ArrowRight className="w-3.5 h-3.5" />}
-              </button>
-            </div>
-
-            {joinError && (
-              <div className="p-3 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-900 rounded-xl text-xs text-red-600 dark:text-red-400 flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-                <span>{joinError}</span>
-              </div>
-            )}
-          </form>
-
-
+          {joinForm('join-first', 'Join code')}
           {onNavigateLessons && (
-            <div className="pt-2 border-t border-stone-100 dark:border-stone-800">
-              <button
-                type="button"
-                onClick={onNavigateLessons}
-                className="w-full py-2.5 px-3 text-xs text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 flex items-center justify-center gap-2 transition-colors cursor-pointer"
-              >
-                <BookOpen className="w-4 h-4 text-stone-400" />
-                <span>Explore General Lessons</span>
-              </button>
-            </div>
+            <button type="button" onClick={onNavigateLessons} className="ui-btn-ghost w-full">
+              <BookOpen className="w-4 h-4" />
+              <span>Read the general lessons</span>
+            </button>
           )}
-        </div>
+        </section>
       </div>
     );
   }
 
-  // Active Enrolled View
+  const runStatus = programmeRunStatus(course, todayDayNumber);
+  const notStarted = todayDayNumber < 1;
+  const startText = batch?.start_date ? formatDateDisplay(batch.start_date, organisation.timezone) : '';
+
   return (
-    <div className="w-full space-y-6 animate-in fade-in duration-150">
-      {/* Batch Header */}
-      <div className="bg-white dark:bg-stone-900 p-5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">
-            {course?.name || 'Sadhana Commitment'}
-          </span>
-          <span className="text-[11px] text-stone-400 font-mono">
-            {batch?.start_date ? formatDateDisplay(batch.start_date, organisation.timezone) : ''}
-          </span>
-        </div>
-        <h1 className="text-xl font-semibold text-stone-900 dark:text-stone-100">
-          {batch?.name}
-        </h1>
-        {batch?.teacher && (
-          <p className="text-xs text-stone-500 dark:text-stone-400">
-            Teacher: {batch.teacher.full_name || batch.teacher.email}
-          </p>
-        )}
-      </div>
+    <div className="w-full space-y-5 animate-fade-up">
+      <section className="ui-card space-y-2">
+        <span className="ui-eyebrow">{course?.name || 'Programme'}</span>
+        <h1 className="font-display text-2xl font-semibold text-stone-950 mt-1 user-text">{batch?.name}</h1>
+        <p className="text-base text-stone-600">
+          {startText && (notStarted ? `Starts on ${startText}` : `Started on ${startText}`)}
+          {batch?.teacher && (
+            <>
+              {startText ? ' · ' : ''}Teacher: <span className="user-text">{batch.teacher.full_name || batch.teacher.email}</span>
+            </>
+          )}
+        </p>
+      </section>
 
       {/* My programmes (a student can be in many programmes over time) */}
       {enrolments.length > 1 && (
-        <div className="bg-white dark:bg-stone-900 p-4 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-2">
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
-            My programmes ({enrolments.length})
-          </div>
-          <div className="space-y-1.5">
+        <section className="ui-card space-y-2">
+          <h2 className="text-sm font-semibold text-stone-700">My programmes ({enrolments.length})</h2>
+          <div className="space-y-2">
             {enrolments.map((e: Enrolment) => {
               const eCourse = e.batch?.course;
               const eDay = e.batch?.start_date ? calculateDayNumber(e.batch.start_date, organisation.timezone) : 1;
@@ -253,97 +238,77 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
                   type="button"
                   onClick={() => selectEnrolment(e.id)}
                   aria-pressed={selected}
-                  className={`w-full p-3 rounded-xl border text-left flex items-center justify-between gap-2 transition-colors cursor-pointer ${
-                    selected
-                      ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40'
-                      : 'border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-800'
+                  className={`w-full min-h-14 p-3 rounded-2xl text-start flex items-center justify-between gap-2 transition-colors cursor-pointer ring-1 ${
+                    selected ? 'ring-2 ring-emerald-600 bg-emerald-50' : 'ring-stone-200 hover:bg-stone-50'
                   }`}
                 >
-                  <div className="min-w-0">
-                    <div className="text-sm font-semibold text-stone-900 dark:text-stone-100 truncate">
-                      {eCourse?.name || 'Programme'}
-                    </div>
-                    <div className="text-[11px] text-stone-500 truncate">{e.batch?.name}</div>
-                  </div>
-                  <div className="shrink-0 flex flex-col items-end gap-1">
+                  <span className="min-w-0">
+                    <span className="block text-base font-semibold text-stone-900 truncate">{eCourse?.name || 'Programme'}</span>
+                    <span className="block text-sm text-stone-600 truncate user-text">{e.batch?.name}</span>
+                  </span>
+                  <span className="shrink-0 flex flex-col items-end gap-1">
                     <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                      className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                         status === 'running'
-                          ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
+                          ? 'bg-emerald-100 text-emerald-800'
                           : status === 'upcoming'
-                          ? 'bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300'
-                          : 'bg-stone-100 dark:bg-stone-800 text-stone-500'
+                          ? 'bg-indigo-100 text-indigo-800'
+                          : 'bg-stone-100 text-stone-600'
                       }`}
                     >
                       {RUN_STATUS_LABEL[status]}
                     </span>
                     {hasPracticeTrack(eCourse) && (
-                      <span className="inline-flex items-center gap-0.5 text-[10px] text-amber-600 dark:text-amber-400">
-                        <Flame className="w-3 h-3" />
+                      <span className="inline-flex items-center gap-1 text-xs text-amber-700">
+                        <Flame className="w-3.5 h-3.5" />
                         {practiceTrackName(eCourse)}
                       </span>
                     )}
-                  </div>
+                  </span>
                 </button>
               );
             })}
           </div>
-        </div>
+        </section>
       )}
 
       {!practice ? (
         /* Programme without a daily practice track (e.g. Art of Silence, VTP) */
-        <div className="bg-white dark:bg-stone-900 p-5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
-              About this programme
-            </span>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300">
-              {RUN_STATUS_LABEL[programmeRunStatus(course, todayDayNumber)]}
-            </span>
+        <section className="ui-card space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="font-display text-lg font-semibold text-stone-950">What happens next</h2>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-stone-100 text-stone-700">{RUN_STATUS_LABEL[runStatus]}</span>
           </div>
-          {course?.description && (
-            <p className="text-sm text-stone-700 dark:text-stone-300 leading-relaxed">{course.description}</p>
-          )}
-          <dl className="grid grid-cols-2 gap-3 text-xs">
-            <div>
-              <dt className="text-stone-400">Started</dt>
-              <dd className="font-medium text-stone-800 dark:text-stone-200">
-                {batch?.start_date ? formatDateDisplay(batch.start_date, organisation.timezone) : '—'}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-stone-400">Length</dt>
-              <dd className="font-medium text-stone-800 dark:text-stone-200">
-                {course?.programme_days ? `${course.programme_days} days` : 'Not set'}
-              </dd>
-            </div>
-          </dl>
-          <p className="text-[11px] text-stone-400">
-            This programme has no daily check-in.
+          {course?.description && <p className="text-base text-stone-700 leading-relaxed">{course.description}</p>}
+          <p className="text-base text-stone-700 leading-relaxed">
+            {runStatus === 'upcoming'
+              ? `Your programme starts on ${startText}. Your teacher will tell you the times and the place.`
+              : runStatus === 'running'
+              ? 'Your programme is running now. Sessions and reminders from your teacher appear below.'
+              : 'This programme has finished. Your lessons and study materials stay here for you.'}
           </p>
-        </div>
+          {course?.programme_days ? <p className="text-sm text-stone-600">Length: {course.programme_days} days</p> : null}
+        </section>
       ) : (
-      <>
-      {batch && profile && (
-        <PracticeCheckin
-          key={batch.id}
-          orgId={organisation.id}
-          batchId={batch.id}
-          studentId={profile.id}
-          startDate={batch.start_date}
-          timeZone={organisation.timezone}
-          todayDay={todayDayNumber}
-          durationDays={durationDays}
-          practiceName={practiceTrackName(course)}
-          question={organisation.checkin_question}
-          checkins={checkins}
-          onCheckinsChange={setCheckins}
-          loadError={checkinsError}
-          onRetry={() => setReloadKey((k) => k + 1)}
-        />
-      )}
-      </>
+        batch &&
+        profile && (
+          <PracticeCheckin
+            key={batch.id}
+            orgId={organisation.id}
+            batchId={batch.id}
+            studentId={profile.id}
+            startDate={batch.start_date}
+            timeZone={organisation.timezone}
+            todayDay={todayDayNumber}
+            durationDays={durationDays}
+            practiceName={practiceTrackName(course)}
+            question={organisation.checkin_question}
+            checkins={checkins}
+            onCheckinsChange={setCheckins}
+            loadError={checkinsError}
+            onRetry={() => setReloadKey((k) => k + 1)}
+          />
+        )
       )}
 
       {/* Reminders and follow-up sessions of the selected programme (Phase 7) */}
@@ -363,32 +328,7 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
       {/* Study materials of the programme (Phase 12) */}
       {course && <ProgrammeMaterials key={`mat-${course.id}`} course={course} />}
 
-      {/* Join another programme with its join code */}
-      <form
-        onSubmit={handleJoinByCode}
-        className="bg-white dark:bg-stone-900 p-4 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-2"
-      >
-        <label htmlFor="join-another" className="block text-xs font-semibold text-stone-700 dark:text-stone-300">
-          Joining another programme?
-        </label>
-        <div className="flex gap-2">
-          <input
-            id="join-another"
-            value={joinCode}
-            onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-            placeholder="Join code"
-            className="flex-1 min-w-0 px-3 py-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-sm font-mono tracking-widest text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-stone-500"
-          />
-          <button
-            type="submit"
-            disabled={joining || !joinCode.trim()}
-            className="px-4 py-2.5 rounded-xl bg-stone-900 dark:bg-stone-100 text-stone-100 dark:text-stone-900 text-xs font-semibold disabled:opacity-50"
-          >
-            {joining ? 'Joining...' : 'Join'}
-          </button>
-        </div>
-        {joinError && <p className="text-xs text-red-600 dark:text-red-400">{joinError}</p>}
-      </form>
+      <section className="ui-card">{joinForm('join-another', 'Joining another programme? Type its join code')}</section>
     </div>
   );
 };

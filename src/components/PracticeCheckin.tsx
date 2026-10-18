@@ -68,6 +68,8 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
   }, [todayDay, durationDays, lastOpenDay]);
   const [saving, setSaving] = useState<'morning' | 'evening' | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  // The trail shows this week only until the person asks for every day
+  const [showAllDays, setShowAllDays] = useState(false);
 
   const byDay = useMemo(() => new Map(checkins.map((c) => [c.day_number, c])), [checkins]);
   const streak = calculateStreak(checkins, todayDay, durationDays);
@@ -144,7 +146,7 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
           </span>
         </div>
         <div className="mt-5 text-sm font-semibold">{slot === 'morning' ? 'Morning' : 'Evening'}</div>
-        <div className={`text-[11px] ${on ? 'opacity-80' : 'text-stone-500'}`}>{on ? 'Done' : 'Tap when done'}</div>
+        <div className={`text-xs ${on ? 'opacity-80' : 'text-stone-500'}`}>{on ? 'Done' : 'Tap when done'}</div>
       </button>
     );
   };
@@ -158,7 +160,7 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
             {notStarted ? 'Starts soon' : finished && selectedDay === lastOpenDay ? 'Practice complete' : `Day ${selectedDay} of ${durationDays}`}
           </span>
           {!notStarted && (
-            <span className="text-[11px] text-stone-500">
+            <span className="text-xs text-stone-500">
               {isToday ? 'Today' : dayDate(startDate, selectedDay, timeZone)}
             </span>
           )}
@@ -182,7 +184,7 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
               {tile('morning', morning)}
               {tile('evening', evening)}
             </div>
-            <p className="text-[11px] text-stone-500 min-h-[16px]" aria-live="polite">
+            <p className="text-xs text-stone-500 min-h-[16px]" aria-live="polite">
               {loadError ? (
                 <span className="text-red-600">
                   Your ticks could not be loaded, so they are locked for now. {loadError}{' '}
@@ -221,22 +223,22 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
           <div className="relative w-14 h-14 shrink-0">
             <div className={`absolute inset-0 rounded-full blur-xl ${streak > 0 ? 'bg-amber-400/50' : 'bg-stone-300/40'}`} />
             <div className={`relative w-14 h-14 rounded-full flex items-center justify-center ${streak > 0 ? 'bg-gradient-to-b from-amber-300 to-orange-500' : 'bg-stone-200'}`}>
-              <Flame className={`w-7 h-7 ${streak > 0 ? 'text-white fill-white/30' : 'text-stone-400'}`} />
+              <Flame className={`w-7 h-7 ${streak > 0 ? 'text-white fill-white/30' : 'text-stone-500'}`} />
             </div>
           </div>
           <div className="flex-1 min-w-0">
             <div className="font-display text-2xl font-semibold text-stone-950 leading-none">
               {streak} <span className="text-base font-medium text-stone-500">day{streak === 1 ? '' : 's'} in a row</span>
             </div>
-            <p className="text-[11px] text-stone-500 mt-1">
+            <p className="text-sm text-stone-600 mt-1">
               Your practice flame. It grows each day you tick Morning or Evening, and starts again after a day with no tick.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center justify-between text-xs">
-          <span className="font-semibold text-stone-900">{durationDays}-day trail</span>
-          <span className="text-stone-500 tabular-nums">
+        <div className="flex items-center justify-between text-sm">
+          <span className="font-semibold text-stone-900">{showAllDays ? `All ${durationDays} days` : 'This week'}</span>
+          <span className="text-stone-600 tabular-nums">
             {practised} of {Math.max(0, lastOpenDay)} days practised
           </span>
         </div>
@@ -244,10 +246,12 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
         <div id="tour-practice-trail" className="grid grid-cols-7 gap-1.5">
           {Array.from({ length: durationDays }).map((_, idx) => {
             const day = idx + 1;
+            const weekStart = Math.floor((Math.min(Math.max(todayDay, 1), durationDays) - 1) / 7) * 7 + 1;
+            if (!showAllDays && (day < weekStart || day > weekStart + 6)) return null;
             const status = getTrailDayStatus(day, todayDay, byDay.get(day));
             const open = day <= lastOpenDay;
             const isSelected = open && day === selectedDay;
-            const base = 'aspect-square rounded-full flex items-center justify-center text-[11px] font-medium transition-all relative';
+            const base = 'aspect-square min-h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all relative';
             const look =
               status === 'full'
                 ? 'bg-emerald-500 text-white'
@@ -256,7 +260,7 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
                 : status === 'today'
                 ? 'bg-white text-emerald-700 ring-2 ring-emerald-500'
                 : status === 'missed'
-                ? 'bg-white text-stone-400 ring-1 ring-stone-900/10'
+                ? 'bg-white text-stone-500 ring-1 ring-stone-900/10'
                 : 'text-stone-300';
             return (
               <button
@@ -275,21 +279,27 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
               >
                 {status === 'full' ? <Check className="w-3.5 h-3.5" /> : day}
                 {byDay.get(day)?.late && status !== 'missed' && (
-                  <History className="absolute -top-0.5 -right-0.5 w-3 h-3 p-[1px] rounded-full bg-white text-stone-500" />
+                  <History className="absolute -top-0.5 -end-0.5 w-3 h-3 p-[1px] rounded-full bg-white text-stone-500" />
                 )}
               </button>
             );
           })}
         </div>
 
-        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-[10.5px] text-stone-500">
+        {durationDays > 7 && (
+          <button type="button" onClick={() => setShowAllDays((v) => !v)} aria-expanded={showAllDays} className="ui-btn-ghost w-full">
+            {showAllDays ? 'Show this week only' : `Show all ${durationDays} days`}
+          </button>
+        )}
+
+        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-sm text-stone-600">
           <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-emerald-500" /> Both</span>
           <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-[linear-gradient(135deg,#34d399_50%,#d1fae5_50%)]" /> One</span>
           <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-white ring-1 ring-stone-900/15" /> Not ticked</span>
           <span className="flex items-center gap-1.5"><History className="w-3 h-3" /> Added later</span>
         </div>
-        <p className="text-[11px] text-center text-stone-400 flex items-center justify-center gap-1">
-          <Sparkles className="w-3 h-3" /> Tap any past day to fill it in.
+        <p className="text-sm text-center text-stone-600 flex items-center justify-center gap-1">
+          <Sparkles className="w-4 h-4" /> Forgot a day? Tap it to fill it in.
         </p>
       </section>
     </>

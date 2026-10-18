@@ -15,12 +15,12 @@ export const InstallAppCard: React.FC<{ appName: string }> = ({ appName }) => {
   if (installed) return null;
 
   return (
-    <div className="bg-white dark:bg-stone-900 p-5 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-3">
+    <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm space-y-3">
       <div className="flex items-center gap-2">
         <Smartphone className="w-4 h-4 text-emerald-600" />
-        <h2 className="text-sm font-semibold text-stone-900 dark:text-stone-100">Install {appName}</h2>
+        <h2 className="text-sm font-semibold text-stone-900">Install {appName}</h2>
       </div>
-      <p className="text-xs text-stone-500 dark:text-stone-400">
+      <p className="text-xs text-stone-500">
         Put the app on your home screen. It opens full screen like any other app, with no app store needed.
       </p>
       {canPrompt ? (
@@ -35,11 +35,11 @@ export const InstallAppCard: React.FC<{ appName: string }> = ({ appName }) => {
           <Download className="w-4 h-4" /> Install the app
         </button>
       ) : isIos() ? (
-        <p className="text-xs text-stone-700 dark:text-stone-300 flex items-center gap-1.5 flex-wrap">
+        <p className="text-xs text-stone-700 flex items-center gap-1.5 flex-wrap">
           In Safari, tap <Share className="w-3.5 h-3.5 inline" /> Share, then "Add to Home Screen".
         </p>
       ) : (
-        <p className="text-xs text-stone-700 dark:text-stone-300">
+        <p className="text-xs text-stone-700">
           In Chrome, open the menu (three dots) and tap "Install app" or "Add to Home screen".
         </p>
       )}

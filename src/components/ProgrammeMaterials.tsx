@@ -27,6 +27,7 @@ export const ProgrammeMaterials: React.FC<{ course: Course }> = ({ course }) => 
   const [playing, setPlaying] = useState<{ id: string; url: string } | null>(null);
   const [opening, setOpening] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     fetchMaterials(course.id)
@@ -68,23 +69,23 @@ export const ProgrammeMaterials: React.FC<{ course: Course }> = ({ course }) => 
   return (
     <section className="ui-card space-y-3">
       <div className="flex items-center gap-2">
-        <Folder className="w-4 h-4 text-emerald-600" />
-        <h2 className="text-sm font-semibold text-stone-900">Study materials</h2>
-        <span className="text-xs text-stone-400">{items.length}</span>
+        <Folder className="w-5 h-5 text-emerald-700" />
+        <h2 className="font-display text-lg font-semibold text-stone-950">Study materials</h2>
+        <span className="text-sm text-stone-600">({items.length})</span>
       </div>
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       <ul className="space-y-1.5">
-        {items.map((m) => (
+        {(showAll ? items : items.slice(0, 3)).map((m) => (
           <li key={m.id}>
             <button
               type="button"
               onClick={() => open(m)}
-              className="w-full flex items-center gap-3 p-2 -mx-2 rounded-2xl hover:bg-stone-50 text-left cursor-pointer"
+              className="w-full min-h-14 flex items-center gap-3 p-2 -mx-2 rounded-2xl hover:bg-stone-50 text-start cursor-pointer"
             >
               <MaterialIcon kind={m.kind} />
               <span className="min-w-0 flex-1">
-                <span className="block text-sm font-medium text-stone-900 truncate">{m.title}</span>
-                <span className="block text-[11px] text-stone-500 truncate">
+                <span className="block text-base font-medium text-stone-900 truncate">{m.title}</span>
+                <span className="block text-sm text-stone-600 truncate">
                   {m.description ||
                     (m.kind === 'link'
                       ? 'Link'
@@ -92,9 +93,9 @@ export const ProgrammeMaterials: React.FC<{ course: Course }> = ({ course }) => 
                 </span>
               </span>
               {opening === m.id ? (
-                <Loader2 className="w-4 h-4 animate-spin text-stone-400 shrink-0" />
+                <Loader2 className="w-4 h-4 animate-spin text-stone-500 shrink-0" />
               ) : (
-                <ExternalLink className="w-4 h-4 text-stone-300 shrink-0" />
+                <ExternalLink className="w-4 h-4 text-stone-500 shrink-0" aria-hidden="true" />
               )}
             </button>
             {playing?.id === m.id &&
@@ -106,6 +107,11 @@ export const ProgrammeMaterials: React.FC<{ course: Course }> = ({ course }) => 
           </li>
         ))}
       </ul>
+      {items.length > 3 && (
+        <button type="button" onClick={() => setShowAll((v) => !v)} aria-expanded={showAll} className="ui-btn-ghost w-full">
+          {showAll ? 'Show fewer' : `See all ${items.length} materials`}
+        </button>
+      )}
     </section>
   );
 };

@@ -192,8 +192,20 @@
   - Permission checks read the full list of roles (hasRole).
   - verify.sql: 122 checks (2 new), all PASS, twice, on a database rebuilt from the repository alone. 118 unit tests (4 new), clean build.
 
+- Phase 16 built on 2026-10-18 (experience for older users; app only, no SQL):
+  - One pop-up for the whole app (a sheet from the bottom on a phone, a window on a computer): create batch, edit batch, batch QR, add students by email, events, programmes, modules and lessons, follow-up steps, organisation settings, roles, and every "Are you sure?" question. Keyboard focus stays inside, Escape closes it, screen readers hear it as a dialog.
+  - Easier to read and tap: pinch-zoom allowed again; no text smaller than 12 px; quieter grey text made darker; buttons and form fields at least 44 px; form fields in 16 px text so phones do not zoom in; a visible focus ring for keyboard users; names in Arabic or English show in their own direction; layout mirrors correctly for right-to-left.
+  - Messages ("Saved", errors) appear at the bottom above the tabs and are read aloud; good news closes by itself after 8 seconds.
+  - Navigation: the view switcher shows only to people with more than one view; volunteers open on Leads; no more "Back" links on the main tabs (the tab bar is the way around).
+  - Student home: the trail shows this week (with "Show all 40 days"); 3 study materials with "See all"; "Starts on" for batches that have not started; programmes without a daily check-in get a "What happens next" card instead of "Length: Not set".
+  - Teacher screens in the same design as the rest: batch list with a clear status, roster rows with today's ticks, streak and an email button per student, "Quiet" explained on the page.
+  - Leads: the three stage boxes are gone (the filter chips do the same), with a fade showing more chips to the side.
+  - Admin > People: one list with filters (Everyone, Admins, Teachers, Volunteers, Students, Not signed in yet), 50 people at a time, "Add a person" in a pop-up with role tick boxes; on a phone the roles of a person open as a bottom sheet.
+  - Words: "cohort", "Course Programme" and similar replaced by batch and programme; dates in day-month order everywhere.
+  - Tried in a browser on a local copy (student, volunteer, teacher, admin; phone and computer). 118 unit tests, clean build.
+
 ## Next
-- PM: merge the Phase 14 pull request, then in the Supabase SQL editor run (from `main`): `supabase/phase14_safety.sql`, `supabase/seed_dummy_data.sql`, `supabase/verify.sql` (all 120 rows PASS). Until the SQL is run, un-ticking a tick can fail.
+- PM: merge the pull request, then in the Supabase SQL editor run (from `main`), in this order: `supabase/phase14_safety.sql`, `supabase/phase15_performance.sql`, `supabase/seed_dummy_data.sql`, `supabase/verify.sql` (all 122 rows PASS). Until the SQL is run, un-ticking a tick can fail.
 - PM: test Phase 12: sign out and in (your Google photo appears); Profile > camera > pick a picture; Admin > tap each overview card; tap a batch card; Admin > Programmes > Happiness Program > Materials > upload a PDF and an MP3; as a student of that programme, see "Study materials" on the home screen.
 - Storage limits (Supabase free plan): 50 MB per file, about 1 GB in total. Long videos are better as YouTube (unlisted) links.
 - PM: test Phase 11: tick Morning and Evening today; tap an earlier circle and tick it (it gets the clock badge); try the guided tour (? button); open the site on a computer (side menu) and on the phone (bottom tabs); Admin > Batches > Open > Edit and rename a batch.

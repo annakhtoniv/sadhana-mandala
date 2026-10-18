@@ -25,13 +25,13 @@ export const STAGE_HINT: Record<CrmStage, string> = {
 };
 
 export const STAGE_CLASS: Record<CrmStage, string> = {
-  new: 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300',
-  invited: 'bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300',
-  attended: 'bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300',
-  interested: 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300',
-  registered: 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300',
-  completed: 'bg-teal-100 dark:bg-teal-950 text-teal-700 dark:text-teal-300',
-  lost: 'bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400',
+  new: 'bg-stone-100 text-stone-700',
+  invited: 'bg-indigo-100 text-indigo-700',
+  attended: 'bg-sky-100 text-sky-700',
+  interested: 'bg-amber-100 text-amber-700',
+  registered: 'bg-emerald-100 text-emerald-700',
+  completed: 'bg-teal-100 text-teal-700',
+  lost: 'bg-red-50 text-red-600',
 };
 
 export const SOURCE_LABEL: Record<CrmSource, string> = {

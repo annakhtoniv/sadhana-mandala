@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useConfirm } from './Sheet';
 import {
   addMaterialLink,
   deleteMaterial,
@@ -19,7 +20,7 @@ interface MaterialsEditorProps {
   onBack: () => void;
 }
 
-const inputClass = 'w-full px-3.5 py-2.5 rounded-xl border border-stone-200 bg-white text-sm text-stone-900 focus:outline-none';
+const inputClass = 'ui-input';
 
 /**
  * Study materials of one programme (PDF, audio, video, images, files, links).
@@ -27,6 +28,7 @@ const inputClass = 'w-full px-3.5 py-2.5 rounded-xl border border-stone-200 bg-w
  */
 export const MaterialsEditor: React.FC<MaterialsEditorProps> = ({ course, onBack }) => {
   const { organisation, user } = useAuth();
+  const confirm = useConfirm();
   const [items, setItems] = useState<ProgrammeMaterial[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -104,8 +106,8 @@ export const MaterialsEditor: React.FC<MaterialsEditorProps> = ({ course, onBack
 
   return (
     <div className="w-full space-y-5">
-      <button type="button" onClick={onBack} className="inline-flex items-center gap-1.5 text-xs text-stone-500 hover:text-stone-800 cursor-pointer">
-        <ArrowLeft className="w-3.5 h-3.5" /> Back to Programmes
+      <button type="button" onClick={onBack} className="ui-btn-ghost !min-h-10 !py-2 !px-4">
+        <ArrowLeft className="w-4 h-4 rtl:rotate-180" /> Back to Programmes
       </button>
 
       <section className="ui-card space-y-4">
@@ -125,7 +127,7 @@ export const MaterialsEditor: React.FC<MaterialsEditorProps> = ({ course, onBack
         >
           {busy ? <Loader2 className="w-6 h-6 animate-spin text-stone-500" /> : <Upload className="w-6 h-6 text-stone-500" />}
           <span className="text-sm font-semibold text-stone-800">{busy || 'Upload files'}</span>
-          <span className="text-[11px] text-stone-500">PDF, audio (MP3), video (MP4), pictures or documents. Up to 20 MB each. Longer videos: add a YouTube link instead.</span>
+          <span className="text-xs text-stone-500">PDF, audio (MP3), video (MP4), pictures or documents. Up to 20 MB each. Longer videos: add a YouTube link instead.</span>
         </button>
         <input
           ref={fileRef}
@@ -161,10 +163,10 @@ export const MaterialsEditor: React.FC<MaterialsEditorProps> = ({ course, onBack
 
       <section className="ui-card space-y-1">
         <h2 className="text-sm font-semibold text-stone-900 pb-1">
-          In this programme <span className="text-stone-400 font-normal">{items.length}</span>
+          In this programme <span className="text-stone-500 font-normal">{items.length}</span>
         </h2>
-        {loading && <p className="text-xs text-stone-400">Loading...</p>}
-        {!loading && items.length === 0 && <p className="text-xs text-stone-400">Nothing yet. Upload the first file above.</p>}
+        {loading && <p className="text-xs text-stone-500">Loading...</p>}
+        {!loading && items.length === 0 && <p className="text-xs text-stone-500">Nothing yet. Upload the first file above.</p>}
         <ul className="divide-y divide-stone-100">
           {items.map((m, i) => (
             <li key={m.id} className={`py-3 flex items-center gap-3 ${m.published ? '' : 'opacity-60'}`}>
@@ -182,17 +184,17 @@ export const MaterialsEditor: React.FC<MaterialsEditorProps> = ({ course, onBack
                     const url = await materialUrl(m);
                     if (url) window.open(url, '_blank', 'noopener');
                   }}
-                  className="text-[11px] text-stone-500 hover:underline cursor-pointer"
+                  className="text-xs text-stone-500 hover:underline cursor-pointer"
                 >
                   {m.kind === 'link' ? m.url : [m.kind.toUpperCase(), formatBytes(m.size_bytes)].filter(Boolean).join(' · ')}
                   {!m.published && ' · hidden from students'}
                 </button>
               </div>
               <div className="flex items-center shrink-0">
-                <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="ui-icon-btn !w-8 !h-8 disabled:opacity-30" aria-label="Move up">
+                <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="ui-icon-btn !w-10 !h-10 disabled:opacity-30" aria-label="Move up">
                   <ArrowUp className="w-3.5 h-3.5" />
                 </button>
-                <button type="button" onClick={() => move(i, 1)} disabled={i === items.length - 1} className="ui-icon-btn !w-8 !h-8 disabled:opacity-30" aria-label="Move down">
+                <button type="button" onClick={() => move(i, 1)} disabled={i === items.length - 1} className="ui-icon-btn !w-10 !h-10 disabled:opacity-30" aria-label="Move down">
                   <ArrowDown className="w-3.5 h-3.5" />
                 </button>
                 <button
@@ -201,7 +203,7 @@ export const MaterialsEditor: React.FC<MaterialsEditorProps> = ({ course, onBack
                     await updateMaterial(m.id, { published: !m.published });
                     await load();
                   }}
-                  className="ui-icon-btn !w-8 !h-8"
+                  className="ui-icon-btn !w-10 !h-10"
                   aria-label={m.published ? 'Hide from students' : 'Show to students'}
                   title={m.published ? 'Hide from students' : 'Show to students'}
                 >
@@ -210,12 +212,12 @@ export const MaterialsEditor: React.FC<MaterialsEditorProps> = ({ course, onBack
                 <button
                   type="button"
                   onClick={async () => {
-                    if (!window.confirm(`Delete "${m.title}"? Students will no longer see it.`)) return;
+                    if (!(await confirm({ title: `Delete "${m.title}"?`, message: 'Students will no longer see it.', confirmLabel: 'Delete', danger: true }))) return;
                     const res = await deleteMaterial(m);
                     if (!res.success || res.error) setMessage({ tone: 'error', text: res.error || 'Could not delete.' });
                     await load();
                   }}
-                  className="ui-icon-btn !w-8 !h-8 hover:!text-red-600"
+                  className="ui-icon-btn !w-10 !h-10 hover:!text-red-600"
                   aria-label="Delete"
                 >
                   <Trash2 className="w-3.5 h-3.5" />

@@ -301,6 +301,11 @@ by the organisation.
     on every pull request, error reports for admins, smaller app download,
     offline ticks. Test: verify.sql passes in GitHub on a pull request; a
     tick made in airplane mode appears after reconnecting.
+16. Easier for older users: one pop-up style everywhere (keyboard and screen
+    reader friendly), larger text and 44 px buttons, zoom allowed, messages at
+    the bottom of the screen, a calmer student home, a clearer People page.
+    Test: every pop-up closes with Escape; on a phone the text can be zoomed;
+    a volunteer opens on Leads; a person with one role sees no view switcher.
 
 ## Out of scope (do not build)
 Community or chat, payments, native mobile apps, organisation self-signup,

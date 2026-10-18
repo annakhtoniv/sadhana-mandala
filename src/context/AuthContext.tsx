@@ -78,6 +78,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [organisation, setOrganisation] = useState<Organisation>(DEFAULT_ORGANISATION);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
+  // Good news goes away by itself after a few seconds; problems stay until closed
+  useEffect(() => {
+    if (notice?.tone !== 'success') return;
+    const t = setTimeout(() => setNotice(null), 8000);
+    return () => clearTimeout(t);
+  }, [notice]);
 
   // Active Role view (supports easy instant switching between Student, Teacher, and Admin)
   const [activeRole, setActiveRoleState] = useState<UserRole>(() => {
