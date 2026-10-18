@@ -3,6 +3,8 @@ import { useAuth } from '../context/AuthContext';
 import { ProgrammesManager } from './ProgrammesManager';
 import { BatchSharePanel } from './BatchSharePanel';
 import { TeacherBatchDetail } from './TeacherBatchDetail';
+import { BatchCard, batchPhase } from './BatchCard';
+import { Avatar } from './Avatar';
 import { supabase, isDemoMode } from '../lib/supabase';
 import { FunnelReportPanel } from './FunnelReportPanel';
 import { ROLE_LABEL } from '../lib/roles';
@@ -19,8 +21,6 @@ import {
   DEMO_ORG_ID,
 } from '../lib/mockData';
 import {
-  formatDateDisplay,
-  calculateDayNumber,
   getTodayInTimezone,
 } from '../lib/dateUtils';
 import type { Profile, RoleGrant, UserRole, Course, Batch } from '../types/database';
@@ -34,10 +34,6 @@ import {
   PlusCircle,
   Users,
   Calendar,
-  Copy,
-  QrCode,
-  GraduationCap,
-  ArrowRight,
   Search,
   X,
   BarChart3,
@@ -78,7 +74,6 @@ export const AdminHome: React.FC = () => {
   const [qrBatch, setQrBatch] = useState<Batch | null>(null);
   // Batch opened from the Batches tab (roster, edit, QR)
   const [openBatch, setOpenBatch] = useState<Batch | null>(null);
-  const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
   const loadData = async () => {
     if (!organisation.id) return;
@@ -236,11 +231,6 @@ export const AdminHome: React.FC = () => {
     setIsCreatingBatch(false);
   };
 
-  const handleCopyCode = (code: string) => {
-    navigator.clipboard.writeText(code);
-    setCopiedCode(code);
-    setTimeout(() => setCopiedCode(null), 2500);
-  };
 
   // Metrics for Sanctuary KPI Grid
   const studentCount = profiles.filter((p) => p.role === 'student' || p.role === 'volunteer').length;
@@ -259,19 +249,20 @@ export const AdminHome: React.FC = () => {
     setShowBatchModal(true);
   };
 
-  const tabs = [
-    { id: 'batches' as const, label: 'Batches', icon: Calendar, count: allBatches.length },
-    { id: 'users' as const, label: 'People', icon: Users, count: profiles.length },
-    { id: 'courses' as const, label: 'Programmes', icon: BookOpen, count: courses.length },
-    { id: 'reports' as const, label: 'Reports', icon: BarChart3 },
-    { id: 'system' as const, label: 'Settings', icon: Settings },
-  ];
+  const runningBatches = allBatches.filter((b) => batchPhase(b, organisation.timezone) === 'running').length;
 
-  const stats = [
-    { label: 'Students', value: studentCount, icon: Users },
-    { label: 'Batches', value: allBatches.length, icon: Calendar, note: 'running and finished' },
-    { label: 'Programmes', value: courses.length, icon: BookOpen, note: 'in the catalogue' },
-    { label: 'Teachers', value: teacherCount, icon: GraduationCap, note: `${volunteerCount} volunteer${volunteerCount === 1 ? '' : 's'}` },
+  // The overview cards are also the section switch (no separate tab bar)
+  const sections = [
+    { id: 'batches' as const, label: 'Batches', value: allBatches.length, icon: Calendar, note: `${runningBatches} running now` },
+    {
+      id: 'users' as const,
+      label: 'People',
+      value: profiles.length,
+      icon: Users,
+      note: `${studentCount} students · ${teacherCount} teachers · ${volunteerCount} volunteers`,
+    },
+    { id: 'courses' as const, label: 'Programmes', value: courses.length, icon: BookOpen, note: 'in the catalogue' },
+    { id: 'reports' as const, label: 'Reports', value: null, icon: BarChart3, note: 'Leads and journey' },
   ];
 
   if (openBatch) {
@@ -301,9 +292,20 @@ export const AdminHome: React.FC = () => {
           <span className="ui-eyebrow">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Admin · {organisation.name}
           </span>
-          <button type="button" onClick={loadData} disabled={loading} className="ui-icon-btn" title="Refresh" aria-label="Refresh">
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          </button>
+          <div className="flex items-center gap-1">
+            <button type="button" onClick={loadData} disabled={loading} className="ui-icon-btn" title="Refresh" aria-label="Refresh">
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('system')}
+              className={`ui-icon-btn ${activeTab === 'system' ? '!bg-stone-900 !text-white' : ''}`}
+              title="Organisation settings"
+              aria-label="Organisation settings"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
+          </div>
         </div>
         <h1 className="font-display text-[2rem] leading-[1.05] font-semibold text-stone-950">
           Overview
@@ -311,54 +313,29 @@ export const AdminHome: React.FC = () => {
         </h1>
       </section>
 
-      {/* Stats bento */}
-      <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {stats.map(({ label, value, icon: Icon, note }, i) => (
-          <div key={label} className={`ui-card !p-4 ${i === 0 ? 'bg-stone-950 text-white' : ''}`} style={i === 0 ? { background: '#09090b' } : undefined}>
-            <div className="flex items-center justify-between">
-              <span className={`text-[10px] uppercase tracking-[0.16em] font-medium ${i === 0 ? 'text-white/60' : 'text-stone-500'}`}>{label}</span>
-              <Icon className={`w-4 h-4 ${i === 0 ? 'text-emerald-400' : 'text-stone-400'}`} />
-            </div>
-            <div className={`font-display text-3xl font-semibold mt-2 ${i === 0 ? 'text-white' : 'text-stone-950'}`}>{value}</div>
-            <div className={`text-[11px] mt-0.5 ${i === 0 ? 'text-white/50' : 'text-stone-400'}`}>{note || 'incl. volunteers'}</div>
-          </div>
-        ))}
-      </section>
-
-      {/* Quick actions */}
-      <section className="grid grid-cols-2 md:max-w-md gap-2.5">
-        <button type="button" onClick={openNewBatch} className="group ui-btn-primary !justify-between !pl-5 !pr-1.5 !py-1.5">
-          <span>New batch</span>
-          <span className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-px">
-            <PlusCircle className="w-4 h-4" />
-          </span>
-        </button>
-        <button type="button" onClick={() => setActiveTab('users')} className="group ui-btn-ghost !justify-between !pl-5 !pr-1.5 !py-1.5">
-          <span>Add a role</span>
-          <span className="w-9 h-9 rounded-full bg-stone-900/5 flex items-center justify-center transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-px">
-            <ArrowRight className="w-4 h-4" />
-          </span>
-        </button>
-      </section>
-
-      {/* Tabs */}
-      <nav aria-label="Admin sections" className="-mx-4 px-4 overflow-x-auto">
-        <div className="inline-flex gap-1 p-1 rounded-full bg-stone-900/[0.04] ring-1 ring-stone-900/5">
-          {tabs.map(({ id, label, icon: Icon, count }) => (
+      {/* Overview cards: tap one to open that section */}
+      <nav aria-label="Admin sections" className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {sections.map(({ id, label, value, icon: Icon, note }) => {
+          const active = activeTab === id;
+          return (
             <button
               key={id}
               type="button"
               onClick={() => setActiveTab(id)}
-              className={`shrink-0 whitespace-nowrap h-9 px-3.5 rounded-full text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
-                activeTab === id ? 'bg-white text-stone-950 shadow-[0_1px_2px_rgba(24,24,27,0.08),0_0_0_1px_rgba(24,24,27,0.06)]' : 'text-stone-500 hover:text-stone-900'
-              }`}
+              aria-current={active ? 'page' : undefined}
+              className={`ui-card !p-4 text-left cursor-pointer transition-all hover:-translate-y-0.5 ${active ? '!bg-stone-950 text-white' : ''}`}
             >
-              <Icon className="w-3.5 h-3.5" />
-              <span>{label}</span>
-              {count !== undefined && <span className="text-stone-400 tabular-nums">{count}</span>}
+              <div className="flex items-center justify-between">
+                <span className={`text-[10px] uppercase tracking-[0.16em] font-medium ${active ? 'text-white/60' : 'text-stone-500'}`}>{label}</span>
+                <Icon className={`w-4 h-4 ${active ? 'text-emerald-400' : 'text-stone-400'}`} />
+              </div>
+              <div className={`font-display text-3xl font-semibold mt-2 ${active ? 'text-white' : 'text-stone-950'}`}>
+                {value ?? <BarChart3 className="w-7 h-7 my-0.5" />}
+              </div>
+              <div className={`text-[11px] mt-0.5 leading-snug ${active ? 'text-white/55' : 'text-stone-400'}`}>{note}</div>
             </button>
-          ))}
-        </div>
+          );
+        })}
       </nav>
 
       {/* 5. TAB CONTENT: BATCHES & COHORTS */}
@@ -379,13 +356,8 @@ export const AdminHome: React.FC = () => {
 
             <button
               type="button"
-              onClick={() => {
-                setBatchName('');
-                setBatchCustomCode('');
-                setBatchError(null);
-                setShowBatchModal(true);
-              }}
-              className="px-5 py-2.5 rounded-2xl bg-stone-900 text-white font-bold text-xs shadow-sm flex items-center justify-center gap-2 transition-all cursor-pointer hover:opacity-90 shrink-0"
+              onClick={openNewBatch}
+              className="ui-btn-primary !py-2.5 shrink-0"
             >
               <PlusCircle className="w-4 h-4" />
               <span>New batch</span>
@@ -409,98 +381,30 @@ export const AdminHome: React.FC = () => {
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-              {filteredBatches.map((batch) => {
-                const currentDay = calculateDayNumber(batch.start_date, organisation.timezone);
-                const totalDays = batch.course?.duration_days || 40;
-                const progressPct = Math.min(100, Math.max(0, Math.round((currentDay / totalDays) * 100)));
-
+            <div className="space-y-6">
+              {(['running', 'upcoming', 'finished'] as const).map((phase) => {
+                const list = filteredBatches
+                  .filter((b) => batchPhase(b, organisation.timezone) === phase)
+                  .sort((x, y) => (phase === 'upcoming' ? x.start_date.localeCompare(y.start_date) : y.start_date.localeCompare(x.start_date)));
+                if (list.length === 0) return null;
                 return (
-                  <div
-                    key={batch.id}
-                    className="bg-white p-4.5 rounded-2xl border border-stone-200 shadow-xs hover:border-stone-300 transition-all space-y-3.5"
-                  >
-                    {/* Top row: Name & Active Day */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <span className="text-[9.5px] uppercase font-mono font-bold tracking-wider text-stone-900">
-                          {batch.course?.name || 'Programme'}
-                        </span>
-                        <h3 className="font-display text-base font-bold text-stone-900 leading-snug">
-                          {batch.name}
-                        </h3>
-                      </div>
-
-                      <div className="text-right shrink-0">
-                        <span className="px-2.5 py-1 rounded-full bg-stone-900/10 text-stone-900 text-[10px] font-bold font-mono">
-                          Day {currentDay > 0 ? currentDay : 1} of {totalDays}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Progress Bar */}
-                    <div className="space-y-1">
-                      <div className="w-full h-1.5 bg-stone-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-stone-800 to-emerald-500 transition-all duration-300"
-                          style={{ width: `${progressPct}%` }}
+                  <section key={phase} className="space-y-2.5">
+                    <h3 className="text-[11px] font-medium uppercase tracking-[0.16em] text-stone-500">
+                      {phase === 'running' ? 'Running' : phase === 'upcoming' ? 'Starting soon' : 'Finished'}{' '}
+                      <span className="text-stone-400 tabular-nums">{list.length}</span>
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {list.map((batch) => (
+                        <BatchCard
+                          key={batch.id}
+                          batch={batch}
+                          timeZone={organisation.timezone}
+                          onOpen={() => setOpenBatch(batch)}
+                          onShowQr={() => setQrBatch(batch)}
                         />
-                      </div>
-                      <div className="flex justify-between text-[10px] text-stone-500">
-                        <span>Starts {formatDateDisplay(batch.start_date, organisation.timezone)}</span>
-                        <span>{progressPct}% completed</span>
-                      </div>
+                      ))}
                     </div>
-
-                    {/* Meta & Join Code Action Row */}
-                    <div className="pt-2 border-t border-stone-200/60 flex items-center justify-between text-xs">
-                      {/* Teacher Attribution */}
-                      <div className="flex items-center gap-1.5 text-stone-500">
-                        <GraduationCap className="w-3.5 h-3.5 text-stone-900" />
-                        <span className="text-[11px] truncate max-w-[120px]">
-                          {batch.teacher?.full_name || batch.teacher?.email || 'Teacher'}
-                        </span>
-                      </div>
-
-                      {/* Join Code & QR trigger */}
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => handleCopyCode(batch.join_code)}
-                          className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-stone-50 text-stone-900 font-mono font-bold text-[11px] border border-stone-200 hover:bg-stone-100 transition-all cursor-pointer"
-                          title="Click to copy join code"
-                        >
-                          {copiedCode === batch.join_code ? (
-                            <>
-                              <Check className="w-3 h-3 text-emerald-600" />
-                              <span className="text-emerald-600">COPIED</span>
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="w-3 h-3" />
-                              <span>{batch.join_code}</span>
-                            </>
-                          )}
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setQrBatch(batch)}
-                          className="p-1.5 rounded-xl bg-stone-50 text-stone-900 border border-stone-200 hover:bg-stone-100 transition-all cursor-pointer"
-                          title="View QR Code"
-                        >
-                          <QrCode className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setOpenBatch(batch)}
-                          className="px-3 py-1.5 rounded-full bg-stone-900 text-white text-[11px] font-medium hover:bg-stone-800 transition-all cursor-pointer"
-                        >
-                          Open
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+                  </section>
                 );
               })}
             </div>
@@ -612,22 +516,13 @@ export const AdminHome: React.FC = () => {
 
             <div className="divide-y divide-stone-100">
               {profiles.map((p) => {
-                const initials = (p.full_name || p.email)
-                  .split(' ')
-                  .map((w) => w[0])
-                  .join('')
-                  .substring(0, 2)
-                  .toUpperCase();
 
                 const isCurrent = p.id === currentProfile?.id;
 
                 return (
                   <div key={p.id} className="py-3 flex items-center justify-between text-xs gap-2">
                     <div className="flex items-center gap-3 min-w-0">
-                      {/* Initials Avatar */}
-                      <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-stone-800 to-stone-600 text-emerald-600 font-mono font-bold flex items-center justify-center shrink-0 text-xs shadow-xs">
-                        {initials}
-                      </div>
+                      <Avatar name={p.full_name || p.email} url={p.avatar_url} size={36} />
 
                       <div className="min-w-0">
                         <div className="font-bold text-stone-900 truncate flex items-center gap-1.5">

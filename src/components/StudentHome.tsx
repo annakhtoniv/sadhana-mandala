@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { isDemoMode } from '../lib/supabase';
 import { ProgrammeLearning } from './ProgrammeLearning';
+import { ProgrammeMaterials } from './ProgrammeMaterials';
 import { ProgrammeFollowups } from './ProgrammeFollowups';
 import { PracticeCheckin } from './PracticeCheckin';
 import { calculateDayNumber, formatDateDisplay } from '../lib/dateUtils';
@@ -367,6 +368,9 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
 
       {/* Learning modules of the selected programme (Phase 6) */}
       {course && <ProgrammeLearning key={course.id} course={course} dayNumber={todayDayNumber} />}
+
+      {/* Study materials of the programme (Phase 12) */}
+      {course && <ProgrammeMaterials key={`mat-${course.id}`} course={course} />}
 
       {/* Join another programme with its join code */}
       <form

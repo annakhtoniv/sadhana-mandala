@@ -147,8 +147,19 @@
   - [supabase/verify.sql](supabase/verify.sql): 89 checks (6 new: today's ticks, change a past day and it is marked late, no future day, not another student's day, teacher edits own batch but not another teacher's), all PASS on a local copy; the seed runs twice cleanly.
   - 102 unit tests (the old rest-day tests were replaced by tests for the new rules), clean build.
 
+- Phase 12 built on 2026-10-18 (pull request open; SQL not yet run in Supabase):
+  - Profile pictures: everyone gets their Google photo automatically at sign-in (existing users too, filled in by the SQL). Profile > camera button uploads your own picture (resized to a small square); "Use my Google photo" switches back. Pictures show on the Profile tab, the admin People list and the batch roster.
+  - Admin overview: the four cards (Batches, People, Programmes, Reports) are now the tabs; the separate buttons that repeated the same numbers are gone. Settings moved to a gear icon next to refresh.
+  - Batch cards redesigned: the whole card opens the batch; it shows the programme, a status pill (Day x of N / Starts in n days / Finished), a progress bar, the start date, the teacher with their picture, the join code (tap to copy) and the QR button. Batches are grouped into Running, Starting soon and Finished.
+  - Study materials per programme: Programmes > Materials uploads PDFs, audio, video, pictures and documents (up to 50 MB each) or adds a link (YouTube, Google Drive). Staff can rename, reorder, hide and delete. Every batch of the programme sees them, now and in later batches; students play audio and video in the app and open the rest in a new tab. Files are private: only staff and students enrolled in the programme can open them.
+  - [supabase/phase12_media.sql](supabase/phase12_media.sql): profiles gain avatar_url and avatar_source (only a Google photo or this project's own avatars bucket is accepted); `sync_my_google_avatar()`; table `programme_materials`; storage buckets `avatars` (public, 2 MB) and `materials` (private, 50 MB) with policies. Nothing dropped; safe to re-run.
+  - Seed: 4 sample links (3 Happiness Program, one of them hidden; 1 Art of Silence). [supabase/verify.sql](supabase/verify.sql): 98 checks (9 new: materials a student sees, cannot add, file access, cannot upload; own avatar only, no other web addresses; teacher uploads into own organisation only), all PASS on a local copy.
+  - 105 unit tests (3 new), clean build.
+
 ## Next
-- PM: merge the Phase 11 pull request, then in the Supabase SQL editor run (from `main`): `supabase/phase11_checkins.sql`, `supabase/seed_dummy_data.sql`, `supabase/verify.sql` (all 89 rows PASS). Until the SQL is run, ticking Morning or Evening shows an error.
+- PM: merge the Phase 12 pull request, then in the Supabase SQL editor run (from `main`): `supabase/phase12_media.sql`, `supabase/seed_dummy_data.sql`, `supabase/verify.sql` (all 98 rows PASS). Until the SQL is run, pictures and the Materials screen show errors.
+- PM: test Phase 12: sign out and in (your Google photo appears); Profile > camera > pick a picture; Admin > tap each overview card; tap a batch card; Admin > Programmes > Happiness Program > Materials > upload a PDF and an MP3; as a student of that programme, see "Study materials" on the home screen.
+- Storage limits (Supabase free plan): 50 MB per file, about 1 GB in total. Long videos are better as YouTube (unlisted) links.
 - PM: test Phase 11: tick Morning and Evening today; tap an earlier circle and tick it (it gets the clock badge); try the guided tour (? button); open the site on a computer (side menu) and on the phone (bottom tabs); Admin > Batches > Open > Edit and rename a batch.
 - PM: test Phases 9 and 10 (sign in with Google):
   1. Admin > Cohorts > QR icon on a batch: Share / WhatsApp / Copy link / Download QR poster. Scan the QR with a phone that is signed out (or a private window): the sign-in page names the batch; sign in with Google and you are in the batch with a welcome banner. Not yet tried with a real Google sign-in on a phone.

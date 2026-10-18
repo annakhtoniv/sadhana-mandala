@@ -10,8 +10,9 @@
 --   5. supabase/phase8_events.sql     (events, registrations, attendance)
 --   6. supabase/phase9_crm.sql        (volunteer role, CRM leads, batch QR preview, funnel report)
 --   7. supabase/phase11_checkins.sql  (Morning and Evening check-ins, past days)
---   8. supabase/seed_dummy_data.sql   (resets the dummy data to the SPEC)
---   9. supabase/verify.sql            (every row must say PASS)
+--   8. supabase/phase12_media.sql     (profile pictures, programme study materials)
+--   9. supabase/seed_dummy_data.sql   (resets the dummy data to the SPEC)
+--  10. supabase/verify.sql            (every row must say PASS)
 -- ============================================================================
 
 -- ============================================================================

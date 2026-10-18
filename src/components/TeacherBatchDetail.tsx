@@ -8,6 +8,7 @@ import { fetchProgrammeModules, fetchStudentsLessonProgress } from '../lib/lmsSe
 import { BatchFollowups } from './BatchFollowups';
 import { BatchSharePanel } from './BatchSharePanel';
 import { BatchEditor } from './BatchEditor';
+import { Avatar } from './Avatar';
 import type { Batch, Enrolment, BatchInvite, Organisation, Checkin } from '../types/database';
 import {
   ArrowLeft,
@@ -416,6 +417,8 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
           <div className="divide-y divide-stone-100 dark:divide-stone-800">
             {sortedRoster.map(({ enrolment: enr, todayMorning, todayEvening, streak, isQuiet, practisedCount, lateCount, lastCheckinDay, lastCheckinStatus, lastCheckinAt }) => (
               <div key={enr.id} className="py-3.5 flex items-center justify-between text-xs gap-2">
+                <div className="flex items-start gap-3 min-w-0">
+                <Avatar name={enr.student?.full_name || enr.student?.email} url={enr.student?.avatar_url} size={34} />
                 <div className="space-y-0.5 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-stone-900 dark:text-stone-100 truncate">
@@ -451,6 +454,7 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
                   )}
                 </div>
 
+                </div>
                 {practice && (
                 <div className="text-right space-y-1 shrink-0">
                   {/* Today's Status Badge */}

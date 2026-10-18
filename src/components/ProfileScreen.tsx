@@ -1,15 +1,19 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { InstallAppCard } from './InstallAppCard';
+import { Avatar } from './Avatar';
+import { uploadAvatar, switchToGoogleAvatar } from '../lib/avatarService';
 import { ROLE_LABEL } from '../lib/roles';
-import { User, Shield, CheckCircle2, AlertOctagon, LogOut, Trash2, ArrowLeft, Crown, GraduationCap } from 'lucide-react';
+import { Camera, Loader2, Shield, CheckCircle2, AlertOctagon, LogOut, Trash2, ArrowLeft, Crown, GraduationCap } from 'lucide-react';
 
 interface ProfileScreenProps {
   onBack: () => void;
 }
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
-  const { profile, user, organisation, role, setActiveRole, signOut, deleteAccount } = useAuth();
+  const { profile, user, organisation, role, setActiveRole, signOut, deleteAccount, refreshProfile } = useAuth();
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoMessage, setPhotoMessage] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -45,15 +49,59 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
 
       {/* Profile Card */}
       <div className="bg-white dark:bg-stone-900 p-6 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-full bg-stone-100 dark:bg-stone-800 flex items-center justify-center text-stone-700 dark:text-stone-300 font-semibold text-base border border-stone-200 dark:border-stone-700">
-            {profile?.full_name ? profile.full_name.charAt(0).toUpperCase() : <User className="w-5 h-5" />}
+        <div className="flex items-center gap-4">
+          <div className="relative shrink-0">
+            <Avatar name={profile?.full_name || user?.email} url={profile?.avatar_url} size={72} />
+            <label
+              className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-stone-900 text-white flex items-center justify-center cursor-pointer shadow-lg ring-2 ring-white hover:scale-105 transition-transform"
+              title="Change photo"
+            >
+              {photoBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="sr-only"
+                aria-label="Change photo"
+                disabled={photoBusy}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = '';
+                  if (!file || !user) return;
+                  setPhotoBusy(true);
+                  setPhotoMessage(null);
+                  const res = await uploadAvatar(user.id, file);
+                  setPhotoBusy(false);
+                  if (!res.success) setPhotoMessage(res.error || 'Upload failed.');
+                  else await refreshProfile();
+                }}
+              />
+            </label>
           </div>
-          <div>
-            <h1 className="text-base font-semibold text-stone-900 dark:text-stone-100">
+          <div className="min-w-0">
+            <h1 className="font-display text-lg font-semibold text-stone-900 truncate">
               {profile?.full_name || 'Practitioner'}
             </h1>
-            <p className="text-xs text-stone-500 dark:text-stone-400">{user?.email}</p>
+            <p className="text-xs text-stone-500 truncate">{user?.email}</p>
+            {profile?.avatar_source === 'upload' ? (
+              <button
+                type="button"
+                disabled={photoBusy}
+                onClick={async () => {
+                  if (!user) return;
+                  setPhotoBusy(true);
+                  const res = await switchToGoogleAvatar(user.id);
+                  setPhotoBusy(false);
+                  if (!res.success) setPhotoMessage(res.error || 'Could not switch.');
+                  else await refreshProfile();
+                }}
+                className="mt-1 text-[11px] text-stone-500 underline cursor-pointer"
+              >
+                Use my Google photo
+              </button>
+            ) : (
+              <p className="mt-1 text-[11px] text-stone-400">Photo from your Google account. Tap the camera to change it.</p>
+            )}
+            {photoMessage && <p className="mt-1 text-[11px] text-red-600">{photoMessage}</p>}
           </div>
         </div>
 

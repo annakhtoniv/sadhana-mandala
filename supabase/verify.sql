@@ -1,9 +1,10 @@
 -- ============================================================================
--- Sadhana Mandala: verification (phases 4 to 11)
+-- Sadhana Mandala: verification (phases 4 to 12)
 --
 -- Run in the Supabase SQL editor after phase4_security.sql,
 -- phase5_programmes.sql, phase6_lms.sql, phase7_followups.sql,
--- phase8_events.sql, phase9_crm.sql, phase11_checkins.sql and seed_dummy_data.sql. It signs in as the fictional seed users one at a time
+-- phase8_events.sql, phase9_crm.sql, phase11_checkins.sql, phase12_media.sql and
+-- seed_dummy_data.sql. It signs in as the fictional seed users one at a time
 -- (by setting the same JWT claims Supabase sets for a real sign-in) and checks
 -- what each of them can see and change. Nothing is saved: every write attempt
 -- is rolled back immediately.
@@ -68,6 +69,12 @@ declare
          + (select count(*) from public.crm_activities where org_id = $1)
   $q$;
 begin
+  -- Phase 12: two test files in the materials bucket (removed again at the end):
+  -- one for the Happiness Program, one for Sri Sri Yoga (student 1 is not enrolled)
+  insert into storage.objects (id, bucket_id, name) values
+    ('ab000000-0000-0000-0000-000000000001', 'materials', v_org_a::text || '/' || v_hp_course::text || '/verify-a.pdf'),
+    ('ab000000-0000-0000-0000-000000000002', 'materials', v_org_a::text || '/c1000000-0000-0000-0000-000000000004/verify-b.pdf');
+
   select ((now() at time zone o.timezone)::date - b.start_date) + 1 into v_day
   from public.batches b join public.organisations o on o.id = b.org_id where b.id = v_autumn;
 
@@ -228,6 +235,21 @@ begin
     raise exception 'PROBE_DONE';
   exception when others then if sqlerrm <> 'PROBE_DONE' then v_txt := 'blocked'; end if; end;
   r := r || array['Teacher A (Ananda)|edit another teacher''s batch|blocked', v_txt];
+
+  -- Phase 12: teacher uploads study materials
+  begin
+    insert into storage.objects (bucket_id, name) values ('materials', v_org_a::text || '/' || v_hp_course::text || '/notes.pdf');
+    insert into public.programme_materials (org_id, course_id, title, kind, storage_path)
+    values (v_org_a, v_hp_course, 'Notes', 'pdf', v_org_a::text || '/' || v_hp_course::text || '/notes.pdf');
+    raise exception 'PROBE_WROTE';
+  exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked: ' || sqlerrm end; end;
+  r := r || array['Teacher A (Ananda)|upload a study material (phase 12)|allowed', v_txt];
+
+  begin
+    insert into storage.objects (bucket_id, name) values ('materials', v_org_b::text || '/c2000000-0000-0000-0000-000000000001/x.pdf');
+    raise exception 'PROBE_WROTE';
+  exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
+  r := r || array['Teacher A (Ananda)|upload into Org B materials|blocked', v_txt];
 
   -- Phase 9: CRM
   select count(*) into v_n from public.crm_contacts;
@@ -436,6 +458,44 @@ begin
   exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
   r := r || array['Student (Aarav)|create an event|blocked', v_txt];
 
+  -- Phase 12: study materials and profile pictures
+  select count(*) into v_n from public.programme_materials;
+  r := r || array['Student (Aarav)|study materials of own programmes (HP 2, Silence 1; draft hidden)|3', v_n::text];
+
+  begin
+    insert into public.programme_materials (org_id, course_id, title, kind, url)
+    values (v_org_a, v_hp_course, 'Student upload', 'link', 'https://example.com');
+    raise exception 'PROBE_WROTE';
+  exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
+  r := r || array['Student (Aarav)|add a study material|blocked', v_txt];
+
+  select count(*) into v_n from storage.objects where bucket_id = 'materials';
+  r := r || array['Student (Aarav)|material files visible (own programme only)|1', v_n::text];
+
+  begin
+    insert into storage.objects (bucket_id, name) values ('materials', v_org_a::text || '/' || v_hp_course::text || '/student.pdf');
+    raise exception 'PROBE_WROTE';
+  exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
+  r := r || array['Student (Aarav)|upload a material file|blocked', v_txt];
+
+  begin
+    insert into storage.objects (bucket_id, name) values ('avatars', v_student01::text || '/avatar.jpg');
+    raise exception 'PROBE_WROTE';
+  exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
+  r := r || array['Student (Aarav)|upload own profile picture|allowed', v_txt];
+
+  begin
+    insert into storage.objects (bucket_id, name) values ('avatars', v_ananda::text || '/avatar.jpg');
+    raise exception 'PROBE_WROTE';
+  exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
+  r := r || array['Student (Aarav)|replace someone else''s profile picture|blocked', v_txt];
+
+  begin
+    update public.profiles set avatar_url = 'https://tracker.example.com/pixel.png' where id = v_student01;
+    raise exception 'PROBE_WROTE';
+  exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
+  r := r || array['Student (Aarav)|use a picture from any website|blocked', v_txt];
+
   select count(*) into v_n from public.crm_contacts;
   r := r || array['Student (Aarav)|CRM leads visible|0', v_n::text];
 
@@ -559,6 +619,8 @@ begin
   v_txt := coalesce(public.batch_join_preview('autumn23')->>'batch_name', 'none');
   r := r || array['Anonymous visitor|batch QR shows the batch before sign-in|Autumn Awakening Cohort', v_txt];
   reset role;
+
+  delete from storage.objects where id in ('ab000000-0000-0000-0000-000000000001', 'ab000000-0000-0000-0000-000000000002');
 
   -- ------------------------------------------------------------------ Results
   for i in 1 .. array_length(r, 1) / 2 loop
