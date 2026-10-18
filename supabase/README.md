@@ -24,11 +24,13 @@ once. `verify.sql` must end with every row saying PASS.
 13. `seed_dummy_data.sql` (resets the sample data; real accounts are never touched)
 14. `verify.sql` (every row PASS)
 15. `phase18_reminders.sql` (daily practice reminders), then `verify.sql` again
-16. Deploy the Edge Function `functions/send-reminders` and set its secrets
-    (Supabase > Edge Functions > Secrets): `VAPID_PUBLIC_KEY`,
-    `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (`mailto:` the support email). The
-    public key is also in `.github/workflows/pages.yml`; the private key is
-    never put in the repository.
+16. Make a key pair on your own computer: `npx web-push generate-vapid-keys`.
+    Set the Edge Function `functions/send-reminders` secrets (Supabase > Edge
+    Functions > Secrets): `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`,
+    `VAPID_SUBJECT` (`mailto:` the support email). Put the same public key in
+    GitHub > Settings > Secrets and variables > Actions > Variables as
+    `VITE_VAPID_PUBLIC_KEY`, then publish the site again. The private key is
+    never put in the repository or in a chat.
 17. `phase18_schedule.sql` (starts the sender every 5 minutes; live project only)
 
 ## Automatic checks (GitHub)
