@@ -1,5 +1,5 @@
 import { friendlyError } from './errors';
-import { supabase, isDemoMode } from './supabase';
+import { supabase } from './supabase';
 
 const MAX_SIDE = 320;
 
@@ -30,7 +30,6 @@ async function toSquareJpeg(file: File): Promise<Blob> {
 
 /** Uploads a new profile picture to avatars/<user id>/ and shows it everywhere. */
 export async function uploadAvatar(userId: string, file: File): Promise<{ success: boolean; url?: string; error?: string }> {
-  if (isDemoMode()) return { success: false, error: 'Not available with sample data.' };
   if (!file.type.startsWith('image/')) return { success: false, error: 'Please choose a photo (JPEG, PNG or WebP).' };
   try {
     const blob = await toSquareJpeg(file);
@@ -50,7 +49,6 @@ export async function uploadAvatar(userId: string, file: File): Promise<{ succes
 
 /** Switches back to the Google photo (refreshed at every sign-in). */
 export async function switchToGoogleAvatar(userId: string): Promise<{ success: boolean; url?: string | null; error?: string }> {
-  if (isDemoMode()) return { success: false, error: 'Not available with sample data.' };
   const { error } = await supabase.from('profiles').update({ avatar_source: 'google' }).eq('id', userId);
   if (error) return { success: false, error: error.message };
   const { data, error: rpcErr } = await supabase.rpc('sync_my_google_avatar');
@@ -60,7 +58,6 @@ export async function switchToGoogleAvatar(userId: string): Promise<{ success: b
 
 /** Refreshes the Google photo at sign-in (does nothing for an uploaded photo). */
 export async function syncGoogleAvatar(): Promise<string | null> {
-  if (isDemoMode()) return null;
   const { data, error } = await supabase.rpc('sync_my_google_avatar');
   if (error) return null;
   return (data as string | null) ?? null;
@@ -68,7 +65,6 @@ export async function syncGoogleAvatar(): Promise<string | null> {
 
 /** Removes this person's photo files (all of them, or all but `keepPath`). Failures are ignored. */
 export async function removeMyAvatarFiles(userId: string, keepPath?: string): Promise<void> {
-  if (isDemoMode()) return;
   try {
     const { data } = await supabase.storage.from('avatars').list(userId, { limit: 100 });
     const paths = (data || []).map((f) => `${userId}/${f.name}`).filter((p) => p !== keepPath);

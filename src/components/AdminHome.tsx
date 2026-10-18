@@ -5,11 +5,12 @@ import { BatchSharePanel } from './BatchSharePanel';
 import { TeacherBatchDetail } from './TeacherBatchDetail';
 import { BatchCard, batchPhase } from './BatchCard';
 import { Avatar } from './Avatar';
-import { supabase, isDemoMode } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import { fetchAllPages } from '../lib/paging';
 import { friendlyError } from '../lib/errors';
 import { FunnelReportPanel } from './FunnelReportPanel';
-import { rolesOf, primaryRole, ROLE_LABEL } from '../lib/roles';
+import { ClientErrorsPanel } from './ClientErrorsPanel';
+import { hasRole, rolesOf, primaryRole, ROLE_LABEL } from '../lib/roles';
 import { RolePicker } from './RolePicker';
 import { OrganisationSettings } from './OrganisationSettings';
 import {
@@ -17,13 +18,6 @@ import {
   fetchTeacherBatches,
   createBatch,
 } from '../lib/batchService';
-import {
-  DEMO_TEACHER_PROFILE,
-  DEMO_ROSTER_STUDENTS,
-  DEMO_COURSE_40,
-  DEMO_COURSE_21,
-  DEMO_ORG_ID,
-} from '../lib/mockData';
 import {
   getTodayInTimezone,
 } from '../lib/dateUtils';
@@ -98,34 +92,28 @@ export const AdminHome: React.FC = () => {
         fetchTeacherBatches('', true),
       ]);
 
-      // Sample data only in the 1-click demo; a real sign-in shows the database or an error
-      if (isDemoMode()) {
-        setProfiles([currentProfile || DEMO_TEACHER_PROFILE, ...DEMO_ROSTER_STUDENTS]);
-      } else {
-        if (profsRes.error) throw new Error(profsRes.error.message);
-        const list = (profsRes.data as Profile[]) || [];
-        // You first, then by role and name
-        const rank: Record<UserRole, number> = { admin: 0, teacher: 1, volunteer: 2, student: 3 };
-        list.sort((a, b) =>
-          a.id === currentProfile?.id ? -1 : b.id === currentProfile?.id ? 1
-            : rank[a.role] - rank[b.role] || (a.full_name || a.email).localeCompare(b.full_name || b.email)
-        );
-        setProfiles(list);
-      }
+      if (profsRes.error) throw new Error(profsRes.error.message);
+      const list = (profsRes.data as Profile[]) || [];
+      // You first, then by role and name
+      const rank: Record<UserRole, number> = { admin: 0, teacher: 1, volunteer: 2, student: 3 };
+      list.sort((a, b) =>
+        a.id === currentProfile?.id ? -1 : b.id === currentProfile?.id ? 1
+          : rank[a.role] - rank[b.role] || (a.full_name || a.email).localeCompare(b.full_name || b.email)
+      );
+      setProfiles(list);
 
-      const safeCourses = courseList.length > 0 || !isDemoMode() ? courseList : [DEMO_COURSE_40, DEMO_COURSE_21];
       if (grantsRes.data) setRoleGrants(grantsRes.data as RoleGrant[]);
-      setCourses(safeCourses);
+      setCourses(courseList);
       setAllBatches(batchList);
 
-      if (!batchCourseId && safeCourses[0]) {
-        setBatchCourseId(safeCourses[0].id);
+      if (!batchCourseId && courseList[0]) {
+        setBatchCourseId(courseList[0].id);
       }
       if (!batchStartDate) {
         setBatchStartDate(getTodayInTimezone(organisation.timezone));
       }
       if (!batchTeacherId) {
-        setBatchTeacherId(currentProfile?.id || DEMO_TEACHER_PROFILE.id);
+        setBatchTeacherId(currentProfile?.id || '');
       }
     } catch (err) {
       setStatusMessage(`Could not load data: ${err instanceof Error ? err.message : 'unknown error'}`);
@@ -212,10 +200,14 @@ export const AdminHome: React.FC = () => {
     setIsCreatingBatch(true);
     setBatchError(null);
 
-    const availableCourses = courses.length > 0 ? courses : [DEMO_COURSE_40, DEMO_COURSE_21];
-    const courseIdToUse = batchCourseId || availableCourses[0]?.id || DEMO_COURSE_40.id;
-    const teacherIdToUse = batchTeacherId || currentProfile?.id || DEMO_TEACHER_PROFILE.id;
-    const orgIdToUse = organisation.id || DEMO_ORG_ID;
+    // Never fall back to made-up ids: without a programme or teacher the batch is not created
+    const courseIdToUse = batchCourseId || courses[0]?.id || '';
+    const teacherIdToUse = batchTeacherId || currentProfile?.id || '';
+    const orgIdToUse = organisation.id;
+    if (!courseIdToUse || !teacherIdToUse || !orgIdToUse) {
+      setBatchError('Please choose a programme and a teacher first.');
+      return;
+    }
     const startDateToUse = batchStartDate || getTodayInTimezone(organisation.timezone);
 
     const result = await createBatch({
@@ -581,7 +573,12 @@ export const AdminHome: React.FC = () => {
       {activeTab === 'courses' && <ProgrammesManager />}
 
       {/* Phase 10: funnel report */}
-      {activeTab === 'reports' && <FunnelReportPanel />}
+      {activeTab === 'reports' && (
+        <div className="space-y-5">
+          <FunnelReportPanel />
+          <ClientErrorsPanel timeZone={organisation.timezone} />
+        </div>
+      )}
 
       {/* Organisation settings (gear icon) */}
       {showSettings && (
@@ -617,11 +614,11 @@ export const AdminHome: React.FC = () => {
                   Programme
                 </label>
                 <select
-                  value={batchCourseId || (courses.length > 0 ? courses[0].id : DEMO_COURSE_40.id)}
+                  value={batchCourseId || courses[0]?.id || ''}
                   onChange={(e) => setBatchCourseId(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-2xl border border-stone-200 bg-stone-50 text-xs text-stone-900 focus:outline-none cursor-pointer"
                 >
-                  {(courses.length > 0 ? courses : [DEMO_COURSE_40, DEMO_COURSE_21]).map((c) => (
+                  {courses.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name} ({c.duration_days} days)
                     </option>
@@ -650,15 +647,12 @@ export const AdminHome: React.FC = () => {
                   Teacher
                 </label>
                 <select
-                  value={batchTeacherId || (currentProfile?.id || DEMO_TEACHER_PROFILE.id)}
+                  value={batchTeacherId || currentProfile?.id || ''}
                   onChange={(e) => setBatchTeacherId(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-2xl border border-stone-200 bg-stone-50 text-xs text-stone-900 focus:outline-none cursor-pointer"
                 >
-                  {isDemoMode() && (
-                    <option value={DEMO_TEACHER_PROFILE.id}>{DEMO_TEACHER_PROFILE.full_name} (admin)</option>
-                  )}
                   {profiles
-                    .filter((p) => (p.role === 'teacher' || p.role === 'admin') && !(isDemoMode() && p.id === DEMO_TEACHER_PROFILE.id))
+                    .filter((p) => hasRole(p, 'teacher') || hasRole(p, 'admin'))
                     .map((t) => (
                       <option key={t.id} value={t.id}>
                         {t.full_name || t.email} ({t.role}){t.id === currentProfile?.id ? ' - you' : ''}

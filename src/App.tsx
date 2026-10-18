@@ -1,15 +1,12 @@
-import { useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { ConsentModal } from './components/ConsentModal';
 import { StudentHome } from './components/StudentHome';
-import { TeacherHome } from './components/TeacherHome';
-import { AdminHome } from './components/AdminHome';
 import { ProfileScreen } from './components/ProfileScreen';
 import { LessonsScreen } from './components/LessonsScreen';
 import { EventsScreen } from './components/EventsScreen';
-import { CrmScreen } from './components/CrmScreen';
 import { GuidedTour } from './components/GuidedTour';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { clearPending, peekPending, PENDING_JOIN_KEY } from './lib/joinLink';
@@ -18,6 +15,17 @@ import { formatDateDisplay } from './lib/dateUtils';
 import type { BatchJoinPreview } from './types/database';
 import { AlertCircle, Loader2, ArrowUpRight, Flame, BookOpen, CalendarDays, HeartHandshake, QrCode } from 'lucide-react';
 import { BrandMark } from './components/BrandMark';
+
+// Staff screens load only when opened, so students download less (Phase 15)
+const AdminHome = lazy(() => import('./components/AdminHome').then((m) => ({ default: m.AdminHome })));
+const TeacherHome = lazy(() => import('./components/TeacherHome').then((m) => ({ default: m.TeacherHome })));
+const CrmScreen = lazy(() => import('./components/CrmScreen').then((m) => ({ default: m.CrmScreen })));
+
+const ScreenLoading = () => (
+  <div role="status" className="w-full flex items-center justify-center gap-2 py-16 text-sm text-stone-500">
+    <Loader2 className="w-4 h-4 animate-spin" /> Loading...
+  </div>
+);
 
 const GoogleIcon = () => (
   <svg viewBox="0 0 48 48" className="w-5 h-5" aria-hidden="true">
@@ -262,6 +270,7 @@ function MainApp() {
             </button>
           </div>
         )}
+        <Suspense fallback={<ScreenLoading />}>
         {currentTab === 'leads' ? (
           <CrmScreen onBack={() => setCurrentTab('home')} />
         ) : currentTab === 'events' ? (
@@ -280,6 +289,7 @@ function MainApp() {
             <StudentHome onNavigateLessons={() => setCurrentTab('lessons')} />
           )
         )}
+        </Suspense>
       </main>
 
       <Footer withNav />

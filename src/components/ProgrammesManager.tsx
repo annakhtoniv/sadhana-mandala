@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { hasRole } from '../lib/roles';
 import { useAuth } from '../context/AuthContext';
-import { isDemoMode } from '../lib/supabase';
 import { fetchProgrammes, saveProgramme } from '../lib/programmeService';
 import {
   hasPracticeTrack,
@@ -56,7 +56,7 @@ function toInput(course: Course): ProgrammeInput {
 export const ProgrammesManager: React.FC<ProgrammesManagerProps> = ({ onBack }) => {
   const { organisation, user, profile } = useAuth();
   // Admins change every programme; teachers the ones they added (database rule, Phase 14)
-  const canEdit = (p: Course) => profile?.role === 'admin' || (Boolean(user) && p.created_by === user?.id);
+  const canEdit = (p: Course) => hasRole(profile, 'admin') || (Boolean(user) && p.created_by === user?.id);
   const [programmes, setProgrammes] = useState<Course[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -69,7 +69,7 @@ export const ProgrammesManager: React.FC<ProgrammesManagerProps> = ({ onBack }) 
   const [materialsFor, setMaterialsFor] = useState<Course | null>(null);
 
   const loadData = async () => {
-    if (!organisation.id && !isDemoMode()) return;
+    if (!organisation.id) return;
     setLoading(true);
     setLoadError(null);
     try {

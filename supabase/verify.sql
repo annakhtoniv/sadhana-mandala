@@ -1,10 +1,11 @@
 -- ============================================================================
--- Sadhana Mandala: verification (phases 4 to 14)
+-- Sadhana Mandala: verification (phases 4 to 15)
 --
 -- Run in the Supabase SQL editor after phase4_security.sql,
 -- phase5_programmes.sql, phase6_lms.sql, phase7_followups.sql,
 -- phase8_events.sql, phase9_crm.sql, phase11_checkins.sql, phase12_media.sql,
--- phase13_roles.sql, phase14_safety.sql and seed_dummy_data.sql. It signs in as the fictional seed users one at a time
+-- phase13_roles.sql, phase14_safety.sql, phase15_performance.sql and
+-- seed_dummy_data.sql. It signs in as the fictional seed users one at a time
 -- (by setting the same JWT claims Supabase sets for a real sign-in) and checks
 -- what each of them can see and change. Nothing is saved: every write attempt
 -- is rolled back immediately.
@@ -540,6 +541,15 @@ begin
   exception when others then if sqlerrm <> 'PROBE_DONE' then v_txt := 'error: ' || sqlerrm; end if; end;
   r := r || array['Student (Aarav)|11 wrong join codes in a row (phase 14)|limited', v_txt];
 
+  -- Phase 15: the app reports errors; people never read each other's reports
+  begin
+    perform public.log_client_error('verify: test error', null, '/', 'verify');
+    select count(*) into v_n from public.client_errors;
+    v_txt := v_n::text;
+    raise exception 'PROBE_DONE';
+  exception when others then if sqlerrm <> 'PROBE_DONE' then v_txt := 'error: ' || sqlerrm; end if; end;
+  r := r || array['Student (Aarav)|report an error, then read the error list (phase 15)|0', v_txt];
+
   begin
     insert into storage.objects (bucket_id, name) values ('avatars', v_student01::text || '/avatar.jpg');
     raise exception 'PROBE_WROTE';
@@ -713,6 +723,14 @@ begin
     raise exception 'PROBE_WROTE';
   exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
   r := r || array['Admin A|lesson video link that is not https (phase 14)|blocked', v_txt];
+
+  begin
+    perform public.log_client_error('verify: admin sees reports', null, '/', 'verify');
+    select count(*) into v_n from public.client_errors where message like 'verify:%';
+    v_txt := case when v_n >= 1 then 'visible' else 'not visible' end;
+    raise exception 'PROBE_DONE';
+  exception when others then if sqlerrm <> 'PROBE_DONE' then v_txt := 'error: ' || sqlerrm; end if; end;
+  r := r || array['Admin A|reads error reports of the organisation (phase 15)|visible', v_txt];
 
   -- Phase 13: several roles per person
   v_txt := 'error';

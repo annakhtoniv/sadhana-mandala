@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { allowedRoleViews, canUseCrm, defaultRoleView, isStaffRole, rolesOf, primaryRole } from '../roles';
+import { allowedRoleViews, canUseCrm, defaultRoleView, isStaffRole, rolesOf, primaryRole, hasRole } from '../roles';
 
 describe('allowedRoleViews', () => {
   it('lets a student see only the student view', () => {
@@ -43,5 +43,14 @@ describe('several roles per person (Phase 13)', () => {
     expect(primaryRole(['volunteer', 'teacher'])).toBe('teacher');
     expect(primaryRole(['student', 'volunteer', 'teacher', 'admin'])).toBe('admin');
     expect(primaryRole([])).toBe('student');
+  });
+});
+
+describe('hasRole', () => {
+  it('looks at every role a person holds', () => {
+    expect(hasRole({ role: 'admin', roles: ['volunteer', 'admin'] }, 'volunteer')).toBe(true);
+    expect(hasRole({ role: 'teacher', roles: ['teacher'] }, 'admin')).toBe(false);
+    expect(hasRole({ role: 'admin' }, 'admin')).toBe(true);
+    expect(hasRole(null, 'student')).toBe(false);
   });
 });

@@ -181,6 +181,17 @@
   - [supabase/phase14_safety.sql](supabase/phase14_safety.sql); [supabase/verify.sql](supabase/verify.sql): 120 checks (17 new), all PASS on a fresh local copy; seed and verify each run twice cleanly. Tried in a browser on a local copy: two devices ticking, teacher deleting their account, consent, teacher leads, admin People.
   - 114 unit tests (7 new), clean build.
 
+- Phase 15 built on 2026-10-18 (speed and safety net; pull request after Phase 14 is merged):
+  - Faster database rules: every access rule rewritten the way Supabase recommends (the same rules, checked once per request instead of once per row) plus 14 indexes. Measured on a year of data (5,344 people, 157,000 check-ins): teacher roster 170 ms -> 2.4 ms, people list 1,198 ms -> 9.8 ms, batch enrolments 5.9 ms -> 0.6 ms. [supabase/phase15_performance.sql](supabase/phase15_performance.sql).
+  - Safety net: GitHub now checks every pull request (types, unit tests, build, and the database rebuilt from the repository with every verify.sql check run twice) and runs the unit tests before every deploy; a daily visit keeps the free Supabase plan from pausing; site settings can come from GitHub variables (for a test copy of Supabase; steps in supabase/README.md).
+  - Errors people run into are reported automatically (table client_errors, at most 20 per person per hour, kept 90 days) and listed for admins under Reports; a screen that crashes shows a "Something went wrong, Reload" card instead of a blank page.
+  - Smaller app for students: admin, teacher and leads screens load only when opened, and libraries sit in their own files that stay cached across updates (main app 695 kB -> 189 kB plus 368 kB of cached libraries).
+  - The old demo mode is removed completely (sample-data file and about 100 dead branches).
+  - Ticks made without a connection are kept on the phone and sent when the connection is back.
+  - Database types generated from the real schema (src/types/supabase.generated.ts) and checked against the app's own types at build time, so a renamed column breaks the build instead of the app.
+  - Permission checks read the full list of roles (hasRole).
+  - verify.sql: 122 checks (2 new), all PASS, twice, on a database rebuilt from the repository alone. 118 unit tests (4 new), clean build.
+
 ## Next
 - PM: merge the Phase 14 pull request, then in the Supabase SQL editor run (from `main`): `supabase/phase14_safety.sql`, `supabase/seed_dummy_data.sql`, `supabase/verify.sql` (all 120 rows PASS). Until the SQL is run, un-ticking a tick can fail.
 - PM: test Phase 12: sign out and in (your Google photo appears); Profile > camera > pick a picture; Admin > tap each overview card; tap a batch card; Admin > Programmes > Happiness Program > Materials > upload a PDF and an MP3; as a student of that programme, see "Study materials" on the home screen.

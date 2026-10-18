@@ -1,18 +1,8 @@
 import { fetchAllPages } from './paging';
-import { supabase, isDemoMode } from './supabase';
+import { supabase } from './supabase';
 import type { Lesson, LessonModule, LessonProgress } from '../types/database';
-import { DEMO_MODULES } from './mockData';
 import { sortByDisplayOrder, type LessonInput, type ModuleInput } from './lmsUtils';
 
-const DEMO_PROGRESS_KEY = 'sadhana_demo_lesson_progress';
-
-function readDemoProgress(): string[] {
-  try {
-    return JSON.parse(localStorage.getItem(DEMO_PROGRESS_KEY) || '[]');
-  } catch {
-    return [];
-  }
-}
 
 /**
  * Modules of a programme with their lessons, in display order.
@@ -20,9 +10,6 @@ function readDemoProgress(): string[] {
  * (row level security); staff receive everything.
  */
 export async function fetchProgrammeModules(courseId: string): Promise<LessonModule[]> {
-  if (isDemoMode()) {
-    return DEMO_MODULES.filter((m) => m.course_id === courseId);
-  }
 
   const { data, error } = await supabase
     .from('lesson_modules')
@@ -39,9 +26,6 @@ export async function fetchProgrammeModules(courseId: string): Promise<LessonMod
 
 /** Lesson ids the student has completed. */
 export async function fetchMyLessonProgress(studentId: string): Promise<Set<string>> {
-  if (isDemoMode()) {
-    return new Set(readDemoProgress());
-  }
   const { data, error } = await supabase.from('lesson_progress').select('lesson_id').eq('student_id', studentId);
   if (error) {
     throw new Error(error.message);
@@ -56,17 +40,6 @@ export async function setLessonComplete(
   lessonId: string,
   done: boolean
 ): Promise<{ success: boolean; error?: string }> {
-  if (isDemoMode()) {
-    const ids = new Set(readDemoProgress());
-    if (done) ids.add(lessonId);
-    else ids.delete(lessonId);
-    try {
-      localStorage.setItem(DEMO_PROGRESS_KEY, JSON.stringify(Array.from(ids)));
-    } catch {
-      // ignore storage errors
-    }
-    return { success: true };
-  }
 
   const { error } = done
     ? await supabase
@@ -82,7 +55,7 @@ export async function setLessonComplete(
  */
 export async function fetchStudentsLessonProgress(studentIds: string[]): Promise<Map<string, Set<string>>> {
   const byStudent = new Map<string, Set<string>>();
-  if (isDemoMode() || studentIds.length === 0) {
+  if (studentIds.length === 0) {
     return byStudent;
   }
   // 60 students x 20 lessons is already more than one page of 1,000 rows
@@ -102,7 +75,6 @@ export async function fetchStudentsLessonProgress(studentIds: string[]): Promise
   return byStudent;
 }
 
-const DEMO_EDIT_ERROR = 'Learning modules cannot be changed in demo mode. Sign in with Google to edit them.';
 
 export async function saveModule(
   orgId: string,
@@ -110,7 +82,6 @@ export async function saveModule(
   userId: string,
   input: ModuleInput
 ): Promise<{ success: boolean; error?: string }> {
-  if (isDemoMode()) return { success: false, error: DEMO_EDIT_ERROR };
 
   const row = {
     title: input.title.trim(),
@@ -129,7 +100,6 @@ export async function saveModule(
 
 /** Deletes a module and, with it, its lessons and everyone's progress on them. */
 export async function deleteModule(moduleId: string): Promise<{ success: boolean; error?: string }> {
-  if (isDemoMode()) return { success: false, error: DEMO_EDIT_ERROR };
   const { error } = await supabase.from('lesson_modules').delete().eq('id', moduleId);
   return error ? { success: false, error: error.message } : { success: true };
 }
@@ -141,7 +111,6 @@ export async function saveLesson(
   userId: string,
   input: LessonInput
 ): Promise<{ success: boolean; error?: string }> {
-  if (isDemoMode()) return { success: false, error: DEMO_EDIT_ERROR };
 
   const row = {
     title: input.title.trim(),
@@ -166,7 +135,6 @@ export async function saveLesson(
 }
 
 export async function deleteLesson(lessonId: string): Promise<{ success: boolean; error?: string }> {
-  if (isDemoMode()) return { success: false, error: DEMO_EDIT_ERROR };
   const { error } = await supabase.from('lessons').delete().eq('id', lessonId);
   return error ? { success: false, error: error.message } : { success: true };
 }

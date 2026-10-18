@@ -3,8 +3,25 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
 // https://vitejs.dev/config/
+// The app version (date of the build) goes with error reports
+const buildVersion = new Date().toISOString().slice(0, 16).replace('T', ' ');
+
 export default defineConfig({
   base: process.env.VITE_BASE || './',
+  define: {
+    __APP_VERSION__: JSON.stringify(buildVersion),
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        // Libraries change rarely: their own file stays cached on phones across app updates
+        manualChunks: {
+          react: ['react', 'react-dom'],
+          supabase: ['@supabase/supabase-js'],
+        },
+      },
+    },
+  },
   server: {
     host: true,
     allowedHosts: true,

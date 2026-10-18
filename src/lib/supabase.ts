@@ -15,15 +15,3 @@ export const supabase = createClient(
   supabaseUrl || 'https://placeholder.supabase.co',
   supabaseAnonKey || 'placeholder-anon-key'
 );
-
-// The 1-click demo login stores a fake user here. Only in that mode may the app
-// show sample data; a real Google session must always show what the database returns.
-export const DEMO_SESSION_KEY = 'sadhana_demo_session';
-
-export function isDemoMode(): boolean {
-  try {
-    return typeof localStorage !== 'undefined' && Boolean(localStorage.getItem(DEMO_SESSION_KEY));
-  } catch {
-    return false;
-  }
-}

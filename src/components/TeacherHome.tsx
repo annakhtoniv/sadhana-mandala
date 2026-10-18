@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { hasRole } from '../lib/roles';
 import { useAuth } from '../context/AuthContext';
-import { isDemoMode } from '../lib/supabase';
 import { fetchTeacherBatches, fetchCourses, createBatch } from '../lib/batchService';
 import { formatDateDisplay, getTodayInTimezone, calculateDayNumber } from '../lib/dateUtils';
 import { TeacherBatchDetail } from './TeacherBatchDetail';
@@ -28,7 +28,7 @@ export const TeacherHome: React.FC = () => {
   const isAdmin = role === 'admin';
 
   const loadData = async () => {
-    if (!user || (!organisation.id && !isDemoMode())) return;
+    if (!user || !organisation.id) return;
     setLoading(true);
     setLoadError(null);
     try {
@@ -103,7 +103,7 @@ export const TeacherHome: React.FC = () => {
       <TeacherBatchDetail
         batch={selectedBatch}
         organisation={organisation}
-        canChangeTeacher={profile?.role === 'admin'}
+        canChangeTeacher={hasRole(profile, 'admin')}
         onBatchUpdated={setSelectedBatch}
         onBack={() => {
           setSelectedBatch(null);

@@ -297,6 +297,10 @@ by the organisation.
     programmes; a teacher with batches cannot delete their account; ticking
     Evening on a second phone keeps the Morning tick; a batch with more than
     1,000 check-ins shows every day on the teacher screen.
+15. Speed and safety net: faster access rules and indexes, automatic checks
+    on every pull request, error reports for admins, smaller app download,
+    offline ticks. Test: verify.sql passes in GitHub on a pull request; a
+    tick made in airplane mode appears after reconnecting.
 
 ## Out of scope (do not build)
 Community or chat, payments, native mobile apps, organisation self-signup,

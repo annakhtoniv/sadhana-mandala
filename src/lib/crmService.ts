@@ -1,17 +1,14 @@
 import { fetchAllPages } from './paging';
-import { supabase, isDemoMode } from './supabase';
+import { supabase } from './supabase';
 import type { CrmActivity, CrmActivityKind, CrmContact, CrmOwner, CrmStage, FunnelReport } from '../types/database';
-import { DEMO_ALL_BATCHES, DEMO_CONTACTS, DEMO_CRM_ACTIVITIES, DEMO_FUNNEL, DEMO_TEACHER_PROFILE } from './mockData';
 import { STAGE_LABEL, type ContactInput } from './crmUtils';
 
-const DEMO_EDIT_ERROR = 'Leads cannot be changed in demo mode. Sign in with Google to use the CRM.';
 
 type Result = { success: boolean; error?: string };
 export type RpcResult = { success: boolean; message?: string; title?: string; join_code?: string; batch_name?: string; course_name?: string; enrolled?: boolean };
 
 /** Leads the user may see: all of the organisation for admins and teachers, own leads for volunteers. */
 export async function fetchContacts(orgId: string): Promise<CrmContact[]> {
-  if (isDemoMode()) return DEMO_CONTACTS;
   return fetchAllPages<CrmContact>((from, to) =>
     supabase.from('crm_contacts').select('*').eq('org_id', orgId)
       .order('updated_at', { ascending: false }).order('id', { ascending: true }).range(from, to)
@@ -19,7 +16,6 @@ export async function fetchContacts(orgId: string): Promise<CrmContact[]> {
 }
 
 export async function fetchActivities(contactId: string): Promise<CrmActivity[]> {
-  if (isDemoMode()) return DEMO_CRM_ACTIVITIES.filter((a) => a.contact_id === contactId);
   const { data, error } = await supabase
     .from('crm_activities')
     .select('*')
@@ -31,9 +27,6 @@ export async function fetchActivities(contactId: string): Promise<CrmActivity[]>
 
 /** Volunteers, teachers and admins who can own leads. */
 export async function fetchOwners(): Promise<CrmOwner[]> {
-  if (isDemoMode()) {
-    return [{ id: DEMO_TEACHER_PROFILE.id, full_name: DEMO_TEACHER_PROFILE.full_name, email: DEMO_TEACHER_PROFILE.email, role: 'admin' }];
-  }
   const { data, error } = await supabase.rpc('crm_owners');
   if (error) throw new Error(error.message);
   return (data as CrmOwner[]) || [];
@@ -45,7 +38,6 @@ export async function saveContact(
   input: ContactInput,
   existing: CrmContact | null
 ): Promise<Result & { contact?: CrmContact }> {
-  if (isDemoMode()) return { success: false, error: DEMO_EDIT_ERROR };
   const row = {
     full_name: input.full_name.trim(),
     email: input.email.trim().toLowerCase() || null,
@@ -67,7 +59,6 @@ export async function saveContact(
 }
 
 export async function deleteContact(contactId: string): Promise<Result> {
-  if (isDemoMode()) return { success: false, error: DEMO_EDIT_ERROR };
   const { error } = await supabase.from('crm_contacts').delete().eq('id', contactId);
   return error ? { success: false, error: error.message } : { success: true };
 }
@@ -79,7 +70,6 @@ export async function addActivity(
   kind: Exclude<CrmActivityKind, 'stage'>,
   body: string
 ): Promise<Result> {
-  if (isDemoMode()) return { success: false, error: DEMO_EDIT_ERROR };
   const { error } = await supabase
     .from('crm_activities')
     .insert({ org_id: orgId, contact_id: contactId, kind, body: body.trim(), created_by: userId });
@@ -88,7 +78,6 @@ export async function addActivity(
 
 /** Moves a lead to another stage and notes the change. */
 export async function setContactStage(orgId: string, userId: string, contact: CrmContact, stage: CrmStage): Promise<Result> {
-  if (isDemoMode()) return { success: false, error: DEMO_EDIT_ERROR };
   const { error } = await supabase.from('crm_contacts').update({ stage }).eq('id', contact.id);
   if (error) return { success: false, error: error.message };
   await addActivity(orgId, userId, contact.id, 'note', `Moved from ${STAGE_LABEL[contact.stage]} to ${STAGE_LABEL[stage]}`);
@@ -103,19 +92,16 @@ async function callRpc(fn: string, args: Record<string, unknown>): Promise<RpcRe
 
 /** Registers the lead for an event (as a guest, or as the member once they have an account). */
 export async function inviteContactToEvent(contactId: string, eventId: string): Promise<RpcResult> {
-  if (isDemoMode()) return { success: false, message: DEMO_EDIT_ERROR };
   return callRpc('crm_invite_to_event', { p_contact_id: contactId, p_event_id: eventId });
 }
 
 /** Enrols the lead (or invites their email, so they are enrolled when they sign in). */
 export async function registerContactForBatch(contactId: string, batchId: string): Promise<RpcResult> {
-  if (isDemoMode()) return { success: false, message: DEMO_EDIT_ERROR };
   return callRpc('crm_register_for_batch', { p_contact_id: contactId, p_batch_id: batchId });
 }
 
 /** Phase 10: funnel report for admins and teachers. */
 export async function fetchFunnelReport(since: string | null): Promise<FunnelReport> {
-  if (isDemoMode()) return DEMO_FUNNEL;
   const { data, error } = await supabase.rpc('crm_funnel_report', { p_since: since });
   if (error) throw new Error(error.message);
   const res = data as (FunnelReport & { success: boolean; message?: string }) | null;
@@ -134,11 +120,6 @@ export interface OpenBatch {
 
 /** Batches a lead can be registered for (started in the last 14 days or later). */
 export async function fetchOpenBatches(): Promise<OpenBatch[]> {
-  if (isDemoMode()) {
-    return DEMO_ALL_BATCHES.map((b) => ({
-      id: b.id, name: b.name, course_id: b.course_id, course_name: b.course?.name || '', start_date: b.start_date, join_code: b.join_code,
-    }));
-  }
   const { data, error } = await supabase.rpc('crm_open_batches');
   if (error) throw new Error(error.message);
   return (data as OpenBatch[]) || [];

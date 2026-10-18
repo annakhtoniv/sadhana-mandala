@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { recordCheckin } from '../lib/checkinService';
+import { queueTick } from '../lib/offlineTicks';
 import { calculateStreak, countPractisedDays, getTrailDayStatus, hasEvening, hasMorning } from '../lib/practiceUtils';
 import { formatDateDisplay } from '../lib/dateUtils';
 import type { Checkin } from '../types/database';
@@ -106,6 +107,10 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
     setSaving(null);
     if (res.success && res.checkin) {
       onCheckinsChange(withDay(previous, res.checkin));
+    } else if (res.offline) {
+      // Keep the tick on this phone; it is sent when the connection is back
+      queueTick({ orgId, batchId, studentId, day: selectedDay, slot, value });
+      setMessage('No connection: saved on this phone. It will be sent when you are back online.');
     } else {
       onCheckinsChange(previous);
       setMessage(`Not saved: ${res.error || 'please try again'}`);

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { isDemoMode } from '../lib/supabase';
 import { friendlyError } from '../lib/errors';
+import { flushTicks, pendingTicks, type PendingTick } from '../lib/offlineTicks';
 import { ProgrammeLearning } from './ProgrammeLearning';
 import { ProgrammeMaterials } from './ProgrammeMaterials';
 import { ProgrammeFollowups } from './ProgrammeFollowups';
@@ -24,11 +24,22 @@ import {
   BookOpen,
   AlertCircle,
   Loader2,
-  Sparkles,
 } from 'lucide-react';
 
 interface StudentHomeProps {
   onNavigateLessons?: () => void;
+}
+
+/** Saved check-ins with the ticks still waiting on this phone applied on top. */
+function withPendingTicks(saved: Checkin[], pending: PendingTick[]): Checkin[] {
+  const byDay = new Map(saved.map((c) => [c.day_number, { ...c }]));
+  for (const t of pending) {
+    const row = byDay.get(t.day) || ({ id: `pending-${t.day}`, org_id: t.orgId, batch_id: t.batchId, student_id: t.studentId, day_number: t.day, status: 'not_yet', morning: false, evening: false, created_at: new Date().toISOString(), updated_at: new Date().toISOString() } as Checkin);
+    row[t.slot] = t.value;
+    row.status = row.morning || row.evening ? 'done' : 'not_yet';
+    byDay.set(t.day, row);
+  }
+  return [...byDay.values()].sort((a, b) => a.day_number - b.day_number);
 }
 
 export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) => {
@@ -78,10 +89,15 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
     let isMounted = true;
 
     setCheckinsError(null);
-    fetchStudentCheckins(batch.id, profile.id)
+    const batchId = batch.id;
+    const studentId = profile.id;
+    // Ticks made offline are sent first, then shown together with the saved ones
+    flushTicks()
+      .catch(() => 0)
+      .then(() => fetchStudentCheckins(batchId, studentId))
       .then((data) => {
         if (isMounted) {
-          setCheckins(data);
+          setCheckins(withPendingTicks(data, pendingTicks(batchId, studentId)));
         }
       })
       .catch((err) => {
@@ -96,6 +112,13 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
       isMounted = false;
     };
   }, [batch?.id, profile?.id, reloadKey]);
+
+  // Back online: send waiting ticks and reload
+  useEffect(() => {
+    const onOnline = () => setReloadKey((k) => k + 1);
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, []);
 
   // Handle joining batch with code
   const handleJoinByCode = async (e: React.FormEvent) => {
@@ -171,62 +194,6 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
             )}
           </form>
 
-          {/* Quick Demo Batch 1-Click Join Section (demo mode only) */}
-          {isDemoMode() && (
-          <div className="pt-3 border-t border-stone-100 dark:border-stone-800 space-y-2.5">
-            <div className="text-[11px] font-semibold text-stone-500 uppercase tracking-wider flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-              <span>1-Click Demo Cohort Join</span>
-            </div>
-
-            <div className="space-y-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setJoinCode('AUTUMN23');
-                  joinBatch('AUTUMN23');
-                }}
-                disabled={joining}
-                className="w-full p-3 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/40 hover:bg-emerald-100/80 dark:hover:bg-emerald-900/60 border border-emerald-200/80 dark:border-emerald-800 text-left transition-all cursor-pointer flex items-center justify-between group"
-              >
-                <div>
-                  <div className="text-xs font-bold text-emerald-900 dark:text-emerald-100">
-                    Autumn Awakening Cohort (Active at Day 23)
-                  </div>
-                  <div className="text-[10px] text-emerald-700 dark:text-emerald-400">
-                    40-day course &bull; 30 students &bull; Rich check-in trail
-                  </div>
-                </div>
-                <div className="flex items-center gap-1.5 font-mono text-xs font-bold text-emerald-800 dark:text-emerald-300 bg-white dark:bg-stone-900 px-2.5 py-1 rounded-lg border border-emerald-300 dark:border-emerald-700 shadow-sm">
-                  <span>AUTUMN23</span>
-                  <ArrowRight className="w-3 h-3 text-emerald-600" />
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setJoinCode('SADH40');
-                  joinBatch('SADH40');
-                }}
-                disabled={joining}
-                className="w-full p-2.5 rounded-xl bg-stone-50 dark:bg-stone-800/80 hover:bg-stone-100 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-700 text-left transition-all cursor-pointer flex items-center justify-between"
-              >
-                <div>
-                  <div className="text-xs font-medium text-stone-800 dark:text-stone-200">
-                    October Sadhana Cohort (Fresh Day 1)
-                  </div>
-                  <div className="text-[10px] text-stone-400">
-                    Starts today at Day 1
-                  </div>
-                </div>
-                <span className="font-mono text-xs font-bold text-stone-600 dark:text-stone-400 bg-white dark:bg-stone-900 px-2 py-0.5 rounded border border-stone-200 dark:border-stone-700">
-                  SADH40
-                </span>
-              </button>
-            </div>
-          </div>
-          )}
 
           {onNavigateLessons && (
             <div className="pt-2 border-t border-stone-100 dark:border-stone-800">

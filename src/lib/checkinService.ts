@@ -1,8 +1,7 @@
 import { friendlyError } from './errors';
 import { fetchAllPages } from './paging';
-import { supabase, isDemoMode } from './supabase';
+import { supabase } from './supabase';
 import type { Checkin } from '../types/database';
-import { getDemoCheckinsForStudent, getDemoBatchCheckins } from './mockData';
 import {
   calculateStreak as calcStreakUtil,
   isQuietStudent as isQuietStudentUtil,
@@ -21,15 +20,11 @@ export const upsertCheckinInMemory = upsertUtil;
 
 /**
  * Fetches all checkins for a specific student in a batch.
- * Sample data is used only in the 1-click demo mode.
  */
 export async function fetchStudentCheckins(
   batchId: string,
   studentId: string
 ): Promise<Checkin[]> {
-  if (isDemoMode()) {
-    return getDemoCheckinsForStudent(studentId, batchId);
-  }
 
   const { data, error } = await supabase
     .from('checkins')
@@ -49,12 +44,8 @@ export const fetchStudentBatchCheckins = fetchStudentCheckins;
 
 /**
  * Fetches all checkins for an entire batch (used by teacher roster).
- * Sample data is used only in the 1-click demo mode.
  */
 export async function fetchBatchCheckins(batchId: string): Promise<Checkin[]> {
-  if (isDemoMode()) {
-    return getDemoBatchCheckins();
-  }
 
   // A batch easily has more than 1,000 check-ins (30 students x 40 days): page through them
   return fetchAllPages<Checkin>((from, to) =>
@@ -79,10 +70,6 @@ export async function fetchTodayCheckin(
   studentId: string,
   dayNumber: number
 ): Promise<Checkin | null> {
-  if (isDemoMode()) {
-    const all = await fetchStudentCheckins(batchId, studentId);
-    return all.find((c) => c.day_number === dayNumber) || null;
-  }
 
   const { data, error } = await supabase
     .from('checkins')
@@ -110,42 +97,7 @@ export async function recordCheckin(
   dayNumber: number,
   slot: 'morning' | 'evening',
   value: boolean
-): Promise<{ success: boolean; checkin?: Checkin; data?: Checkin; error?: string }> {
-  const nowIso = new Date().toISOString();
-
-  // Demo data has no database session: keep the answer on this device only
-  if (isDemoMode()) {
-    const storageKey = `sadhana_checkins_${studentId}_${batchId}`;
-    let list: Checkin[] = [];
-    try {
-      list = JSON.parse(localStorage.getItem(storageKey) || 'null') || getDemoCheckinsForStudent(studentId, batchId);
-    } catch {
-      list = getDemoCheckinsForStudent(studentId, batchId);
-    }
-    const existing = list.find((c) => c.day_number === dayNumber);
-    const morning = slot === 'morning' ? value : Boolean(existing?.morning);
-    const evening = slot === 'evening' ? value : Boolean(existing?.evening);
-    const item: Checkin = {
-      id: existing?.id || `chk-${studentId}-${dayNumber}`,
-      org_id: orgId,
-      batch_id: batchId,
-      student_id: studentId,
-      day_number: dayNumber,
-      status: morning || evening ? 'done' : 'not_yet',
-      morning,
-      evening,
-      created_at: existing?.created_at || nowIso,
-      updated_at: nowIso,
-    };
-    const next = upsertUtil(list, item);
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(next));
-    } catch {
-      // ignore
-    }
-    return { success: true, checkin: item, data: item };
-  }
-
+): Promise<{ success: boolean; checkin?: Checkin; data?: Checkin; error?: string; offline?: boolean }> {
   // The status column follows the ticks in the database (trigger)
   const { data, error } = await supabase
     .from('checkins')
@@ -162,6 +114,12 @@ export async function recordCheckin(
     .select()
     .single();
 
-  if (error) return { success: false, error: friendlyError(error) };
+  if (error) {
+    // No connection: the caller keeps the tick on this phone and sends it later
+    const offline =
+      /Failed to fetch|NetworkError|Load failed|network/i.test(error.message || '') ||
+      (typeof navigator !== 'undefined' && navigator.onLine === false);
+    return { success: false, error: friendlyError(error), offline };
+  }
   return { success: true, checkin: data as Checkin, data: data as Checkin };
 }

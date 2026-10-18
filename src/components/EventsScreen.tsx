@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { hasRole } from '../lib/roles';
 import { useAuth } from '../context/AuthContext';
-import { isDemoMode } from '../lib/supabase';
 import { isoToZonedInput } from '../lib/dateUtils';
 import { fetchCourses } from '../lib/batchService';
 import {
@@ -54,7 +54,7 @@ function dayBlock(iso: string, timeZone: string) {
 export const EventsScreen: React.FC<EventsScreenProps> = ({ onBack }) => {
   const { organisation, user, profile, activeRole } = useAuth();
   // Staff tools only in the Teacher or Admin view (an admin previewing the Student view sees what students see)
-  const isStaff = (profile?.role === 'admin' || profile?.role === 'teacher') && activeRole !== 'student';
+  const isStaff = (hasRole(profile, 'admin') || hasRole(profile, 'teacher')) && activeRole !== 'student';
   const [events, setEvents] = useState<OrgEvent[]>([]);
   const [taken, setTaken] = useState<Map<string, number>>(new Map());
   const [mine, setMine] = useState<Map<string, RegistrationStatus>>(new Map());
@@ -69,7 +69,7 @@ export const EventsScreen: React.FC<EventsScreenProps> = ({ onBack }) => {
   const [saving, setSaving] = useState(false);
 
   const load = async () => {
-    if (!organisation.id && !isDemoMode()) return;
+    if (!organisation.id) return;
     try {
       const list = await fetchEvents(organisation.id);
       const [placeMap, myMap] = await Promise.all([

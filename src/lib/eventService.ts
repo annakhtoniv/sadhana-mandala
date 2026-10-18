@@ -1,7 +1,6 @@
 import { fetchAllPages } from './paging';
-import { supabase, isDemoMode } from './supabase';
+import { supabase } from './supabase';
 import type { EventRegistration, OrgEvent, RegistrationStatus } from '../types/database';
-import { DEMO_EVENTS, DEMO_EVENT_REGISTRATIONS } from './mockData';
 import { sortEvents, type EventInput } from './eventUtils';
 import { zonedInputToIso } from './dateUtils';
 
@@ -9,28 +8,9 @@ import { zonedInputToIso } from './dateUtils';
 const EVENT_COLUMNS =
   'id, org_id, kind, title, description, starts_at, ends_at, venue, online_url, capacity, course_id, batch_id, host_id, published, created_at, updated_at';
 
-const DEMO_MY_EVENTS_KEY = 'sadhana_demo_my_events';
-const DEMO_EDIT_ERROR = 'Events cannot be changed in demo mode. Sign in with Google to manage events.';
-
-function readDemoMine(): Record<string, RegistrationStatus> {
-  try {
-    return JSON.parse(localStorage.getItem(DEMO_MY_EVENTS_KEY) || '{}');
-  } catch {
-    return {};
-  }
-}
-
-function writeDemoMine(value: Record<string, RegistrationStatus>) {
-  try {
-    localStorage.setItem(DEMO_MY_EVENTS_KEY, JSON.stringify(value));
-  } catch {
-    // ignore storage errors
-  }
-}
 
 /** Events of the organisation (members get published ones; staff also drafts), coming first. */
 export async function fetchEvents(orgId: string): Promise<OrgEvent[]> {
-  if (isDemoMode()) return sortEvents(DEMO_EVENTS);
   const rows = await fetchAllPages<OrgEvent>((from, to) =>
     supabase.from('events').select(EVENT_COLUMNS).eq('org_id', orgId).order('id', { ascending: true }).range(from, to) as unknown as PromiseLike<{ data: OrgEvent[] | null; error: { message: string } | null }>
   );
@@ -41,14 +21,6 @@ export async function fetchEvents(orgId: string): Promise<OrgEvent[]> {
 export async function fetchPlacesTaken(eventIds: string[]): Promise<Map<string, number>> {
   const taken = new Map<string, number>();
   if (eventIds.length === 0) return taken;
-  if (isDemoMode()) {
-    const mine = readDemoMine();
-    for (const id of eventIds) {
-      const base = DEMO_EVENT_REGISTRATIONS.filter((r) => r.event_id === id).length;
-      taken.set(id, base + (mine[id] === 'registered' || mine[id] === 'attended' ? 1 : 0));
-    }
-    return taken;
-  }
   const { data, error } = await supabase.rpc('event_places_taken', { p_event_ids: eventIds });
   if (error) throw new Error(error.message);
   for (const row of (data as { event_id: string; taken: number }[]) || []) taken.set(row.event_id, row.taken);
@@ -57,7 +29,6 @@ export async function fetchPlacesTaken(eventIds: string[]): Promise<Map<string, 
 
 /** The signed-in member's registration status per event. */
 export async function fetchMyRegistrations(profileId: string): Promise<Map<string, RegistrationStatus>> {
-  if (isDemoMode()) return new Map(Object.entries(readDemoMine()));
   const { data, error } = await supabase.from('event_registrations').select('event_id, status').eq('profile_id', profileId);
   if (error) throw new Error(error.message);
   return new Map(((data as { event_id: string; status: RegistrationStatus }[]) || []).map((r) => [r.event_id, r.status]));
@@ -72,24 +43,15 @@ async function callRpc(fn: string, args: Record<string, unknown>): Promise<RpcRe
 }
 
 export async function registerForEvent(eventId: string): Promise<RpcResult> {
-  if (isDemoMode()) {
-    writeDemoMine({ ...readDemoMine(), [eventId]: 'registered' });
-    return { success: true };
-  }
   return callRpc('register_for_event', { p_event_id: eventId });
 }
 
 export async function cancelMyRegistration(eventId: string): Promise<RpcResult> {
-  if (isDemoMode()) {
-    writeDemoMine({ ...readDemoMine(), [eventId]: 'cancelled' });
-    return { success: true };
-  }
   return callRpc('cancel_my_registration', { p_event_id: eventId });
 }
 
 /** QR check-in: the code comes from the event's QR link (?event=CODE). */
 export async function checkInToEvent(code: string): Promise<RpcResult> {
-  if (isDemoMode()) return { success: false, message: 'Check-in is not available in demo mode.' };
   return callRpc('check_in_to_event', { p_code: code });
 }
 
@@ -103,7 +65,6 @@ export async function saveEvent(
   input: EventInput,
   timeZone: string
 ): Promise<{ success: boolean; error?: string }> {
-  if (isDemoMode()) return { success: false, error: DEMO_EDIT_ERROR };
   const row = {
     kind: input.kind,
     title: input.title.trim(),
@@ -125,14 +86,12 @@ export async function saveEvent(
 
 /** Deletes an event and all its registrations. */
 export async function deleteEvent(eventId: string): Promise<{ success: boolean; error?: string }> {
-  if (isDemoMode()) return { success: false, error: DEMO_EDIT_ERROR };
   const { error } = await supabase.from('events').delete().eq('id', eventId);
   return error ? { success: false, error: error.message } : { success: true };
 }
 
 /** Everyone registered for an event (staff only). */
 export async function fetchEventRegistrations(eventId: string): Promise<EventRegistration[]> {
-  if (isDemoMode()) return DEMO_EVENT_REGISTRATIONS.filter((r) => r.event_id === eventId);
   const { data, error } = await supabase
     .from('event_registrations')
     .select('*, profile:profiles!event_registrations_profile_id_fkey(id, full_name, email)')
@@ -144,7 +103,6 @@ export async function fetchEventRegistrations(eventId: string): Promise<EventReg
 
 /** The secret check-in code for an event's QR (staff only). */
 export async function fetchCheckinCode(eventId: string): Promise<string | null> {
-  if (isDemoMode()) return 'DEMO1234';
   const { data, error } = await supabase.rpc('event_checkin_code', { p_event_id: eventId });
   if (error) throw new Error(error.message);
   return (data as string) || null;
@@ -156,7 +114,6 @@ export async function addGuest(
   eventId: string,
   guest: { name: string; email: string; phone: string }
 ): Promise<{ success: boolean; error?: string }> {
-  if (isDemoMode()) return { success: false, error: DEMO_EDIT_ERROR };
   const { error } = await supabase.from('event_registrations').insert({
     org_id: orgId,
     event_id: eventId,
@@ -178,7 +135,6 @@ export async function setRegistrationStatus(
   registrationId: string,
   status: RegistrationStatus
 ): Promise<{ success: boolean; error?: string }> {
-  if (isDemoMode()) return { success: false, error: DEMO_EDIT_ERROR };
   const { error } = await supabase
     .from('event_registrations')
     .update({ status, checked_in_at: status === 'attended' ? new Date().toISOString() : null, updated_at: new Date().toISOString() })

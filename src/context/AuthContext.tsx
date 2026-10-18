@@ -1,13 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import type { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
-import { supabase, isSupabaseConfigured, isDemoMode, DEMO_SESSION_KEY } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { fetchOrganisation, getResolvedOrgSlug, DEFAULT_ORGANISATION } from '../lib/organisation';
 import { claimUserInvites, fetchUserEnrolments, joinBatchByCode } from '../lib/batchService';
 import { pickDefaultEnrolment } from '../lib/programmeUtils';
 import { checkInToEvent } from '../lib/eventService';
 import { removeMyAvatarFiles, syncGoogleAvatar } from '../lib/avatarService';
 import { friendlyError } from '../lib/errors';
-import { DEMO_TEACHER_PROFILE } from '../lib/mockData';
 import { PENDING_CHECKIN_KEY, PENDING_JOIN_KEY, readLinkParams, savePending, takePending } from '../lib/joinLink';
 import { allowedRoleViews, defaultRoleView } from '../lib/roles';
 import type { Organisation, Profile, UserRole, Enrolment } from '../types/database';
@@ -54,7 +53,7 @@ export const CONSENT_NOTICE_VERSION = 'v2-2026-10';
 // The 1-click demo login was removed on 2026-10-18: forget any demo session a
 // browser still has, so everyone sees the real database.
 try {
-  localStorage.removeItem(DEMO_SESSION_KEY);
+  localStorage.removeItem('sadhana_demo_session');
   localStorage.removeItem('sadhana_demo_enrolment');
   localStorage.removeItem('sadhana_demo_my_events');
 } catch {
@@ -114,14 +113,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const fetchProfileForUser = async (currentUser: User, activeOrg: Organisation) => {
-    // 1-click demo: sample data only, no database calls
-    if (isDemoMode()) {
-      setProfile({ ...DEMO_TEACHER_PROFILE, consent_at: localStorage.getItem(`sadhana_consent_${currentUser.id}`) });
-      applyRole(DEMO_TEACHER_PROFILE.role);
-      await loadEnrolmentForUser(currentUser.id);
-      return;
-    }
-
     try {
       await claimUserInvites();
 
@@ -223,7 +214,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const joinBatch = async (code: string) => {
     const res = await joinBatchByCode(code);
     if (res.success && user) {
-      // Open the programme just joined (RPC returns enrolment_id; demo returns the enrolment)
+      // Open the programme just joined (the RPC returns enrolment_id)
       const joinedId: string | null = res.data?.enrolment_id || res.data?.id || null;
       if (joinedId) localStorage.setItem(SELECTED_ENROLMENT_KEY, joinedId);
       await loadEnrolmentForUser(user.id, joinedId);
@@ -353,7 +344,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.removeItem(`sadhana_consent_${user.id}`);
       localStorage.removeItem('sadhana_active_role');
       loadedUserRef.current = null;
-      localStorage.removeItem(DEMO_SESSION_KEY);
       localStorage.removeItem('sadhana_demo_enrolment');
     }
     await supabase.auth.signOut();

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { supabase, isDemoMode } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import { fetchCourses, generateJoinCode, updateBatch } from '../lib/batchService';
 import type { Batch, Course, Profile } from '../types/database';
 import { AlertTriangle, X } from 'lucide-react';
@@ -33,7 +33,7 @@ export const BatchEditor: React.FC<BatchEditorProps> = ({ batch, orgId, canChang
 
   useEffect(() => {
     fetchCourses(orgId).then(setCourses).catch(() => setCourses([]));
-    if (canChangeTeacher && !isDemoMode()) {
+    if (canChangeTeacher) {
       supabase
         .from('profiles')
         .select('id, full_name, email, role')
