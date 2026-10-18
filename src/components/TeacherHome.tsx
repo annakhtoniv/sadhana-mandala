@@ -6,7 +6,7 @@ import { formatDateDisplay, getTodayInTimezone, calculateDayNumber } from '../li
 import { TeacherBatchDetail } from './TeacherBatchDetail';
 import { ProgrammesManager } from './ProgrammesManager';
 import type { Batch, Course } from '../types/database';
-import { GraduationCap, Users, PlusCircle, Sparkles, ChevronRight, Calendar, RefreshCw, BookOpen } from 'lucide-react';
+import { GraduationCap, Users, PlusCircle, ChevronRight, Calendar, RefreshCw, BookOpen } from 'lucide-react';
 
 export const TeacherHome: React.FC = () => {
   const { organisation, user, profile, role } = useAuth();
@@ -240,17 +240,6 @@ export const TeacherHome: React.FC = () => {
             })}
           </div>
         )}
-      </div>
-
-      {/* Teacher Security & Row Isolation info */}
-      <div className="bg-stone-100/70 dark:bg-stone-800/30 p-4 rounded-xl border border-stone-200/60 dark:border-stone-800/60 text-xs text-stone-600 dark:text-stone-400 space-y-1">
-        <div className="font-medium text-stone-800 dark:text-stone-200 flex items-center gap-1.5">
-          <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-          <span>Batch Security Rule</span>
-        </div>
-        <p className="text-[11px] leading-relaxed">
-          Enforced by database Row Level Security: Teachers can invite students, view their roster, and track practice check-ins exclusively for their own batches within this organisation.
-        </p>
       </div>
 
       {/* Create Batch Modal */}
