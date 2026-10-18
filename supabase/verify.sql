@@ -460,7 +460,8 @@ begin
   select count(*) into v_n from public.event_registrations;
   r := r || array['Volunteer (Ravi)|event registrations visible|0', v_n::text];
 
-  select string_agg(name, ', ' order by start_date) into v_txt from public.crm_open_batches();
+  -- Only the seeded batches: real batches made in the app are left out of the checks
+  select string_agg(name, ', ' order by start_date) into v_txt from public.crm_open_batches() where id::text like 'd1000000-%';
   r := r || array['Volunteer (Ravi)|batches he can register leads for|VTP – October, New Moon Mindfulness', coalesce(v_txt, 'none')];
 
   begin
@@ -534,8 +535,8 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin_a, 'email', 'admin.sadhana@example.com', 'role', 'authenticated')::text, true);
   set local role authenticated;
 
-  select count(*) into v_n from public.batches;
-  r := r || array['Admin A|sees all Org A batches|5', v_n::text];
+  select count(*) into v_n from public.batches where id::text like 'd1000000-%';
+  r := r || array['Admin A|sees all seeded Org A batches|5', v_n::text];
 
   execute v_sql_foreign into v_n using v_org_b;
   r := r || array['Admin A|rows visible from Org B (all tables)|0', v_n::text];
