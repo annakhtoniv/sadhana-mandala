@@ -12,7 +12,11 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400..600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+    <!-- Security (Phase 14): only this site's scripts run; data only from our Supabase project and Google photos -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleusercontent.com https://*.supabase.co %VITE_SUPABASE_URL%; media-src 'self' blob: https://*.supabase.co %VITE_SUPABASE_URL%; connect-src 'self' https://*.supabase.co wss://*.supabase.co %VITE_SUPABASE_URL%; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
     <title>Sadhana Mandala</title>
+    <script src="/frame-guard.js"></script>
   </head>
   <body class="text-stone-900 antialiased">
     <div id="root"></div>

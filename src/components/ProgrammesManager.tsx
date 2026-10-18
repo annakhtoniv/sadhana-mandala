@@ -54,7 +54,9 @@ function toInput(course: Course): ProgrammeInput {
  * programmes here. Nothing about a programme is hard-coded in the app.
  */
 export const ProgrammesManager: React.FC<ProgrammesManagerProps> = ({ onBack }) => {
-  const { organisation, user } = useAuth();
+  const { organisation, user, profile } = useAuth();
+  // Admins change every programme; teachers the ones they added (database rule, Phase 14)
+  const canEdit = (p: Course) => profile?.role === 'admin' || (Boolean(user) && p.created_by === user?.id);
   const [programmes, setProgrammes] = useState<Course[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -224,6 +226,7 @@ export const ProgrammesManager: React.FC<ProgrammesManagerProps> = ({ onBack }) 
                     <div className="text-[11px] text-stone-500">{p.programme_days}-day programme</div>
                   ) : null}
                 </div>
+                {canEdit(p) && (
                 <button
                   type="button"
                   onClick={() => {
@@ -235,6 +238,7 @@ export const ProgrammesManager: React.FC<ProgrammesManagerProps> = ({ onBack }) 
                   <Pencil className="w-3 h-3" />
                   <span>Edit</span>
                 </button>
+                )}
               </div>
 
               {p.description && <p className="text-xs text-stone-500 dark:text-stone-400">{p.description}</p>}

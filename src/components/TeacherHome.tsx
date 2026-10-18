@@ -22,7 +22,6 @@ export const TeacherHome: React.FC = () => {
   const [selectedCourseId, setSelectedCourseId] = useState('');
   const [batchName, setBatchName] = useState('');
   const [startDate, setStartDate] = useState(getTodayInTimezone(organisation.timezone));
-  const [customJoinCode, setCustomJoinCode] = useState('');
   const [createError, setCreateError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
@@ -73,14 +72,12 @@ export const TeacherHome: React.FC = () => {
       teacherId: teacherIdToUse,
       name: batchName.trim(),
       startDate: startDate || getTodayInTimezone(organisation.timezone),
-      joinCode: customJoinCode.trim() || undefined,
     });
 
     if (result.success && result.data) {
       const newBatch = result.data;
       setShowCreateModal(false);
       setBatchName('');
-      setCustomJoinCode('');
       // Optimistically add to state immediately
       setBatches((prev) => [newBatch, ...prev.filter((b) => b.id !== newBatch.id)]);
       setSelectedBatch(newBatch);
@@ -306,21 +303,6 @@ export const TeacherHome: React.FC = () => {
                   />
                   <Calendar className="w-4 h-4 text-stone-400 absolute right-3 top-3 pointer-events-none" />
                 </div>
-              </div>
-
-              {/* Join Code (optional custom) */}
-              <div>
-                <label className="block text-xs font-medium text-stone-600 dark:text-stone-300 mb-1">
-                  Custom Join Code (Optional, max 8 chars)
-                </label>
-                <input
-                  type="text"
-                  maxLength={8}
-                  placeholder="Auto-generated if empty"
-                  value={customJoinCode}
-                  onChange={(e) => setCustomJoinCode(e.target.value.toUpperCase())}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-mono tracking-wider uppercase focus:outline-none focus:ring-2 focus:ring-stone-500"
-                />
               </div>
 
               {createError && (

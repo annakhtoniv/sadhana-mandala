@@ -156,7 +156,7 @@
   - Seed: 4 sample links (3 Happiness Program, one of them hidden; 1 Art of Silence). [supabase/verify.sql](supabase/verify.sql): 98 checks (9 new: materials a student sees, cannot add, file access, cannot upload; own avatar only, no other web addresses; teacher uploads into own organisation only), all PASS on a local copy.
   - 105 unit tests (3 new), clean build.
 
-- Phase 13 built on 2026-10-18 (pull request open; SQL not yet run in Supabase):
+- Phase 13 built and deployed on 2026-10-18 (PR merged; phase13_roles.sql and verify.sql run in Supabase: 103/103 PASS):
   - Several roles per person (PM request): a person can be Student, Volunteer, Teacher and Admin in any mix. Admin > People: each person has a multi-select role list (tick / untick, saved at once). "Give someone a role" also takes several roles for an email that has not signed in yet.
   - Rules: only an admin changes roles; an admin may change their own roles but cannot remove their own Admin role (so nobody locks the organisation out); at least one role. The app and every access rule use the highest role (Admin > Teacher > Volunteer > Student), so a Teacher who is also a Volunteer gets everything a teacher gets.
   - Admin > People: search bar above Everyone (name, email or role, e.g. "teacher"). "Waiting for first sign-in" now lists only emails that have not signed in yet.
@@ -166,8 +166,23 @@
   - Tried in a browser on a local copy: search, adding Volunteer to a teacher, the locked own-Admin tick, settings save (footer changed at once).
   - 107 unit tests (2 new), clean build.
 
+- Phase 14 built on 2026-10-18 (data safety; from the stress test and expert review, PM approved all fixes; pull request open; SQL not yet run):
+  - Practice history can no longer be wiped: teachers cannot delete programmes or change programmes they did not add (admins can); a programme with batches, a batch with check-ins and a teacher with batches cannot be deleted. Tested: a teacher deleting all programmes now deletes nothing (it wiped 1,171 check-ins before).
+  - Delete my account: refused while the person teaches a batch and for the last admin (clear message in the app); it now also removes their photos, their own lead record and guest registrations. The organisation always keeps at least one admin (also when two admins change roles at the same moment).
+  - Check-ins: the app saves only the tile that was tapped, so a tick from another phone or an old tab is never erased; if ticks cannot be loaded the tiles lock with a "Try again" link instead of showing every day as missed; an app left open overnight moves to the new day.
+  - Lists that can pass 1,000 rows (a batch's check-ins, lesson progress, follow-up records, people, leads, events) are fetched page by page; Supabase returns at most 1,000 rows per request, so a 30-student batch lost its last days around day 34.
+  - Volunteers: a new lead no longer reveals whether the email has an account, and an existing member is not enrolled by a volunteer (the app offers the batch link instead). Teachers see only their own leads and the guests of events they host or created; admins see all (PM decision).
+  - Consent: saved in the database or an error is shown (no more "consent" kept only on the phone); every consent is logged with the version of the text; people can change only their name and photo on their profile. New plain-language consent screen (Morning and Evening; "Rest day" removed).
+  - Join codes: new codes are 8 random characters (no hand-typed codes; "New code" button in Edit batch); 10 wrong codes per 15 minutes per person; join links preview only batches of the site's organisation. Batch start date and programme are locked once anyone has checked in.
+  - Other: hidden study files stay hidden from students; study files 20 MB and no SVG; lesson video links must be https; profile photos only from this project; names up to 100 characters; a valid time zone; students only in batches of their organisation; new members who sign in on Prana Flow's site join Prana Flow; unsigned-in visitors can read only the organisation name; no TRUNCATE rights for app users; plain-language error messages everywhere; "Quiet" no longer counts today before it is over; Arabic digits accepted in phone numbers; event times correct on daylight-saving days.
+  - Browser: Content Security Policy and a guard against the site being shown inside another site.
+  - The guided tour opens only from the ? button (it covered the consent button on phones).
+  - The old unsafe SQL files are archived under supabase/archive/ and stop at their first line; the run order is in supabase/README.md.
+  - [supabase/phase14_safety.sql](supabase/phase14_safety.sql); [supabase/verify.sql](supabase/verify.sql): 120 checks (17 new), all PASS on a fresh local copy; seed and verify each run twice cleanly. Tried in a browser on a local copy: two devices ticking, teacher deleting their account, consent, teacher leads, admin People.
+  - 114 unit tests (7 new), clean build.
+
 ## Next
-- PM: merge the Phase 13 pull request, then in the Supabase SQL editor run (from `main`): `supabase/phase13_roles.sql`, then `supabase/verify.sql` (all 103 rows PASS). No seed needed. Until the SQL is run, changing roles shows an error.
+- PM: merge the Phase 14 pull request, then in the Supabase SQL editor run (from `main`): `supabase/phase14_safety.sql`, `supabase/seed_dummy_data.sql`, `supabase/verify.sql` (all 120 rows PASS). Until the SQL is run, un-ticking a tick can fail.
 - PM: test Phase 12: sign out and in (your Google photo appears); Profile > camera > pick a picture; Admin > tap each overview card; tap a batch card; Admin > Programmes > Happiness Program > Materials > upload a PDF and an MP3; as a student of that programme, see "Study materials" on the home screen.
 - Storage limits (Supabase free plan): 50 MB per file, about 1 GB in total. Long videos are better as YouTube (unlisted) links.
 - PM: test Phase 11: tick Morning and Evening today; tap an earlier circle and tick it (it gets the clock badge); try the guided tour (? button); open the site on a computer (side menu) and on the phone (bottom tabs); Admin > Batches > Open > Edit and rename a batch.
@@ -189,6 +204,6 @@ Decided 2026-10-12: keep the demo data and the 1-click demo login until after th
 
 ## Known Issues
 - The sample-data code for the old demo login (`mockData.ts` and the demo branches in the services) is no longer reachable; it can be deleted in a later clean-up.
-- `RUN_THIS_IN_SUPABASE.sql` still contains the old unsafe policies; never run it without `supabase/phase4_security.sql` after it.
+- The old all-in-one script (`RUN_THIS_IN_SUPABASE.sql`) and `fix_consent_and_roles.sql` were archived in Phase 14 under `supabase/archive/` and stop at their first line; the run order is in `supabase/README.md`.
 - Admin home in a local preview without Supabase keys shows zeros (the organisation is not loaded); the live site is not affected.
 - The app bundle is about 690 kB (one file); it loads fine but could be split later for faster first load on slow phones.

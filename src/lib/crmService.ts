@@ -1,3 +1,4 @@
+import { fetchAllPages } from './paging';
 import { supabase, isDemoMode } from './supabase';
 import type { CrmActivity, CrmActivityKind, CrmContact, CrmOwner, CrmStage, FunnelReport } from '../types/database';
 import { DEMO_ALL_BATCHES, DEMO_CONTACTS, DEMO_CRM_ACTIVITIES, DEMO_FUNNEL, DEMO_TEACHER_PROFILE } from './mockData';
@@ -11,9 +12,10 @@ export type RpcResult = { success: boolean; message?: string; title?: string; jo
 /** Leads the user may see: all of the organisation for admins and teachers, own leads for volunteers. */
 export async function fetchContacts(orgId: string): Promise<CrmContact[]> {
   if (isDemoMode()) return DEMO_CONTACTS;
-  const { data, error } = await supabase.from('crm_contacts').select('*').eq('org_id', orgId).order('updated_at', { ascending: false });
-  if (error) throw new Error(error.message);
-  return (data as CrmContact[]) || [];
+  return fetchAllPages<CrmContact>((from, to) =>
+    supabase.from('crm_contacts').select('*').eq('org_id', orgId)
+      .order('updated_at', { ascending: false }).order('id', { ascending: true }).range(from, to)
+  );
 }
 
 export async function fetchActivities(contactId: string): Promise<CrmActivity[]> {

@@ -1,10 +1,10 @@
 -- ============================================================================
--- Sadhana Mandala: verification (phases 4 to 13)
+-- Sadhana Mandala: verification (phases 4 to 14)
 --
 -- Run in the Supabase SQL editor after phase4_security.sql,
 -- phase5_programmes.sql, phase6_lms.sql, phase7_followups.sql,
 -- phase8_events.sql, phase9_crm.sql, phase11_checkins.sql, phase12_media.sql,
--- phase13_roles.sql and seed_dummy_data.sql. It signs in as the fictional seed users one at a time
+-- phase13_roles.sql, phase14_safety.sql and seed_dummy_data.sql. It signs in as the fictional seed users one at a time
 -- (by setting the same JWT claims Supabase sets for a real sign-in) and checks
 -- what each of them can see and change. Nothing is saved: every write attempt
 -- is rolled back immediately.
@@ -78,7 +78,12 @@ begin
   -- one for the Happiness Program, one for Sri Sri Yoga (student 1 is not enrolled)
   insert into storage.objects (id, bucket_id, name) values
     ('ab000000-0000-0000-0000-000000000001', 'materials', v_org_a::text || '/' || v_hp_course::text || '/verify-a.pdf'),
-    ('ab000000-0000-0000-0000-000000000002', 'materials', v_org_a::text || '/c1000000-0000-0000-0000-000000000004/verify-b.pdf');
+    ('ab000000-0000-0000-0000-000000000002', 'materials', v_org_a::text || '/c1000000-0000-0000-0000-000000000004/verify-b.pdf'),
+    ('ab000000-0000-0000-0000-000000000003', 'materials', v_org_a::text || '/' || v_hp_course::text || '/verify-draft.pdf');
+  -- Phase 14: students read only files of published materials
+  insert into public.programme_materials (org_id, course_id, title, kind, storage_path, published) values
+    (v_org_a, v_hp_course, 'Verify file', 'pdf', v_org_a::text || '/' || v_hp_course::text || '/verify-a.pdf', true),
+    (v_org_a, v_hp_course, 'Verify draft', 'pdf', v_org_a::text || '/' || v_hp_course::text || '/verify-draft.pdf', false);
 
   select ((now() at time zone o.timezone)::date - b.start_date) + 1 into v_day
   from public.batches b join public.organisations o on o.id = b.org_id where b.id = v_autumn;
@@ -151,8 +156,8 @@ begin
   r := r || array['Teacher A (Ananda)|write a student''s check-in|blocked', v_txt];
 
   begin
-    insert into public.courses (org_id, name, code, category, has_practice_track, duration_days)
-    values (v_org_a, 'Verify Test Programme', 'VERIFY-TEST', 'Test', false, 40);
+    insert into public.courses (org_id, name, code, category, has_practice_track, duration_days, created_by)
+    values (v_org_a, 'Verify Test Programme', 'VERIFY-TEST', 'Test', false, 40, v_ananda);
     raise exception 'PROBE_WROTE';
   exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked: ' || sqlerrm end; end;
   r := r || array['Teacher A (Ananda)|add a programme (phase 5)|allowed', v_txt];
@@ -206,7 +211,7 @@ begin
   r := r || array['Teacher A (Ananda)|Org A events incl. draft (phase 8)|6', v_n::text];
 
   select count(*) into v_n from public.event_registrations;
-  r := r || array['Teacher A (Ananda)|Org A event registrations|28', v_n::text];
+  r := r || array['Teacher A (Ananda)|registrations of events Ananda hosts (phase 14)|18', v_n::text];
 
   r := r || array['Teacher A (Ananda)|check-in code for the QR|TALKNEXT', coalesce(public.event_checkin_code(v_ev_talk_next), 'null')];
 
@@ -258,7 +263,22 @@ begin
 
   -- Phase 9: CRM
   select count(*) into v_n from public.crm_contacts;
-  r := r || array['Teacher A (Ananda)|sees every Org A lead (phase 9)|11', v_n::text];
+  r := r || array['Teacher A (Ananda)|sees only own leads (phase 14)|0', v_n::text];
+
+  -- Phase 14: no wiping of programmes or practice history by a teacher
+  begin
+    delete from public.courses where org_id = v_org_a;
+    get diagnostics v_n = row_count;
+    v_txt := v_n::text;
+    raise exception 'PROBE_DONE';
+  exception when others then if sqlerrm <> 'PROBE_DONE' then v_txt := 'blocked'; end if; end;
+  r := r || array['Teacher A (Ananda)|programmes deleted by a teacher (phase 14)|0', v_txt];
+
+  begin
+    perform public.delete_user_account();
+    raise exception 'PROBE_WROTE';
+  exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
+  r := r || array['Teacher A (Ananda)|delete own account while teaching (phase 14)|blocked', v_txt];
 
   v_json := public.crm_funnel_report(null);
   v_txt := 'total=' || (v_json->'leads'->>'total') || ' invited=' || (v_json->'leads'->>'invited')
@@ -267,13 +287,6 @@ begin
   r := r || array['Teacher A (Ananda)|journey report lists the Happiness Program|Happiness Program',
                   coalesce(v_json->'journey'->0->>'course_name', 'none')];
 
-  begin
-    update public.event_registrations set status = 'attended'
-    where event_id = v_ev_talk_next and contact_id = v_lead_rania;
-    select stage into v_txt from public.crm_contacts where id = v_lead_rania;
-    raise exception 'PROBE_DONE';
-  exception when others then if sqlerrm <> 'PROBE_DONE' then v_txt := 'error: ' || sqlerrm; end if; end;
-  r := r || array['Teacher A (Ananda)|marking a lead attended moves the lead to attended|attended', v_txt];
 
   reset role;
 
@@ -464,7 +477,7 @@ begin
   r := r || array['Student (Aarav)|create an event|blocked', v_txt];
 
   -- Phase 12: study materials and profile pictures
-  select count(*) into v_n from public.programme_materials;
+  select count(*) into v_n from public.programme_materials where id::text like 'e6000000-%';
   r := r || array['Student (Aarav)|study materials of own programmes (HP 2, Silence 1; draft hidden)|3', v_n::text];
 
   begin
@@ -490,6 +503,42 @@ begin
     raise exception 'PROBE_WROTE';
   exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
   r := r || array['Student (Aarav)|give self the admin role|blocked', v_txt];
+
+  -- Phase 14: consent is written by the app's function only
+  begin
+    update public.profiles set consent_at = '2000-01-01' where id = v_student01;
+    raise exception 'PROBE_WROTE';
+  exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
+  r := r || array['Student (Aarav)|back-date own consent (phase 14)|blocked', v_txt];
+
+  -- Phase 14: the app saves one tick at a time; an Evening tick keeps the Morning tick
+  begin
+    insert into public.checkins (org_id, batch_id, student_id, day_number, morning)
+    values (v_org_a, v_autumn, v_student01, 1, true)
+    on conflict (student_id, batch_id, day_number) do update set morning = excluded.morning;
+    insert into public.checkins (org_id, batch_id, student_id, day_number, evening)
+    values (v_org_a, v_autumn, v_student01, 1, true)
+    on conflict (student_id, batch_id, day_number) do update set evening = excluded.evening;
+    insert into public.checkins (org_id, batch_id, student_id, day_number, morning)
+    values (v_org_a, v_autumn, v_student01, 2, false)
+    on conflict (student_id, batch_id, day_number) do update set morning = excluded.morning;
+    select 'morning=' || morning || ' evening=' || evening into v_txt
+    from public.checkins where student_id = v_student01 and batch_id = v_autumn and day_number = 1;
+    raise exception 'PROBE_DONE';
+  exception when others then if sqlerrm <> 'PROBE_DONE' then v_txt := 'error: ' || sqlerrm; end if; end;
+  r := r || array['Student (Aarav)|tick Morning, then Evening separately (phase 14)|morning=true evening=true', v_txt];
+
+  select count(*) into v_n from storage.objects where bucket_id = 'materials' and name like '%/verify-draft.pdf';
+  r := r || array['Student (Aarav)|hidden study file visible (phase 14)|0', v_n::text];
+
+  begin
+    for v_n in 1..11 loop
+      v_json := public.join_batch_by_code('WRONG' || v_n);
+    end loop;
+    v_txt := case when v_json->>'message' like 'Too many%' then 'limited' else 'not limited' end;
+    raise exception 'PROBE_DONE';
+  exception when others then if sqlerrm <> 'PROBE_DONE' then v_txt := 'error: ' || sqlerrm; end if; end;
+  r := r || array['Student (Aarav)|11 wrong join codes in a row (phase 14)|limited', v_txt];
 
   begin
     insert into storage.objects (bucket_id, name) values ('avatars', v_student01::text || '/avatar.jpg');
@@ -536,6 +585,26 @@ begin
   -- Only the seeded batches: real batches made in the app are left out of the checks
   select string_agg(name, ', ' order by start_date) into v_txt from public.crm_open_batches() where id::text like 'd1000000-%';
   r := r || array['Volunteer (Ravi)|batches he can register leads for|VTP – October, New Moon Mindfulness', coalesce(v_txt, 'none')];
+
+  -- Phase 14: a new lead does not reveal whether the email has an account,
+  -- and an existing member is not enrolled by a volunteer
+  begin
+    insert into public.crm_contacts (org_id, full_name, email, source, owner_id, created_by)
+    values (v_org_a, 'Verify Member', 'student02@example.com', 'friend', v_ravi, v_ravi)
+    returning coalesce(profile_id::text, 'not linked') into v_txt;
+    raise exception 'PROBE_DONE';
+  exception when others then if sqlerrm <> 'PROBE_DONE' then v_txt := 'error: ' || sqlerrm; end if; end;
+  r := r || array['Volunteer (Ravi)|lead with a member''s email shows the account (phase 14)|not linked', v_txt];
+
+  begin
+    insert into public.crm_contacts (org_id, full_name, email, source, owner_id, created_by)
+    values (v_org_a, 'Verify Member', 'student02@example.com', 'friend', v_ravi, v_ravi)
+    returning id::text into v_txt;
+    v_json := public.crm_register_for_batch(v_txt::uuid, v_moon);
+    v_txt := case when (v_json->>'success')::boolean then 'enrolled' else 'link sent instead' end;
+    raise exception 'PROBE_DONE';
+  exception when others then if sqlerrm <> 'PROBE_DONE' then v_txt := 'error: ' || sqlerrm; end if; end;
+  r := r || array['Volunteer (Ravi)|enrol an existing member (phase 14)|link sent instead', v_txt];
 
   begin
     insert into public.crm_contacts (org_id, full_name, owner_id, created_by) values (v_org_a, 'New friend', v_ravi, v_ravi);
@@ -614,6 +683,37 @@ begin
   execute v_sql_foreign into v_n using v_org_b;
   r := r || array['Admin A|rows visible from Org B (all tables)|0', v_n::text];
 
+  -- Phase 14: admins see every lead; the lead journey still moves
+  select count(*) into v_n from public.crm_contacts where id::text like 'e5000000-%' and org_id = v_org_a;
+  r := r || array['Admin A|sees every seeded Org A lead|11', v_n::text];
+
+  begin
+    update public.event_registrations set status = 'attended'
+    where event_id = v_ev_talk_next and contact_id = v_lead_rania;
+    select stage into v_txt from public.crm_contacts where id = v_lead_rania;
+    raise exception 'PROBE_DONE';
+  exception when others then if sqlerrm <> 'PROBE_DONE' then v_txt := 'error: ' || sqlerrm; end if; end;
+  r := r || array['Admin A|marking a lead attended moves the lead to attended|attended', v_txt];
+
+  begin
+    delete from public.batches where id = v_autumn;
+    raise exception 'PROBE_WROTE';
+  exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
+  r := r || array['Admin A|delete a batch that has check-ins (phase 14)|blocked', v_txt];
+
+  begin
+    insert into public.programme_materials (org_id, course_id, title, kind, storage_path)
+    values (v_org_a, v_hp_course, 'Elsewhere', 'pdf', v_org_b::text || '/x/secret.pdf');
+    raise exception 'PROBE_WROTE';
+  exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
+  r := r || array['Admin A|study file outside its programme folder (phase 14)|blocked', v_txt];
+
+  begin
+    update public.lessons set video_url = 'javascript:alert(1)' where org_id = v_org_a and id = v_lesson_week2;
+    raise exception 'PROBE_WROTE';
+  exception when others then v_txt := case when sqlerrm = 'PROBE_WROTE' then 'allowed' else 'blocked' end; end;
+  r := r || array['Admin A|lesson video link that is not https (phase 14)|blocked', v_txt];
+
   -- Phase 13: several roles per person
   v_txt := 'error';
   begin
@@ -660,9 +760,33 @@ begin
     v_txt := v_n::text;
   exception when others then v_txt := '0'; end;
   r := r || array['Anonymous visitor|CRM leads visible|0', v_txt];
+  begin
+    select count(*) into v_n from public.profiles;
+    v_txt := 'readable';
+  exception when others then v_txt := 'blocked'; end;
+  r := r || array['Anonymous visitor|read profiles table (phase 14)|blocked', v_txt];
+  begin
+    select count(*) into v_n from public.organisations where slug = 'sadhana-mandala';
+    v_txt := v_n::text;
+  exception when others then v_txt := 'blocked'; end;
+  r := r || array['Anonymous visitor|organisation name for the sign-in page|1', v_txt];
   v_txt := coalesce(public.batch_join_preview('autumn23')->>'batch_name', 'none');
   r := r || array['Anonymous visitor|batch QR shows the batch before sign-in|Autumn Awakening Cohort', v_txt];
   reset role;
+
+  -- ------------------------------------------------------------------ Database rules (phase 14)
+  begin
+    update public.profiles set roles = array['teacher'] where email = 'admin.prana@example.com';
+    v_txt := 'allowed';
+  exception when others then v_txt := 'blocked'; end;
+  r := r || array['Rules|remove the only admin of Org B|blocked', v_txt];
+
+  select count(*) into v_n from pg_proc where proname = 'set_my_role' and pronamespace = 'public'::regnamespace;
+  r := r || array['Rules|unsafe set_my_role function absent|0', v_n::text];
+
+  select count(*) into v_n from pg_policies
+  where schemaname = 'public' and tablename <> 'organisations' and (qual = 'true' or with_check = 'true') and permissive = 'PERMISSIVE';
+  r := r || array['Rules|open "true" policies outside organisations|0', v_n::text];
 
   raise exception 'VERIFY_UNDO';
   exception when others then

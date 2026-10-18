@@ -1,3 +1,4 @@
+import { friendlyError } from './errors';
 import { supabase, isDemoMode } from './supabase';
 import type { Course } from '../types/database';
 import { DEMO_COURSE_40, DEMO_COURSE_21, DEMO_COURSE_SILENCE } from './mockData';
@@ -53,7 +54,7 @@ export async function saveProgramme(
 
   const { data, error } = await query;
   if (error) {
-    const msg = error.code === '23505' ? `The code "${input.code.trim()}" is already used by another programme.` : error.message;
+    const msg = error.code === '23505' ? `The code "${input.code.trim()}" is already used by another programme.` : friendlyError(error);
     return { success: false, error: msg };
   }
   return { success: true, data: data as Course };

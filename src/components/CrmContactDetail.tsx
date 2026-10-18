@@ -153,7 +153,7 @@ export const CrmContactDetail: React.FC<CrmContactDetailProps> = ({
       appName: organisation.app_name,
     });
     if (!res.success) {
-      setMessage({ tone: 'error', text: res.message || 'Could not register them.' });
+      setMessage({ tone: res.join_code ? 'ok' : 'error', text: res.message || 'Could not register them.' });
       // Without an email they can still join themselves with the batch link
       if (res.join_code) setDraft({ subject: batch.course_name, text });
       return;

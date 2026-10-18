@@ -114,7 +114,9 @@ export function validateContactInput(input: ContactInput): string[] {
 
 /** Digits of a phone number for WhatsApp links: "+971 50 123 4567" -> "971501234567". */
 export function phoneDigits(phone: string | null | undefined): string {
-  const digits = (phone || '').replace(/\D/g, '');
+  // Arabic-Indic (٠-٩) and Eastern Arabic (۰-۹) digits count as digits too
+  const western = (phone || '').replace(/[\u0660-\u0669\u06F0-\u06F9]/g, (ch) => String(ch.charCodeAt(0) & 0xf));
+  const digits = western.replace(/\D/g, '');
   return digits.startsWith('00') ? digits.slice(2) : digits;
 }
 

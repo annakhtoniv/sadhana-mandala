@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
-import type { User, Session } from '@supabase/supabase-js';
+import type { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured, isDemoMode, DEMO_SESSION_KEY } from '../lib/supabase';
 import { fetchOrganisation, getResolvedOrgSlug, DEFAULT_ORGANISATION } from '../lib/organisation';
 import { claimUserInvites, fetchUserEnrolments, joinBatchByCode } from '../lib/batchService';
 import { pickDefaultEnrolment } from '../lib/programmeUtils';
 import { checkInToEvent } from '../lib/eventService';
-import { syncGoogleAvatar } from '../lib/avatarService';
+import { removeMyAvatarFiles, syncGoogleAvatar } from '../lib/avatarService';
+import { friendlyError } from '../lib/errors';
 import { DEMO_TEACHER_PROFILE } from '../lib/mockData';
 import { PENDING_CHECKIN_KEY, PENDING_JOIN_KEY, readLinkParams, savePending, takePending } from '../lib/joinLink';
 import { allowedRoleViews, defaultRoleView } from '../lib/roles';
@@ -26,8 +27,10 @@ interface AuthContextType {
   setActiveRole: (role: UserRole) => Promise<void>;
   hasConsent: boolean;
   isLoading: boolean;
-  giveConsent: () => Promise<void>;
-  deleteAccount: () => Promise<void>;
+  /** Saves consent in the database; only a successful save counts */
+  giveConsent: () => Promise<{ success: boolean; error?: string }>;
+  /** Deletes the account; on success the person is signed out */
+  deleteAccount: () => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   /** After an admin saves the organisation settings */
@@ -46,6 +49,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 // device across the Google sign-in redirect and use it once signed in.
 // The programme a student last opened on this device
 const SELECTED_ENROLMENT_KEY = 'sadhana_selected_enrolment';
+// Version of the privacy text people agree to (stored with each consent)
+export const CONSENT_NOTICE_VERSION = 'v2-2026-10';
 // The 1-click demo login was removed on 2026-10-18: forget any demo session a
 // browser still has, so everyone sees the real database.
 try {
@@ -81,6 +86,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   const orgRef = useRef<Organisation>(DEFAULT_ORGANISATION);
+  // The user whose profile is loaded (or loading), so the same sign-in is not loaded twice
+  const loadedUserRef = useRef<string | null>(null);
 
   const loadEnrolmentForUser = async (userId: string, preferredId?: string | null) => {
     try {
@@ -119,15 +126,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await claimUserInvites();
 
       // The profile row is created by the database on first sign-in (handle_new_user),
-      // with the role from role_grants. The client never chooses its own role.
-      const { data: existingProfile, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', currentUser.id)
-        .maybeSingle();
+      // with the roles from role_grants. The client never chooses its own role.
+      const readProfile = () => supabase.from('profiles').select('*').eq('id', currentUser.id).maybeSingle();
+      let { data: existingProfile, error } = await readProfile();
 
       if (error) {
-        console.warn('Profiles query note:', error.message);
+        // Keep whatever was shown before (an admin stays admin after a network blip)
+        setNotice({ tone: 'error', text: `Your profile could not be loaded. ${friendlyError(error)}` });
+        return;
+      }
+
+      // A brand-new member who signed in on another organisation's site joins that organisation
+      if (existingProfile && activeOrg.id && (existingProfile as Profile).org_id !== activeOrg.id) {
+        const { data: moved } = await supabase.rpc('adopt_site_organisation', { p_org_slug: activeOrg.slug });
+        if (moved) ({ data: existingProfile, error } = await readProfile());
       }
 
       if (existingProfile) {
@@ -141,7 +153,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           });
         }
       } else {
-        // Profile not readable yet: treat as a student until it is
+        // Profile not created yet (first seconds after sign-up): a student until it is
         setProfile({
           id: currentUser.id,
           org_id: activeOrg.id,
@@ -261,9 +273,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSession(initialSession);
 
         if (initialSession?.user) {
-          localStorage.removeItem(DEMO_SESSION_KEY);
-          localStorage.removeItem('sadhana_demo_enrolment');
           setUser(initialSession.user);
+          loadedUserRef.current = initialSession.user.id;
           await fetchProfileForUser(initialSession.user, loadedOrg);
         } else {
           setUser(null);
@@ -279,23 +290,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     init();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+    // Only a new sign-in or a sign-out reloads the profile. A token refresh (hourly)
+    // only updates the session. The work runs after the callback returns, so it
+    // never waits inside the sign-in library's lock.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, newSession) => {
       if (isCancelled) return;
-
       setSession(newSession);
       const newUser = newSession?.user ?? null;
-
-      if (newUser) {
-        localStorage.removeItem(DEMO_SESSION_KEY);
-        localStorage.removeItem('sadhana_demo_enrolment');
-        setUser(newUser);
-        await fetchProfileForUser(newUser, orgRef.current);
-      } else if (!isDemoMode()) {
+      if (event === 'SIGNED_OUT' || !newUser) {
+        loadedUserRef.current = null;
         setUser(null);
         setProfile(null);
         setEnrolments([]);
+        setIsLoading(false);
+        return;
       }
-      setIsLoading(false);
+      setUser(newUser);
+      if (event === 'SIGNED_IN' && loadedUserRef.current !== newUser.id) {
+        loadedUserRef.current = newUser.id;
+        setTimeout(() => {
+          fetchProfileForUser(newUser, orgRef.current).finally(() => setIsLoading(false));
+        }, 0);
+      }
     });
 
     return () => {
@@ -304,45 +320,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  // Give consent (Stores both in DB and localStorage for 100% reliable persistence across refreshes)
-  const giveConsent = async () => {
-    if (!user) return;
-    const nowIso = new Date().toISOString();
-
-    // 1. Immediately persist in localStorage so refresh NEVER prompts again
-    localStorage.setItem(`sadhana_consent_${user.id}`, nowIso);
-
-    // 2. Update local state
-    setProfile(prev => (prev ? { ...prev, consent_at: nowIso } : null));
-
-    // 3. Persist to database
-    if (isDemoMode()) return;
-    try {
-      const { error: rpcErr } = await supabase.rpc('give_user_consent');
-      if (rpcErr) {
-        console.warn('Consent was not saved to the database:', rpcErr.message);
-      }
-    } catch (err) {
-      console.warn('Database consent update note:', err);
-    }
+  // Consent counts only once the database has recorded it (and the consent log has a row)
+  const giveConsent = async (): Promise<{ success: boolean; error?: string }> => {
+    if (!user) return { success: false, error: 'Please sign in first.' };
+    const { data, error } = await supabase.rpc('give_user_consent', { p_notice_version: CONSENT_NOTICE_VERSION });
+    if (error) return { success: false, error: friendlyError(error, 'Your consent could not be saved. Please try again.') };
+    const at = (data as string) || new Date().toISOString();
+    setProfile((prev) => (prev ? { ...prev, consent_at: at } : prev));
+    return { success: true };
   };
 
-  // Delete account
-  const deleteAccount = async () => {
-    if (!user) return;
-    try {
-      localStorage.removeItem(`sadhana_consent_${user.id}`);
-      localStorage.removeItem('sadhana_active_role');
-      await supabase.rpc('delete_user_account');
-    } catch (err) {
-      console.error('Error deleting account:', err);
-    } finally {
-      await supabase.auth.signOut();
-      setSession(null);
-      setUser(null);
-      setProfile(null);
-      setEnrolments([]);
-    }
+  // Deletes photos, then the account (the database refuses for a teacher with
+  // batches and for the last admin, with a message that says why)
+  const deleteAccount = async (): Promise<{ success: boolean; error?: string }> => {
+    if (!user) return { success: false, error: 'Please sign in first.' };
+    const { error } = await supabase.rpc('delete_user_account');
+    if (error) return { success: false, error: friendlyError(error, 'Your account could not be deleted. Please try again.') };
+    await removeMyAvatarFiles(user.id);
+    localStorage.removeItem('sadhana_active_role');
+    loadedUserRef.current = null;
+    await supabase.auth.signOut();
+    setSession(null);
+    setUser(null);
+    setProfile(null);
+    setEnrolments([]);
+    return { success: true };
   };
 
   const signOut = async () => {
@@ -350,6 +352,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (user) {
       localStorage.removeItem(`sadhana_consent_${user.id}`);
       localStorage.removeItem('sadhana_active_role');
+      loadedUserRef.current = null;
       localStorage.removeItem(DEMO_SESSION_KEY);
       localStorage.removeItem('sadhana_demo_enrolment');
     }
@@ -362,11 +365,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const role = profile?.role ?? activeRole;
 
-  // Consent is true if stored in profile OR backed up in localStorage
-  const hasConsent = Boolean(
-    profile?.consent_at ||
-    (user?.id && localStorage.getItem(`sadhana_consent_${user.id}`))
-  );
+  // Consent is what the database recorded, nothing else
+  const hasConsent = Boolean(profile?.consent_at);
 
   return (
     <AuthContext.Provider

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase, isDemoMode } from '../lib/supabase';
-import { fetchCourses, updateBatch } from '../lib/batchService';
+import { fetchCourses, generateJoinCode, updateBatch } from '../lib/batchService';
 import type { Batch, Course, Profile } from '../types/database';
 import { AlertTriangle, X } from 'lucide-react';
 
@@ -107,20 +107,29 @@ export const BatchEditor: React.FC<BatchEditorProps> = ({ batch, orgId, canChang
           </div>
           <div>
             <label className={labelClass} htmlFor="be-code">Join code</label>
-            <input
-              id="be-code"
-              className={`${inputClass} font-mono uppercase tracking-wider`}
-              value={form.joinCode}
-              maxLength={12}
-              onChange={(e) => set('joinCode', e.target.value.toUpperCase())}
-            />
+            <div className="flex gap-1.5">
+              <input
+                id="be-code"
+                className={`${inputClass} font-mono uppercase tracking-wider bg-stone-50`}
+                value={form.joinCode}
+                readOnly
+              />
+              <button
+                type="button"
+                onClick={() => set('joinCode', generateJoinCode())}
+                className="ui-btn-ghost !px-3 shrink-0"
+                title="Make a new random code (the old QR and links stop working)"
+              >
+                New code
+              </button>
+            </div>
           </div>
         </div>
 
         {form.startDate !== batch.start_date && (
           <p className="text-[11px] text-amber-700 flex gap-1.5">
             <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" />
-            A new start date moves every day of the batch: check-ins stay on their day numbers, so day 1 becomes the new date.
+            A new start date moves every day of the batch. This is only possible before anyone has checked in.
           </p>
         )}
         {form.joinCode !== batch.join_code && (

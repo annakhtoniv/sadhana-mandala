@@ -125,13 +125,13 @@ export const MaterialsEditor: React.FC<MaterialsEditorProps> = ({ course, onBack
         >
           {busy ? <Loader2 className="w-6 h-6 animate-spin text-stone-500" /> : <Upload className="w-6 h-6 text-stone-500" />}
           <span className="text-sm font-semibold text-stone-800">{busy || 'Upload files'}</span>
-          <span className="text-[11px] text-stone-500">PDF, audio (MP3), video (MP4), pictures or documents. Up to 50 MB each.</span>
+          <span className="text-[11px] text-stone-500">PDF, audio (MP3), video (MP4), pictures or documents. Up to 20 MB each. Longer videos: add a YouTube link instead.</span>
         </button>
         <input
           ref={fileRef}
           type="file"
           multiple
-          accept="application/pdf,audio/*,video/*,image/*,.doc,.docx,.ppt,.pptx,.txt"
+          accept="application/pdf,audio/*,video/*,image/jpeg,image/png,image/webp,image/gif,.doc,.docx,.ppt,.pptx,.txt"
           className="sr-only"
           onChange={(e) => {
             onFiles(e.target.files);
@@ -212,7 +212,7 @@ export const MaterialsEditor: React.FC<MaterialsEditorProps> = ({ course, onBack
                   onClick={async () => {
                     if (!window.confirm(`Delete "${m.title}"? Students will no longer see it.`)) return;
                     const res = await deleteMaterial(m);
-                    if (!res.success) setMessage({ tone: 'error', text: res.error || 'Could not delete.' });
+                    if (!res.success || res.error) setMessage({ tone: 'error', text: res.error || 'Could not delete.' });
                     await load();
                   }}
                   className="ui-icon-btn !w-8 !h-8 hover:!text-red-600"

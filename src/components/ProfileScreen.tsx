@@ -16,6 +16,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
   const [photoMessage, setPhotoMessage] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const formattedConsentDate = profile?.consent_at
     ? new Date(profile.consent_at).toLocaleString('en-US', {
@@ -27,12 +28,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
 
   const handleDeleteAccount = async () => {
     setIsDeleting(true);
-    try {
-      await deleteAccount();
-    } finally {
-      setIsDeleting(false);
-      setShowDeleteConfirm(false);
-    }
+    setDeleteError(null);
+    const res = await deleteAccount();
+    setIsDeleting(false);
+    // On success the person is signed out; otherwise say why it was not deleted
+    if (!res.success) setDeleteError(res.error || 'Your account could not be deleted. Please try again.');
   };
 
   return (
@@ -216,9 +216,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
                 Permanently delete account?
               </h2>
               <p className="text-xs text-stone-500 dark:text-stone-400 leading-relaxed">
-                As required by the product brief, this will permanently remove your login account, profile, enrolments, and all daily check-in records for real. This action cannot be undone.
+                This removes your account, your programmes, your check-ins and your photos for good. It cannot be undone.
               </p>
             </div>
+            {deleteError && (
+              <p role="alert" className="text-sm text-red-700">
+                {deleteError}
+              </p>
+            )}
 
             <div className="space-y-2 pt-2">
               <button
@@ -232,7 +237,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
 
               <button
                 type="button"
-                onClick={() => setShowDeleteConfirm(false)}
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setDeleteError(null);
+                }}
                 disabled={isDeleting}
                 className="w-full py-2.5 text-xs text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 transition-colors cursor-pointer"
               >

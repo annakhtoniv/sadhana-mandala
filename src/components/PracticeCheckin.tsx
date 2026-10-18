@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { recordCheckin, upsertCheckinInMemory } from '../lib/checkinService';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { recordCheckin } from '../lib/checkinService';
 import { calculateStreak, countPractisedDays, getTrailDayStatus, hasEvening, hasMorning } from '../lib/practiceUtils';
 import { formatDateDisplay } from '../lib/dateUtils';
 import type { Checkin } from '../types/database';
@@ -17,6 +17,14 @@ interface PracticeCheckinProps {
   question: string;
   checkins: Checkin[];
   onCheckinsChange: (next: Checkin[]) => void;
+  /** Set when the saved ticks could not be loaded: the tiles stay locked so nothing is overwritten */
+  loadError?: string | null;
+  onRetry?: () => void;
+}
+
+/** The list with this day's row replaced (or added). */
+function withDay(list: Checkin[], row: Checkin): Checkin[] {
+  return [...list.filter((c) => c.day_number !== row.day_number), row].sort((a, b) => a.day_number - b.day_number);
 }
 
 /** The date of a day of the batch, e.g. "Mon 12 Oct". */
@@ -43,9 +51,20 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
   question,
   checkins,
   onCheckinsChange,
+  loadError = null,
+  onRetry,
 }) => {
   const lastOpenDay = Math.min(todayDay, durationDays);
   const [selectedDay, setSelectedDay] = useState<number>(Math.max(1, lastOpenDay));
+
+  // A new day began while the app was open: follow "today" unless a past day was picked
+  const shownToday = useRef(todayDay);
+  useEffect(() => {
+    if (shownToday.current !== todayDay) {
+      setSelectedDay((day) => (day === Math.min(shownToday.current, durationDays) ? Math.max(1, lastOpenDay) : day));
+      shownToday.current = todayDay;
+    }
+  }, [todayDay, durationDays, lastOpenDay]);
   const [saving, setSaving] = useState<'morning' | 'evening' | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -60,8 +79,9 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
   const finished = todayDay > durationDays;
 
   const toggle = async (slot: 'morning' | 'evening') => {
-    if (saving || selectedDay < 1 || selectedDay > lastOpenDay) return;
-    const next = { morning, evening, [slot]: !(slot === 'morning' ? morning : evening) };
+    if (saving || loadError || selectedDay < 1 || selectedDay > lastOpenDay) return;
+    const value = !(slot === 'morning' ? morning : evening);
+    const next = { morning, evening, [slot]: value };
     setSaving(slot);
     setMessage(null);
 
@@ -79,12 +99,13 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
       created_at: selected?.created_at || new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    onCheckinsChange(upsertCheckinInMemory(checkins, optimistic));
+    onCheckinsChange(withDay(checkins, optimistic));
 
-    const res = await recordCheckin(orgId, batchId, studentId, selectedDay, next);
+    // Only the tapped tick is saved; the saved row (with its real id) replaces the guess
+    const res = await recordCheckin(orgId, batchId, studentId, selectedDay, slot, value);
     setSaving(null);
     if (res.success && res.checkin) {
-      onCheckinsChange(upsertCheckinInMemory(upsertCheckinInMemory(previous, optimistic), res.checkin));
+      onCheckinsChange(withDay(previous, res.checkin));
     } else {
       onCheckinsChange(previous);
       setMessage(`Not saved: ${res.error || 'please try again'}`);
@@ -97,7 +118,7 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
       <button
         type="button"
         onClick={() => toggle(slot)}
-        disabled={saving !== null || notStarted || selectedDay > lastOpenDay}
+        disabled={saving !== null || Boolean(loadError) || notStarted || selectedDay > lastOpenDay}
         aria-pressed={on}
         className={`relative flex-1 rounded-[1.25rem] p-4 text-left transition-all active:scale-[0.98] disabled:opacity-60 cursor-pointer ${
           on
@@ -156,8 +177,17 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
               {tile('morning', morning)}
               {tile('evening', evening)}
             </div>
-            <p className="text-[11px] text-stone-500 min-h-[16px]">
-              {message ? (
+            <p className="text-[11px] text-stone-500 min-h-[16px]" aria-live="polite">
+              {loadError ? (
+                <span className="text-red-600">
+                  Your ticks could not be loaded, so they are locked for now. {loadError}{' '}
+                  {onRetry && (
+                    <button type="button" onClick={onRetry} className="underline font-medium cursor-pointer">
+                      Try again
+                    </button>
+                  )}
+                </span>
+              ) : message ? (
                 <span className="text-red-600">{message}</span>
               ) : !isToday ? (
                 <>

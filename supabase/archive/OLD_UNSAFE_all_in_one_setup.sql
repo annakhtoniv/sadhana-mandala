@@ -1,4 +1,12 @@
 -- ============================================================================
+-- ARCHIVED, DO NOT RUN (Phase 14, 2026-10-18).
+-- This old script makes people admin or removes security rules. It stops at
+-- the first line below on purpose, so nothing in it can run by accident.
+-- The setup order lives in supabase/README.md.
+-- ============================================================================
+do $$ begin raise exception 'This file is archived and unsafe. Do not run it. See supabase/README.md.'; end $$;
+
+-- ============================================================================
 -- WARNING (Phase 4 review, 2026-10-11): the policies and the set_my_role
 -- function in this file are NOT safe. They let any signed-in user make
 -- themselves admin and read or change every check-in in their organisation.

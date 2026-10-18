@@ -1,3 +1,5 @@
+import { friendlyError } from './errors';
+import { getResolvedOrgSlug } from './organisation';
 import { supabase, isDemoMode, isSupabaseConfigured } from './supabase';
 import { sortProgrammes } from './programmeUtils';
 import type { Batch, BatchJoinPreview, Course, Enrolment, BatchInvite } from '../types/database';
@@ -43,8 +45,19 @@ const BATCH_SELECT = `
   teacher:profiles(id, full_name, email, avatar_url)
 `;
 
-function generateJoinCode(): string {
-  return Math.random().toString(36).substring(2, 8).toUpperCase();
+/** Letters and digits that cannot be mistaken for each other (no 0/O, 1/I). */
+const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+/** A new join code: 8 characters from a cryptographic random source (not guessable). */
+export function generateJoinCode(): string {
+  const bytes = new Uint8Array(8);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join('');
+}
+
+/** Join codes are 4 to 12 capital letters or digits (the same rule as the database). */
+export function isValidJoinCode(code: string): boolean {
+  return /^[A-Z0-9]{4,12}$/.test(code);
 }
 
 function parseEmailList(rawEmailsText: string): string[] {
@@ -169,7 +182,8 @@ export async function fetchTeacherBatches(
 }
 
 /**
- * Creates a new batch. Uses the given join code or generates a 6-character one.
+ * Creates a new batch with a new random join code (codes are never typed by
+ * hand, so they cannot be guessed).
  */
 export async function createBatch(params: {
   orgId: string;
@@ -177,9 +191,8 @@ export async function createBatch(params: {
   teacherId: string;
   name: string;
   startDate: string;
-  joinCode?: string;
 }): Promise<{ success: boolean; data?: Batch; error?: string }> {
-  const joinCode = params.joinCode?.trim().toUpperCase() || generateJoinCode();
+  let joinCode = generateJoinCode();
   const startDate = params.startDate || new Date().toISOString().split('T')[0];
 
   if (isDemoMode()) {
@@ -210,23 +223,27 @@ export async function createBatch(params: {
     return { success: false, error: 'Please choose a course before creating a batch.' };
   }
 
-  const { data, error } = await supabase
-    .from('batches')
-    .insert({
-      org_id: params.orgId,
-      course_id: params.courseId,
-      teacher_id: params.teacherId,
-      name: params.name,
-      start_date: startDate,
-      join_code: joinCode,
-    })
-    .select(BATCH_SELECT)
-    .single();
+  const insert = () =>
+    supabase
+      .from('batches')
+      .insert({
+        org_id: params.orgId,
+        course_id: params.courseId,
+        teacher_id: params.teacherId,
+        name: params.name,
+        start_date: startDate,
+        join_code: joinCode,
+      })
+      .select(BATCH_SELECT)
+      .single();
 
-  if (error) {
-    const msg = error.code === '23505' ? `The join code ${joinCode} is already taken. Try another.` : error.message;
-    return { success: false, error: msg };
+  let { data, error } = await insert();
+  if (error?.code === '23505') {
+    // Two batches drew the same code (very rare): draw again
+    joinCode = generateJoinCode();
+    ({ data, error } = await insert());
   }
+  if (error) return { success: false, error: friendlyError(error) };
   return { success: true, data: data as unknown as Batch };
 }
 
@@ -241,9 +258,22 @@ export async function updateBatch(
 ): Promise<{ success: boolean; data?: Batch; error?: string }> {
   const joinCode = changes.joinCode.trim().toUpperCase();
   if (!changes.name.trim()) return { success: false, error: 'Please enter a batch name.' };
-  if (!/^[A-Z0-9-]{3,12}$/.test(joinCode)) return { success: false, error: 'The join code needs 3 to 12 letters or numbers.' };
+  if (!isValidJoinCode(joinCode)) return { success: false, error: 'The join code needs 4 to 12 letters or numbers.' };
   if (!changes.startDate) return { success: false, error: 'Please choose a start date.' };
   if (isDemoMode()) return { success: false, error: 'Batches cannot be changed with sample data.' };
+
+  // Day numbers count from the start date: once students have ticked, moving the
+  // start date or changing the programme would move their ticks to other days
+  const { data: current } = await supabase.from('batches').select('start_date, course_id').eq('id', batchId).maybeSingle();
+  if (current && (current.start_date !== changes.startDate || current.course_id !== changes.courseId)) {
+    const { count } = await supabase.from('checkins').select('id', { count: 'exact', head: true }).eq('batch_id', batchId);
+    if ((count || 0) > 0) {
+      return {
+        success: false,
+        error: 'Students have already checked in, so the start date and programme of this batch can no longer change.',
+      };
+    }
+  }
 
   const { data, error } = await supabase
     .from('batches')
@@ -259,9 +289,9 @@ export async function updateBatch(
     .single();
 
   if (error) {
-    if (error.code === '23505') return { success: false, error: `The join code ${joinCode} is already taken. Try another.` };
+    if (error.code === '23505') return { success: false, error: 'That join code is taken. Tap "New code" again.' };
     if (error.code === 'PGRST116') return { success: false, error: 'You can only change batches you teach.' };
-    return { success: false, error: error.message };
+    return { success: false, error: friendlyError(error) };
   }
   return { success: true, data: data as unknown as Batch };
 }
@@ -403,7 +433,12 @@ export async function fetchBatchJoinPreview(joinCode: string): Promise<BatchJoin
       ? { batch_name: b.name, course_name: b.course?.name || '', start_date: b.start_date, org_name: '', org_slug: '' }
       : null;
   }
-  const { data, error } = await supabase.rpc('batch_join_preview', { p_code: code });
+  // Only batches of the organisation whose site this is (Phase 14)
+  let { data, error } = await supabase.rpc('batch_join_preview', { p_code: code, p_org_slug: getResolvedOrgSlug() });
+  if (error && /batch_join_preview|function/i.test(error.message)) {
+    // Database not yet updated to Phase 14: the older preview without the organisation
+    ({ data, error } = await supabase.rpc('batch_join_preview', { p_code: code }));
+  }
   if (error) throw new Error(error.message);
   return (data as BatchJoinPreview | null) || null;
 }

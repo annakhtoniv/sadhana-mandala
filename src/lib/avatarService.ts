@@ -1,3 +1,4 @@
+import { friendlyError } from './errors';
 import { supabase, isDemoMode } from './supabase';
 
 const MAX_SIDE = 320;
@@ -35,10 +36,12 @@ export async function uploadAvatar(userId: string, file: File): Promise<{ succes
     const blob = await toSquareJpeg(file);
     const path = `${userId}/avatar-${Date.now()}.jpg`;
     const { error: upErr } = await supabase.storage.from('avatars').upload(path, blob, { contentType: 'image/jpeg', upsert: false });
-    if (upErr) return { success: false, error: upErr.message };
+    if (upErr) return { success: false, error: friendlyError(upErr) };
     const url = supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl;
     const { error } = await supabase.from('profiles').update({ avatar_url: url, avatar_source: 'upload' }).eq('id', userId);
-    if (error) return { success: false, error: error.message };
+    if (error) return { success: false, error: friendlyError(error) };
+    // Older photos are no longer used: remove them so storage does not fill up
+    await removeMyAvatarFiles(userId, path);
     return { success: true, url };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Upload failed.' };
@@ -61,4 +64,16 @@ export async function syncGoogleAvatar(): Promise<string | null> {
   const { data, error } = await supabase.rpc('sync_my_google_avatar');
   if (error) return null;
   return (data as string | null) ?? null;
+}
+
+/** Removes this person's photo files (all of them, or all but `keepPath`). Failures are ignored. */
+export async function removeMyAvatarFiles(userId: string, keepPath?: string): Promise<void> {
+  if (isDemoMode()) return;
+  try {
+    const { data } = await supabase.storage.from('avatars').list(userId, { limit: 100 });
+    const paths = (data || []).map((f) => `${userId}/${f.name}`).filter((p) => p !== keepPath);
+    if (paths.length > 0) await supabase.storage.from('avatars').remove(paths);
+  } catch {
+    // a leftover photo is not worth an error message
+  }
 }

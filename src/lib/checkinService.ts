@@ -1,3 +1,5 @@
+import { friendlyError } from './errors';
+import { fetchAllPages } from './paging';
 import { supabase, isDemoMode } from './supabase';
 import type { Checkin } from '../types/database';
 import { getDemoCheckinsForStudent, getDemoBatchCheckins } from './mockData';
@@ -54,16 +56,16 @@ export async function fetchBatchCheckins(batchId: string): Promise<Checkin[]> {
     return getDemoBatchCheckins();
   }
 
-  const { data, error } = await supabase
-    .from('checkins')
-    .select('*')
-    .eq('batch_id', batchId)
-    .order('day_number', { ascending: true });
-
-  if (error) {
-    throw new Error(error.message);
-  }
-  return (data as Checkin[]) || [];
+  // A batch easily has more than 1,000 check-ins (30 students x 40 days): page through them
+  return fetchAllPages<Checkin>((from, to) =>
+    supabase
+      .from('checkins')
+      .select('*')
+      .eq('batch_id', batchId)
+      .order('day_number', { ascending: true })
+      .order('id', { ascending: true })
+      .range(from, to)
+  );
 }
 
 // Alias for fetchBatchCheckins
@@ -97,18 +99,19 @@ export async function fetchTodayCheckin(
 }
 
 /**
- * Saves the Morning and Evening ticks of one day (today or any past day of
- * the batch). One row per day: changing a tick updates it, never duplicates.
+ * Saves ONE tick (Morning or Evening) of one day (today or any past day of
+ * the batch). Only the tapped tick is sent, so a tick made on another device
+ * or in another tab is never overwritten. One row per day.
  */
 export async function recordCheckin(
   orgId: string,
   batchId: string,
   studentId: string,
   dayNumber: number,
-  ticks: { morning: boolean; evening: boolean }
+  slot: 'morning' | 'evening',
+  value: boolean
 ): Promise<{ success: boolean; checkin?: Checkin; data?: Checkin; error?: string }> {
   const nowIso = new Date().toISOString();
-  const status = ticks.morning || ticks.evening ? 'done' : 'not_yet';
 
   // Demo data has no database session: keep the answer on this device only
   if (isDemoMode()) {
@@ -120,15 +123,17 @@ export async function recordCheckin(
       list = getDemoCheckinsForStudent(studentId, batchId);
     }
     const existing = list.find((c) => c.day_number === dayNumber);
+    const morning = slot === 'morning' ? value : Boolean(existing?.morning);
+    const evening = slot === 'evening' ? value : Boolean(existing?.evening);
     const item: Checkin = {
       id: existing?.id || `chk-${studentId}-${dayNumber}`,
       org_id: orgId,
       batch_id: batchId,
       student_id: studentId,
       day_number: dayNumber,
-      status,
-      morning: ticks.morning,
-      evening: ticks.evening,
+      status: morning || evening ? 'done' : 'not_yet',
+      morning,
+      evening,
       created_at: existing?.created_at || nowIso,
       updated_at: nowIso,
     };
@@ -141,6 +146,7 @@ export async function recordCheckin(
     return { success: true, checkin: item, data: item };
   }
 
+  // The status column follows the ticks in the database (trigger)
   const { data, error } = await supabase
     .from('checkins')
     .upsert(
@@ -149,15 +155,13 @@ export async function recordCheckin(
         batch_id: batchId,
         student_id: studentId,
         day_number: dayNumber,
-        morning: ticks.morning,
-        evening: ticks.evening,
-        status,
+        [slot]: value,
       },
       { onConflict: 'student_id,batch_id,day_number' }
     )
     .select()
     .single();
 
-  if (error) return { success: false, error: error.message };
+  if (error) return { success: false, error: friendlyError(error) };
   return { success: true, checkin: data as Checkin, data: data as Checkin };
 }

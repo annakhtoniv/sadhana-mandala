@@ -55,7 +55,10 @@ export const ProgrammeMaterials: React.FC<{ course: Course }> = ({ course }) => 
     setOpening(m.id);
     const url = await materialUrl(m);
     setOpening(null);
-    if (url && tab) tab.location.href = url;
+    if (url && tab) {
+      tab.opener = null; // the opened page cannot reach back into the app
+      tab.location.href = url;
+    }
     else {
       tab?.close();
       setError('This file could not be opened. Please tell your teacher.');

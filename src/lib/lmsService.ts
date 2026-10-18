@@ -1,3 +1,4 @@
+import { fetchAllPages } from './paging';
 import { supabase, isDemoMode } from './supabase';
 import type { Lesson, LessonModule, LessonProgress } from '../types/database';
 import { DEMO_MODULES } from './mockData';
@@ -84,14 +85,17 @@ export async function fetchStudentsLessonProgress(studentIds: string[]): Promise
   if (isDemoMode() || studentIds.length === 0) {
     return byStudent;
   }
-  const { data, error } = await supabase
-    .from('lesson_progress')
-    .select('student_id, lesson_id')
-    .in('student_id', studentIds);
-  if (error) {
-    throw new Error(error.message);
-  }
-  for (const row of (data as Pick<LessonProgress, 'student_id' | 'lesson_id'>[]) || []) {
+  // 60 students x 20 lessons is already more than one page of 1,000 rows
+  const data = await fetchAllPages<Pick<LessonProgress, 'student_id' | 'lesson_id'>>((from, to) =>
+    supabase
+      .from('lesson_progress')
+      .select('student_id, lesson_id')
+      .in('student_id', studentIds)
+      .order('student_id', { ascending: true })
+      .order('lesson_id', { ascending: true })
+      .range(from, to)
+  );
+  for (const row of data) {
     if (!byStudent.has(row.student_id)) byStudent.set(row.student_id, new Set());
     byStudent.get(row.student_id)!.add(row.lesson_id);
   }

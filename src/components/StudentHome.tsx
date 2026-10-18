@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { isDemoMode } from '../lib/supabase';
+import { friendlyError } from '../lib/errors';
 import { ProgrammeLearning } from './ProgrammeLearning';
 import { ProgrammeMaterials } from './ProgrammeMaterials';
 import { ProgrammeFollowups } from './ProgrammeFollowups';
@@ -38,6 +39,23 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
 
   // Checkins state
   const [checkins, setCheckins] = useState<Checkin[]>([]);
+  const [checkinsError, setCheckinsError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  // Re-read "today" when the app comes back to the front and every minute,
+  // so an app left open overnight moves to the new day
+  const [clock, setClock] = useState(0);
+  useEffect(() => {
+    const tick = () => setClock((c) => c + 1);
+    const onVisible = () => document.visibilityState === 'visible' && tick();
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', tick);
+    const timer = window.setInterval(tick, 60_000);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', tick);
+      window.clearInterval(timer);
+    };
+  }, []);
 
   const batch = enrolment?.batch;
   const course = batch?.course;
@@ -46,9 +64,11 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
   const practice = hasPracticeTrack(course);
 
   // Calculate today's day number in the organisation's timezone
-  const todayDayNumber = batch?.start_date
-    ? calculateDayNumber(batch.start_date, organisation.timezone)
-    : 1;
+  const todayDayNumber = useMemo(
+    () => (batch?.start_date ? calculateDayNumber(batch.start_date, organisation.timezone) : 1),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [batch?.start_date, organisation.timezone, clock]
+  );
 
 
   // Load student check-ins when enrolment or profile changes
@@ -57,6 +77,7 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
 
     let isMounted = true;
 
+    setCheckinsError(null);
     fetchStudentCheckins(batch.id, profile.id)
       .then((data) => {
         if (isMounted) {
@@ -64,16 +85,17 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
         }
       })
       .catch((err) => {
-        console.error('Could not load check-ins:', err);
+        // Keep what is shown and lock the tiles: an empty list here would let
+        // the next tap overwrite ticks that are saved but not loaded
         if (isMounted) {
-          setCheckins([]);
+          setCheckinsError(friendlyError(err));
         }
       });
 
     return () => {
       isMounted = false;
     };
-  }, [batch?.id, profile?.id]);
+  }, [batch?.id, profile?.id, reloadKey]);
 
   // Handle joining batch with code
   const handleJoinByCode = async (e: React.FormEvent) => {
@@ -350,6 +372,8 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
           question={organisation.checkin_question}
           checkins={checkins}
           onCheckinsChange={setCheckins}
+          loadError={checkinsError}
+          onRetry={() => setReloadKey((k) => k + 1)}
         />
       )}
       </>

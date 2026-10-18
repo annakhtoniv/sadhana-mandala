@@ -1,3 +1,4 @@
+import { fetchAllPages } from './paging';
 import { supabase, isDemoMode } from './supabase';
 import type { BatchSession, FollowupRecord, FollowupRecordStatus, FollowupStep } from '../types/database';
 import { DEMO_FOLLOWUP_STEPS } from './mockData';
@@ -47,9 +48,9 @@ export async function deleteStep(stepId: string): Promise<{ success: boolean; er
 /** Everything recorded for a batch (teacher and admin only). */
 export async function fetchBatchFollowupRecords(batchId: string): Promise<FollowupRecord[]> {
   if (isDemoMode()) return [];
-  const { data, error } = await supabase.from('followup_records').select('*').eq('batch_id', batchId);
-  if (error) throw new Error(error.message);
-  return (data as FollowupRecord[]) || [];
+  return fetchAllPages<FollowupRecord>((from, to) =>
+    supabase.from('followup_records').select('*').eq('batch_id', batchId).order('id', { ascending: true }).range(from, to)
+  );
 }
 
 export interface RecordInput {

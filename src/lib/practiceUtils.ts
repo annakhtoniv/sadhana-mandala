@@ -88,7 +88,9 @@ export function countPractisedDays(checkins: PracticeMark[], upToDay?: number): 
 }
 
 /**
- * Quiet: no practised day for `thresholdDays` days in a row, up to today.
+ * Quiet: no practised day for `thresholdDays` full days in a row. Like the
+ * streak, today only counts once it is over: a student who has not ticked yet
+ * this morning is not counted as silent for today.
  */
 export function isQuietStudent(
   checkins: PracticeMark[],
@@ -96,11 +98,13 @@ export function isQuietStudent(
   thresholdDays: number = 4,
   durationDays?: number
 ): boolean {
+  const practised = new Set(checkins.filter(isPractised).map((c) => c.day_number));
   let day = currentDay;
-  if (durationDays !== undefined && durationDays > 0 && day > durationDays) day = durationDays;
+  const finished = durationDays !== undefined && durationDays > 0 && day > durationDays;
+  if (finished) day = durationDays as number;
+  else if (!practised.has(day)) day -= 1; // today is not over yet
   if (day < thresholdDays) return false;
 
-  const practised = new Set(checkins.filter(isPractised).map((c) => c.day_number));
   let silent = 0;
   for (let d = day; d >= 1; d--) {
     if (practised.has(d)) break;

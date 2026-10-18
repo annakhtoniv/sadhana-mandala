@@ -1,3 +1,4 @@
+import { fetchAllPages } from './paging';
 import { supabase, isDemoMode } from './supabase';
 import type { EventRegistration, OrgEvent, RegistrationStatus } from '../types/database';
 import { DEMO_EVENTS, DEMO_EVENT_REGISTRATIONS } from './mockData';
@@ -30,9 +31,10 @@ function writeDemoMine(value: Record<string, RegistrationStatus>) {
 /** Events of the organisation (members get published ones; staff also drafts), coming first. */
 export async function fetchEvents(orgId: string): Promise<OrgEvent[]> {
   if (isDemoMode()) return sortEvents(DEMO_EVENTS);
-  const { data, error } = await supabase.from('events').select(EVENT_COLUMNS).eq('org_id', orgId);
-  if (error) throw new Error(error.message);
-  return sortEvents((data as unknown as OrgEvent[]) || []);
+  const rows = await fetchAllPages<OrgEvent>((from, to) =>
+    supabase.from('events').select(EVENT_COLUMNS).eq('org_id', orgId).order('id', { ascending: true }).range(from, to) as unknown as PromiseLike<{ data: OrgEvent[] | null; error: { message: string } | null }>
+  );
+  return sortEvents(rows);
 }
 
 /** Places taken (registered + attended) per event. */

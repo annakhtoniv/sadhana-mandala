@@ -1,96 +1,96 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { ShieldCheck, UserCheck, CalendarCheck, Clock, Check, LogOut } from 'lucide-react';
+import { ShieldCheck, UserCheck, CalendarCheck, Eye, Check, LogOut, ChevronDown } from 'lucide-react';
 
+/**
+ * Privacy consent, shown once before anything else (the guided tour never
+ * opens on top of it). Plain words first; the details are one tap away.
+ */
 export const ConsentModal: React.FC = () => {
   const { giveConsent, signOut, organisation } = useAuth();
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showMore, setShowMore] = useState(false);
 
   const handleConsent = async () => {
     setSubmitting(true);
-    try {
-      await giveConsent();
-    } finally {
-      setSubmitting(false);
-    }
+    setError(null);
+    const res = await giveConsent();
+    setSubmitting(false);
+    if (!res.success) setError(res.error || 'Your consent could not be saved. Please try again.');
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/70 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-full max-w-md bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
-        {/* Header */}
-        <div className="p-6 border-b border-stone-100 dark:border-stone-800/80 text-center">
-          <div className="w-12 h-12 mx-auto mb-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-200/60 dark:border-emerald-800/60">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4 bg-stone-950/60 backdrop-blur-sm">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="consent-title"
+        className="w-full max-w-md bg-white rounded-[1.75rem] shadow-2xl overflow-hidden flex flex-col max-h-[92dvh]"
+      >
+        <div className="p-6 pb-4 text-center">
+          <div className="w-12 h-12 mx-auto mb-3 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
             <ShieldCheck className="w-6 h-6" />
           </div>
-          <h2 className="text-xl font-semibold text-stone-900 dark:text-stone-50 tracking-tight">
-            Privacy & Practice Consent
+          <h2 id="consent-title" className="font-display text-xl font-semibold text-stone-950">
+            Before you start
           </h2>
-          <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
-            Welcome to {organisation.app_name}. Please review how your practice data is stored and shared.
-          </p>
+          <p className="text-sm text-stone-600 mt-1">Welcome to {organisation.app_name}. This is what we keep about you.</p>
         </div>
 
-        {/* Content list */}
-        <div className="p-6 overflow-y-auto space-y-4 text-xs text-stone-600 dark:text-stone-300 leading-relaxed">
-          <div className="bg-stone-50 dark:bg-stone-800/50 p-4 rounded-2xl border border-stone-200/70 dark:border-stone-800 space-y-3">
-            <div className="font-medium text-stone-900 dark:text-stone-100 text-sm">
-              What we store:
-            </div>
-
-            <div className="flex items-start gap-3">
-              <UserCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
-              <div>
-                <span className="font-semibold text-stone-800 dark:text-stone-200">Identity:</span>{' '}
-                Your full name and Google email address.
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3">
-              <CalendarCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
-              <div>
-                <span className="font-semibold text-stone-800 dark:text-stone-200">Daily Answers:</span>{' '}
-                Your daily check-in responses (Done, Not yet, or Rest day).
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3">
-              <Clock className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
-              <div>
-                <span className="font-semibold text-stone-800 dark:text-stone-200">Timestamps:</span>{' '}
-                The exact date and time of each check-in to track your streak.
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-amber-50/80 dark:bg-amber-950/40 p-4 rounded-2xl border border-amber-200/60 dark:border-amber-900/60 text-amber-900 dark:text-amber-200 text-xs">
-            <span className="font-semibold">Teacher Visibility:</span> Your course teacher can view your practice check-ins, current streak, and engagement to help support your commitment and notice if you have gone quiet.
-          </div>
-
-          <p className="text-[11px] text-stone-500 dark:text-stone-400">
-            You can permanently delete your account, practice history, and all stored data at any time from your Profile screen.
+        <div className="px-6 pb-4 overflow-y-auto space-y-3 text-sm text-stone-700 leading-relaxed">
+          <p className="flex items-start gap-3">
+            <UserCheck className="w-5 h-5 text-emerald-700 mt-0.5 shrink-0" />
+            <span>Your name, email and Google photo.</span>
           </p>
+          <p className="flex items-start gap-3">
+            <CalendarCheck className="w-5 h-5 text-emerald-700 mt-0.5 shrink-0" />
+            <span>The days you tick Morning or Evening, and when you ticked them.</span>
+          </p>
+          <p className="flex items-start gap-3">
+            <Eye className="w-5 h-5 text-emerald-700 mt-0.5 shrink-0" />
+            <span>Your teacher can see these, to support you and notice when you have gone quiet.</span>
+          </p>
+
+          <button
+            type="button"
+            onClick={() => setShowMore((v) => !v)}
+            aria-expanded={showMore}
+            className="inline-flex items-center gap-1 text-sm font-medium text-stone-800 underline underline-offset-2 cursor-pointer"
+          >
+            Read more <ChevronDown className={`w-4 h-4 transition-transform ${showMore ? 'rotate-180' : ''}`} />
+          </button>
+          {showMore && (
+            <div className="rounded-2xl bg-stone-50 p-4 space-y-2 text-[13px] text-stone-600">
+              <p>We also keep which programmes and events you joined, the lessons you finished and, if you were invited by a volunteer, their notes about your interest.</p>
+              <p>Only your teachers and the organisation's admins can see your practice. Other students never see it.</p>
+              <p>You can delete your account and everything we keep about you at any time under Profile. Questions: {organisation.support_email}.</p>
+            </div>
+          )}
         </div>
 
-        {/* Actions */}
-        <div className="p-6 border-t border-stone-100 dark:border-stone-800 bg-stone-50/50 dark:bg-stone-900/50 space-y-3">
+        <div className="p-6 pt-4 border-t border-stone-100 space-y-2">
+          {error && (
+            <p role="alert" className="text-sm text-red-700">
+              {error}
+            </p>
+          )}
           <button
             type="button"
             onClick={handleConsent}
             disabled={submitting}
-            className="w-full h-12 rounded-xl bg-stone-900 dark:bg-stone-100 text-stone-100 dark:text-stone-900 font-medium text-sm flex items-center justify-center gap-2 shadow hover:opacity-90 active:scale-[0.99] transition-all disabled:opacity-50 cursor-pointer"
+            className="ui-btn-primary w-full justify-center !h-12"
           >
             <Check className="w-4 h-4" />
-            <span>{submitting ? 'Recording consent...' : 'I Understand & Consent'}</span>
+            <span>{submitting ? 'Saving...' : 'I agree'}</span>
           </button>
-
           <button
             type="button"
             onClick={signOut}
-            className="w-full py-2 text-xs text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+            className="w-full min-h-11 text-sm text-stone-600 hover:text-stone-900 flex items-center justify-center gap-1.5 cursor-pointer"
           >
-            <LogOut className="w-3.5 h-3.5" />
-            <span>Cancel and Sign Out</span>
+            <LogOut className="w-4 h-4" />
+            <span>No thanks, sign out</span>
           </button>
         </div>
       </div>

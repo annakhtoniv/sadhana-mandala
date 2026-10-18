@@ -223,6 +223,15 @@ at least one). They get everything their highest role allows. Only an admin
 changes roles; an admin cannot remove their own Admin role. Roles can be
 given to an email before the person first signs in.
 
+### Data safety (Phase 14)
+Practice history is never deleted as a side effect: only admins delete
+programmes; a programme with batches, a batch with check-ins and a teacher
+with batches cannot be deleted. The organisation always keeps at least one
+admin. Teachers see only their own leads and the guests of events they host.
+Volunteers cannot enrol existing members; they send them the batch link.
+Join codes are random (8 characters) and wrong codes are limited to 10 per
+15 minutes. Consent is recorded in the database with the version of the text.
+
 ### Profile pictures (Phase 12)
 Everyone's Google photo is used automatically and refreshed at each sign-in.
 Anyone can upload their own picture instead (Profile, camera button) and go
@@ -284,6 +293,10 @@ by the organisation.
     Test: an admin gives a student the Volunteer role too and the student
     sees Leads; a student cannot give themselves a role; an admin cannot
     remove their own Admin role.
+14. Data safety (see "Data safety"). Test: a teacher cannot delete
+    programmes; a teacher with batches cannot delete their account; ticking
+    Evening on a second phone keeps the Morning tick; a batch with more than
+    1,000 check-ins shows every day on the teacher screen.
 
 ## Out of scope (do not build)
 Community or chat, payments, native mobile apps, organisation self-signup,

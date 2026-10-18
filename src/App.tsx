@@ -49,12 +49,9 @@ function MainApp() {
       cancelled = true;
     };
   }, [user, pendingJoin]);
-  const [showTour, setShowTour] = useState(() => {
-    return (
-      localStorage.getItem('sadhana_tour_completed') !== 'true' &&
-      localStorage.getItem('sadhana_navigation_mastered') !== 'true'
-    );
-  });
+  // The guided tour opens only from the ? button (Phase 14): never by itself, so it
+  // can never cover the consent screen or appear for people it does not fit
+  const [showTour, setShowTour] = useState(false);
 
   const handleGoogleSignIn = async () => {
     if (!isSupabaseConfigured) {

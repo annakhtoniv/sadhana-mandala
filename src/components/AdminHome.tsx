@@ -6,6 +6,8 @@ import { TeacherBatchDetail } from './TeacherBatchDetail';
 import { BatchCard, batchPhase } from './BatchCard';
 import { Avatar } from './Avatar';
 import { supabase, isDemoMode } from '../lib/supabase';
+import { fetchAllPages } from '../lib/paging';
+import { friendlyError } from '../lib/errors';
 import { FunnelReportPanel } from './FunnelReportPanel';
 import { rolesOf, primaryRole, ROLE_LABEL } from '../lib/roles';
 import { RolePicker } from './RolePicker';
@@ -70,7 +72,6 @@ export const AdminHome: React.FC = () => {
   const [batchName, setBatchName] = useState('');
   const [batchStartDate, setBatchStartDate] = useState('');
   const [batchTeacherId, setBatchTeacherId] = useState('');
-  const [batchCustomCode, setBatchCustomCode] = useState('');
   const [batchError, setBatchError] = useState<string | null>(null);
   const [isCreatingBatch, setIsCreatingBatch] = useState(false);
 
@@ -84,8 +85,14 @@ export const AdminHome: React.FC = () => {
     setLoading(true);
     setStatusMessage(null);
     try {
+      // Everyone in the organisation, page by page (Supabase returns at most 1,000 rows per request)
+      const allProfiles = fetchAllPages<Profile>((from, to) =>
+        supabase.from('profiles').select('*').eq('org_id', organisation.id).order('id', { ascending: true }).range(from, to)
+      )
+        .then((data) => ({ data, error: null as { message: string } | null }))
+        .catch((err: Error) => ({ data: null as Profile[] | null, error: { message: err.message } }));
       const [profsRes, grantsRes, courseList, batchList] = await Promise.all([
-        supabase.from('profiles').select('*').eq('org_id', organisation.id),
+        allProfiles,
         supabase.from('role_grants').select('*').eq('org_id', organisation.id),
         fetchCourses(organisation.id),
         fetchTeacherBatches('', true),
@@ -174,7 +181,11 @@ export const AdminHome: React.FC = () => {
   // Handle Remove Role Grant
   const handleDeleteRoleGrant = async (grantId: string) => {
     try {
-      await supabase.from('role_grants').delete().eq('id', grantId);
+      const { error } = await supabase.from('role_grants').delete().eq('id', grantId);
+      if (error) {
+        setStatusMessage(`Error: ${friendlyError(error)}`);
+        return;
+      }
       await loadData();
     } catch (err) {
       console.error('Failed to remove role grant:', err);
@@ -213,14 +224,12 @@ export const AdminHome: React.FC = () => {
       teacherId: teacherIdToUse,
       name: batchName.trim(),
       startDate: startDateToUse,
-      joinCode: batchCustomCode.trim() ? batchCustomCode.trim().toUpperCase() : undefined,
     });
 
     if (result.success && result.data) {
       const newBatch = result.data;
       setShowBatchModal(false);
       setBatchName('');
-      setBatchCustomCode('');
       // Optimistically prepend to all batches
       setAllBatches((prev) => [newBatch, ...prev.filter((b) => b.id !== newBatch.id)]);
       setActiveTab('batches');
@@ -253,7 +262,6 @@ export const AdminHome: React.FC = () => {
 
   const openNewBatch = () => {
     setBatchName('');
-    setBatchCustomCode('');
     setBatchError(null);
     setShowBatchModal(true);
   };
@@ -670,21 +678,6 @@ export const AdminHome: React.FC = () => {
                   value={batchStartDate}
                   onChange={(e) => setBatchStartDate(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-2xl border border-stone-200 bg-stone-50 text-xs text-stone-900 focus:outline-none cursor-pointer"
-                />
-              </div>
-
-              {/* Custom Join Code */}
-              <div>
-                <label className="block text-xs font-semibold text-stone-900 mb-1">
-                  Custom Join Code (Optional, max 8 chars)
-                </label>
-                <input
-                  type="text"
-                  maxLength={8}
-                  placeholder="Auto-generated if empty"
-                  value={batchCustomCode}
-                  onChange={(e) => setBatchCustomCode(e.target.value.toUpperCase())}
-                  className="w-full px-3.5 py-2.5 rounded-2xl border border-stone-200 bg-stone-50 text-xs font-mono uppercase tracking-wider text-stone-900 focus:outline-none"
                 />
               </div>
 
