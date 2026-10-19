@@ -16,28 +16,31 @@ once. `verify.sql` must end with every row saying PASS.
 8. `phase11_checkins.sql`
 9. `phase12_media.sql`
 10. `phase13_roles.sql`
+11. `phase14_safety.sql` (data safety)
+12. `phase15_performance.sql` (faster access rules, indexes, error log)
+13. `phase18_reminders.sql` (daily practice reminders; 2026-10-18)
+14. `phase19_signin_handoff.sql` (the iPhone Home Screen app stays signed in; 2026-10-19)
+15. `phase20_batch_end_date.sql` (every batch has an end date; 2026-10-19)
+
+Latest `verify.sql` on the live project: 146 rows, all PASS (2026-10-19).
+
+## Before running verify.sql
+
+Run `seed_dummy_data.sql` the same day (it resets the sample data; real
+accounts are never touched, but their enrolments and registrations in sample
+batches and events are removed). Then `verify.sql` with "Run without RLS":
+every row must say PASS.
 
 ## Next
 
-11. `phase14_safety.sql` (data safety)
-12. `phase15_performance.sql` (faster access rules, indexes, error log)
-13. `seed_dummy_data.sql` (resets the sample data; real accounts are never touched)
-14. `verify.sql` (every row PASS)
-15. `phase18_reminders.sql` (daily practice reminders), then `verify.sql` again
-16. Make a key pair on your own computer: `npx web-push generate-vapid-keys`.
+1. Make a key pair on your own computer: `npx web-push generate-vapid-keys`.
     Set the Edge Function `functions/send-reminders` secrets (Supabase > Edge
     Functions > Secrets): `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`,
     `VAPID_SUBJECT` (`mailto:` the support email). Put the same public key in
     GitHub > Settings > Secrets and variables > Actions > Variables as
     `VITE_VAPID_PUBLIC_KEY`, then publish the site again. The private key is
     never put in the repository or in a chat.
-17. `phase18_schedule.sql` (starts the sender every 5 minutes; live project only)
-18. `phase19_signin_handoff.sql` (the iPhone Home Screen app stays signed in),
-    then `verify.sql` again. Also in Supabase > Authentication > URL
-    Configuration > Redirect URLs, add `https://sadhana.zyxenai.com/**` (the
-    sign-in now returns to the site with a hand-over id in the address).
-19. `phase20_batch_end_date.sql` (every batch gets an end date from its
-    programme's length; batches that have one keep it), then `verify.sql`.
+2. `phase18_schedule.sql` (starts the sender every 5 minutes; live project only)
 
 ## Automatic checks (GitHub)
 
