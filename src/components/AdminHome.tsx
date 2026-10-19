@@ -552,7 +552,7 @@ export const AdminHome: React.FC = () => {
                   return (
                     <li key={p.id} className="py-3 flex items-center justify-between gap-2">
                       <div className="flex items-center gap-3 min-w-0">
-                        <Avatar name={p.full_name || p.email} url={p.avatar_url} size={40} />
+                        <Avatar name={p.full_name || p.email} url={p.avatar_url} frame={p.avatar_frame} size={40} />
                         <div className="min-w-0">
                           <div className="text-base font-semibold text-stone-900 truncate flex items-center gap-1.5">
                             <span dir="auto" className="truncate user-text">{p.full_name || p.email}</span>

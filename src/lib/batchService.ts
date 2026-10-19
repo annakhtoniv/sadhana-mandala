@@ -269,7 +269,7 @@ export async function fetchBatchEnrolments(batchId: string): Promise<Enrolment[]
       student_id,
       source,
       joined_at,
-      student:profiles(id, email, full_name, avatar_url)
+      student:profiles(id, email, full_name, avatar_url, avatar_frame)
     `)
     .eq('batch_id', batchId)
     .order('joined_at', { ascending: true });

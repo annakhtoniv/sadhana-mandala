@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { Sheet } from './Sheet';
 import { InstallAppCard } from './InstallAppCard';
 import { RemindersCard } from './RemindersCard';
+import { FrameCard } from './FrameCard';
 import { LanguageChoices } from './LanguageSwitch';
 import { Avatar } from './Avatar';
 import { uploadAvatar, switchToGoogleAvatar } from '../lib/avatarService';
@@ -53,7 +54,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
       <section className="ui-card space-y-4">
         <div className="flex items-center gap-4">
           <div className="relative shrink-0">
-            <Avatar name={profile?.full_name || user?.email} url={profile?.avatar_url} size={72} />
+            <Avatar name={profile?.full_name || user?.email} url={profile?.avatar_url} frame={profile?.avatar_frame} size={72} />
             <label
               className="absolute -bottom-1 -end-1 w-10 h-10 rounded-full bg-stone-900 text-white flex items-center justify-center cursor-pointer shadow-lg ring-2 ring-white hover:scale-105 transition-transform"
               title={t('profile.changePhoto')}
@@ -157,6 +158,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
           </div>
         )}
       </section>
+
+      <FrameCard />
 
       <section className="ui-card space-y-3">
         <h2 className="font-display text-lg font-semibold text-stone-950 flex items-center gap-2">

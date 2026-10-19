@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   calculateStreak,
+  earnedBadges,
+  fullWeeks,
+  weekProgress,
   countPractisedDays,
   getTrailDayStatus,
   hasEvening,
@@ -131,5 +134,33 @@ describe('recordCheckin', () => {
     const res = await recordCheckin('org-1', 'batch-1', 'student-1', 9, 'evening', true);
     expect(res.success).toBe(false);
     expect(res.error).toBe('You do not have permission to do that.');
+  });
+});
+
+describe('weekly badges (Phase 21)', () => {
+  const tick = (day: number, morning = true, evening = false) => ({ day_number: day, morning, evening });
+  const days = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => tick(from + i));
+
+  it('earns a week when all 7 days have a tick, morning or evening', () => {
+    expect(earnedBadges(days(1, 7), 40)).toEqual(['week1']);
+    expect(earnedBadges([...days(1, 6), tick(7, false, true)], 40)).toEqual(['week1']);
+    expect(earnedBadges(days(1, 6), 40)).toEqual([]);
+    expect(earnedBadges([...days(1, 3), ...days(5, 14)], 40)).toEqual(['week2']);
+  });
+
+  it('a 40-day practice has 5 weekly badges and one for all 40 days', () => {
+    expect(fullWeeks(40)).toBe(5);
+    expect(earnedBadges(days(1, 40), 40)).toEqual(['week1', 'week2', 'week3', 'week4', 'week5', 'complete']);
+    expect(earnedBadges(days(1, 39), 40)).not.toContain('complete');
+  });
+
+  it('knows where today sits in its week', () => {
+    // Day 10 = week 2 (days 8-14); days 8 and 9 ticked, today not yet
+    expect(weekProgress(days(8, 9), 10, 40)).toEqual({ week: 2, firstDay: 8, lastDay: 14, done: 2, openDays: 3, unbroken: true, earnsBadge: true });
+    // Day 9 missed: the week is broken
+    expect(weekProgress([tick(8), tick(10)], 10, 40)?.unbroken).toBe(false);
+    // Days 36-40 are the last, shorter week: no weekly badge
+    expect(weekProgress(days(36, 37), 38, 40)).toMatchObject({ week: 6, lastDay: 40, earnsBadge: false });
+    expect(weekProgress([], 0, 40)).toBeNull();
   });
 });

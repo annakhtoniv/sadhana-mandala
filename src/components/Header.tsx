@@ -113,7 +113,7 @@ export const Header: React.FC<HeaderProps> = ({
                   }`}
                 >
                   {id === 'profile' && profile?.avatar_url ? (
-                    <Avatar url={profile.avatar_url} name={profile.full_name} size={20} />
+                    <Avatar url={profile.avatar_url} name={profile.full_name} frame={profile.avatar_frame} size={20} />
                   ) : (
                     <Icon className="w-[18px] h-[18px]" />
                   )}
@@ -150,7 +150,7 @@ export const Header: React.FC<HeaderProps> = ({
                     }`}
                   >
                     {id === 'profile' && profile?.avatar_url ? (
-                      <Avatar url={profile.avatar_url} name={profile.full_name} size={20} />
+                      <Avatar url={profile.avatar_url} name={profile.full_name} frame={profile.avatar_frame} size={20} />
                     ) : (
                       <Icon className="w-[18px] h-[18px]" />
                     )}

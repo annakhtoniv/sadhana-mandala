@@ -57,7 +57,7 @@ jobs:
         # Order: supabase/README.md. A new phase file is added to this list.
         run: |
           set -e
-          for f in ci/00_roles ci/01_baseline_after_phase13 phase12_media phase14_safety phase15_performance phase18_reminders phase19_signin_handoff phase20_batch_end_date seed_dummy_data; do
+          for f in ci/00_roles ci/01_baseline_after_phase13 phase12_media phase14_safety phase15_performance phase18_reminders phase19_signin_handoff phase20_batch_end_date phase21_badges seed_dummy_data; do
             echo "::group::$f.sql"
             psql -v ON_ERROR_STOP=1 -q -f "supabase/$f.sql"
             echo "::endgroup::"

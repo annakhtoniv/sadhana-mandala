@@ -33,14 +33,18 @@ every row must say PASS.
 
 ## Next
 
-1. Make a key pair on your own computer: `npx web-push generate-vapid-keys`.
+1. `phase21_badges.sql` (weekly badges, photo frames, reminders that cheer on
+   the week), then re-run `seed_dummy_data.sql` and `verify.sql`. After it, the
+   Edge Function `send-reminders` is redeployed (it adds the week line to each
+   reminder; it also works with the older database).
+2. Make a key pair on your own computer: `npx web-push generate-vapid-keys`.
     Set the Edge Function `functions/send-reminders` secrets (Supabase > Edge
     Functions > Secrets): `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`,
     `VAPID_SUBJECT` (`mailto:` the support email). Put the same public key in
     GitHub > Settings > Secrets and variables > Actions > Variables as
     `VITE_VAPID_PUBLIC_KEY`, then publish the site again. The private key is
     never put in the repository or in a chat.
-2. `phase18_schedule.sql` (starts the sender every 5 minutes; live project only)
+3. `phase18_schedule.sql` (starts the sender every 5 minutes; live project only)
 
 ## Automatic checks (GitHub)
 

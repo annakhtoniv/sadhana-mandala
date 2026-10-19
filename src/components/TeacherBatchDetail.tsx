@@ -3,7 +3,7 @@ import { currentLocale } from '../i18n/locale';
 import { fetchBatchEnrolments, fetchBatchInvites, addBatchInvites } from '../lib/batchService';
 import { fetchBatchCheckins, calculateStreak, isStudentQuiet } from '../lib/checkinService';
 import { hasEvening, hasMorning, isPractised } from '../lib/practiceUtils';
-import { formatDateDisplay, formatDateRange, calculateDayNumber } from '../lib/dateUtils';
+import { addDays, formatDateDisplay, formatDateRange, calculateDayNumber } from '../lib/dateUtils';
 import { hasPracticeTrack, programmeRunStatus, RUN_STATUS_LABEL } from '../lib/programmeUtils';
 import { fetchProgrammeModules, fetchStudentsLessonProgress } from '../lib/lmsService';
 import { BatchFollowups } from './BatchFollowups';
@@ -220,6 +220,34 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
     return { morning, evening, both, none, quiet, total: studentMetrics.length };
   }, [studentMetrics]);
 
+  // Phase 21: day by day, how many students ticked Morning, Evening, both or nothing
+  const [showAllDays, setShowAllDays] = useState(false);
+  const dayReport = useMemo(() => {
+    if (!practice || !hasStarted) return [];
+    const students = new Set(enrolments.map((e) => e.student_id));
+    const rows = Array.from({ length: countsDay }, (_, i) => ({ day: i + 1, morning: 0, evening: 0, both: 0, one: 0, none: 0 }));
+    for (const c of batchCheckins) {
+      if (!students.has(c.student_id) || c.day_number < 1 || c.day_number > countsDay) continue;
+      const row = rows[c.day_number - 1];
+      const m = hasMorning(c);
+      const e = hasEvening(c);
+      if (m) row.morning++;
+      if (e) row.evening++;
+      if (m && e) row.both++;
+      else if (m || e) row.one++;
+    }
+    for (const row of rows) row.none = Math.max(0, students.size - row.both - row.one);
+    return rows.reverse(); // newest first
+  }, [practice, hasStarted, enrolments, batchCheckins, countsDay]);
+  const dayLabel = (day: number) => {
+    try {
+      const [y, m, d] = addDays(batch.start_date, day - 1).split('-').map((n) => parseInt(n, 10));
+      return new Intl.DateTimeFormat(currentLocale(), { timeZone: organisation.timezone, weekday: 'short', day: 'numeric', month: 'short' }).format(new Date(Date.UTC(y, m - 1, d, 12)));
+    } catch {
+      return '';
+    }
+  };
+
   // Sorted roster
   const sortedRoster = useMemo(() => {
     const list = [...studentMetrics];
@@ -311,6 +339,58 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
         </section>
       )}
 
+      {/* Day by day (Phase 21): practice programmes only */}
+      {practice && dayReport.length > 0 && (
+        <section className="ui-card space-y-3" aria-label="Day by day">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="font-display text-lg font-semibold text-stone-950">Day by day</h2>
+            <span className="text-sm text-stone-600">{summaryCounts.total} students</span>
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-stone-600" aria-hidden="true">
+            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-emerald-700" /> Both</span>
+            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-emerald-400" /> Morning or Evening</span>
+            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-stone-300" /> No tick</span>
+          </div>
+          <table className="w-full text-sm">
+            <caption className="sr-only">Ticks per day: Morning, Evening, both and no tick</caption>
+            <thead className="text-stone-600">
+              <tr>
+                <th scope="col" className="text-start font-medium py-1.5">Day</th>
+                <th scope="col" className="font-medium py-1.5 px-1 w-10"><Sun className="w-4 h-4 mx-auto text-amber-600" aria-label="Morning" /></th>
+                <th scope="col" className="font-medium py-1.5 px-1 w-10"><Moon className="w-4 h-4 mx-auto text-indigo-700" aria-label="Evening" /></th>
+                <th scope="col" className="text-end font-medium py-1.5 w-12">No tick</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-stone-100">
+              {(showAllDays ? dayReport : dayReport.slice(0, 7)).map((r) => {
+                const total = r.both + r.one + r.none || 1;
+                return (
+                  <tr key={r.day} title={`Day ${r.day}: ${r.morning} morning, ${r.evening} evening, ${r.both} both, ${r.none} no tick`}>
+                    <td className="py-2 pe-2">
+                      <div className="font-medium text-stone-900">Day {r.day}{r.day === currentDay ? ' (today)' : ''}</div>
+                      <div className="text-xs text-stone-500">{dayLabel(r.day)}</div>
+                      <div className="mt-1 flex h-2 gap-[2px]" aria-hidden="true">
+                        {r.both > 0 && <span className="rounded-sm bg-emerald-700" style={{ width: `${(r.both / total) * 100}%` }} />}
+                        {r.one > 0 && <span className="rounded-sm bg-emerald-400" style={{ width: `${(r.one / total) * 100}%` }} />}
+                        {r.none > 0 && <span className="rounded-sm bg-stone-300" style={{ width: `${(r.none / total) * 100}%` }} />}
+                      </div>
+                    </td>
+                    <td className="py-2 text-center tabular-nums text-stone-900">{r.morning}</td>
+                    <td className="py-2 text-center tabular-nums text-stone-900">{r.evening}</td>
+                    <td className={`py-2 text-end tabular-nums ${r.none > 0 ? 'text-stone-900' : 'text-stone-400'}`}>{r.none}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {dayReport.length > 7 && (
+            <button type="button" onClick={() => setShowAllDays((v) => !v)} aria-expanded={showAllDays} className="ui-btn-ghost w-full">
+              {showAllDays ? 'Show the last 7 days' : `Show all ${dayReport.length} days`}
+            </button>
+          )}
+        </section>
+      )}
+
       {/* Follow-ups of this batch (Phase 7) */}
       <BatchFollowups batch={batch} currentDay={currentDay} enrolments={enrolments} timeZone={organisation.timezone} />
 
@@ -386,7 +466,7 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
               const lessonsDone = lessonIds.filter((id) => lessonProgress.get(enr.student_id)?.has(id)).length;
               return (
                 <li key={enr.id} className="py-3.5 flex items-start gap-3">
-                  <Avatar name={name} url={enr.student?.avatar_url} size={40} />
+                  <Avatar name={name} url={enr.student?.avatar_url} frame={enr.student?.avatar_frame} size={40} />
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span dir="auto" className="font-semibold text-base text-stone-950 user-text">{name}</span>

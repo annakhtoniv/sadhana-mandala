@@ -67,7 +67,7 @@ React 18 + TypeScript + Tailwind 3 + Vite 6 + vite-plugin-pwa; Supabase JS v2; l
 
 ## 7. State right now
 
-- `main` = PR #25 merged (2026-10-19). Nothing open. The working branch is restarted from `main` for each new PR.
+- `main` = PR #26 merged (2026-10-19). Phase 21 (weekly badges, photo frames, day-by-day report, dates on the trail, reminders that cheer on the week) is in a PR; after merging: run `phase21_badges.sql`, re-run the seed and verify, redeploy `send-reminders`. The working branch is restarted from `main` for each new PR.
 - Live and checked on 2026-10-19:
   - UX review fixes (three reports: Events, Happiness Programme, Profile & Settings). Events: "You cancelled your place" / "Register again", one wording for places, places and the button stacked on the right beside the description, Dubai time everywhere, results on the card. Practice: soft Morning #FFF0C2/#6B4A00 and Evening #E9E7FF/#302777 (PM approved) with a coloured edge and filled tick, "This week" count separate from "So far: x of y". Profile: honest reminders message ("not switched on yet"), fuller privacy text, consent time with "(Dubai time)". Join code example "From your teacher".
   - Staying signed in on the iPhone Home Screen app: the PM signed in on a real iPhone, closed and reopened the app, and stayed signed in; the auth records show the session renewing. Other iPhone users may need to sign in once more.

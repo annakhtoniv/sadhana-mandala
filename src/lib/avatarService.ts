@@ -73,3 +73,16 @@ export async function removeMyAvatarFiles(userId: string, keepPath?: string): Pr
     // a leftover photo is not worth an error message
   }
 }
+
+/** Phase 21: the badges this person has earned over all their practices (from the database). */
+export async function fetchMyEarnedBadges(): Promise<string[]> {
+  const { data, error } = await supabase.rpc('my_earned_badges');
+  if (error) throw error;
+  return (data as string[] | null) || [];
+}
+
+/** Phase 21: put an earned badge around one's photo, or null to take the frame off. */
+export async function setMyAvatarFrame(frame: string | null): Promise<{ success: boolean; error?: string }> {
+  const { error } = await supabase.rpc('set_my_avatar_frame', { p_frame: frame });
+  return error ? { success: false, error: error.message } : { success: true };
+}

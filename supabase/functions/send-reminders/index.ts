@@ -8,6 +8,7 @@
 // SUPABASE_SERVICE_ROLE_KEY are set by Supabase.
 import { createClient } from 'npm:@supabase/supabase-js@2.49.1';
 import webpush from 'npm:web-push@3.6.7';
+import { motivationLine, type WeekInfo } from './motivation.ts';
 
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
   auth: { persistSession: false },
@@ -20,7 +21,8 @@ webpush.setVapidDetails(
 );
 
 interface Due { org_id: string; slot: 'morning' | 'evening'; title: string; body: string }
-interface Phone { endpoint: string; p256dh: string; auth: string }
+// Phase 21: each phone comes with where its owner is in their week
+interface Phone extends WeekInfo { endpoint: string; p256dh: string; auth: string }
 
 Deno.serve(async () => {
   const { data: due, error } = await db.rpc('claim_due_reminders');
@@ -33,13 +35,14 @@ Deno.serve(async () => {
       report.push({ org: r.org_id, slot: r.slot, phones: -1, sent: 0 });
       continue;
     }
-    const payload = JSON.stringify({ title: r.title, body: r.body, tag: `practice-${r.slot}`, url: '/' });
     const gone: string[] = [];
     let sent = 0;
     // A few at a time: fast enough for hundreds of phones, gentle on the push services
     const list = (phones || []) as Phone[];
     for (let i = 0; i < list.length; i += 20) {
       await Promise.all(list.slice(i, i + 20).map(async (p) => {
+        const line = motivationLine(r.slot, p);
+        const payload = JSON.stringify({ title: r.title, body: line ? `${r.body}\n${line}` : r.body, tag: `practice-${r.slot}`, url: '/' });
         try {
           await webpush.sendNotification(
             { endpoint: p.endpoint, keys: { p256dh: p.p256dh, auth: p.auth } },

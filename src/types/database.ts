@@ -34,6 +34,8 @@ export interface Profile {
   /** Phase 12: profile picture (Google photo or an uploaded one) */
   avatar_url?: string | null;
   avatar_source?: 'google' | 'upload' | null;
+  /** Phase 21: an earned weekly badge shown as a frame around the photo */
+  avatar_frame?: string | null;
   created_at: string;
   updated_at: string;
 }

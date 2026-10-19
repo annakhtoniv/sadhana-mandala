@@ -243,6 +243,7 @@ export interface DbTables {
     updated_at: string;
   };
   profiles: {
+    avatar_frame: string | null;
     avatar_source: string | null;
     avatar_url: string | null;
     consent_at: string | null;
