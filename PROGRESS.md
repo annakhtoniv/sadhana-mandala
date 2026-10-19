@@ -242,8 +242,8 @@
   - Tests: 137 unit tests; verify.sql 146 PASS twice on a local copy (5 new: register twice = one place, cancel then register again, hand-over kept once and never overwritten, hand-over table hidden, old hand-over gone); headless Chrome with fake data: the Events page in English, Arabic and Hindi at phone width, a failed registration shown in red on its card, the hand-over screen and the app picking up the code. Not tested on a real iPhone yet.
 
 ## Next
-- Phase 19 live set-up: run `phase19_signin_handoff.sql` and `phase20_batch_end_date.sql`; add `https://sadhana.zyxenai.com/**` to Supabase > Authentication > URL Configuration > Redirect URLs; then on the iPhone Home Screen app: sign in, close the app fully, open it the next morning.
-- Phase 18 live set-up (see supabase/README.md steps 15 to 17), then PM: turn reminders on on an iPhone (Home Screen app) and an Android phone, and set a reminder time two minutes ahead in Admin > Organisation settings to see one arrive.
+- Done 2026-10-19: `phase19_signin_handoff.sql` and `phase20_batch_end_date.sql` are live (verify 146 PASS after re-running the seed); the PM signed in on the iPhone Home Screen app, closed and reopened it, and stayed signed in. Still to confirm: `https://sadhana.zyxenai.com/**` in Supabase > Authentication > URL Configuration > Redirect URLs. Set the Art of Silence and Volunteer Training Program lengths (their batches end on the start day until then).
+- Phase 18 live set-up (see supabase/README.md, section Next), then PM: turn reminders on on an iPhone (Home Screen app) and an Android phone, and set a reminder time two minutes ahead in Admin > Organisation settings to see one arrive.
 - PM: have a native speaker read the Arabic and Hindi (Profile > Language), and send corrections.
 - Decide: translate the staff screens (admin, teacher, leads) too.
 - PM: test Phase 12: sign out and in (your Google photo appears); Profile > camera > pick a picture; Admin > tap each overview card; tap a batch card; Admin > Programmes > Happiness Program > Materials > upload a PDF and an MP3; as a student of that programme, see "Study materials" on the home screen.
