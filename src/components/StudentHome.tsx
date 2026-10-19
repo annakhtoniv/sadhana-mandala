@@ -7,7 +7,7 @@ import { ProgrammeMaterials } from './ProgrammeMaterials';
 import { ProgrammeFollowups } from './ProgrammeFollowups';
 import { PracticeCheckin } from './PracticeCheckin';
 import { RemindersCard } from './RemindersCard';
-import { calculateDayNumber, formatDateDisplay } from '../lib/dateUtils';
+import { calculateDayNumber, formatDateRange } from '../lib/dateUtils';
 import {
   fetchStudentCheckins,
 } from '../lib/checkinService';
@@ -214,8 +214,7 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
   }
 
   const runStatus = programmeRunStatus(course, todayDayNumber);
-  const notStarted = todayDayNumber < 1;
-  const startText = batch?.start_date ? formatDateDisplay(batch.start_date, organisation.timezone) : '';
+  const startText = batch?.start_date ? formatDateRange(batch.start_date, batch.end_date, organisation.timezone) : '';
 
   return (
     <div className="w-full space-y-5 animate-fade-up">
@@ -223,7 +222,7 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
         <span className="ui-eyebrow user-text">{course?.name || t('common.programme')}</span>
         <h1 className="font-display text-2xl font-semibold text-stone-950 mt-1 user-text">{batch?.name}</h1>
         <p className="text-base text-stone-600">
-          {startText && (notStarted ? t('home.startsOn', { date: startText }) : t('home.startedOn', { date: startText }))}
+          {startText}
           {batch?.teacher && (
             <>
               {startText ? ' · ' : ''}{t('home.teacher')} <span className="user-text">{batch.teacher.full_name || batch.teacher.email}</span>

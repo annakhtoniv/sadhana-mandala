@@ -36,6 +36,8 @@ once. `verify.sql` must end with every row saying PASS.
     then `verify.sql` again. Also in Supabase > Authentication > URL
     Configuration > Redirect URLs, add `https://sadhana.zyxenai.com/**` (the
     sign-in now returns to the site with a hand-over id in the address).
+19. `phase20_batch_end_date.sql` (every batch gets an end date from its
+    programme's length; batches that have one keep it), then `verify.sql`.
 
 ## Automatic checks (GitHub)
 

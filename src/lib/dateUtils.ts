@@ -145,3 +145,26 @@ export function zonedInputToIso(local: string, timeZone: string): string | null 
   const utc = exact ?? Math.max(...candidates);
   return new Date(utc).toISOString();
 }
+
+/** A YYYY-MM-DD date moved by a number of days. */
+export function addDays(dateStr: string, days: number): string {
+  const [year, month, day] = normalizeDateString(dateStr).split('-').map((n) => parseInt(n, 10));
+  const d = new Date(Date.UTC(year, month - 1, day + days));
+  return d.toISOString().slice(0, 10);
+}
+
+/** "26 Sept – 4 Nov 2026": a batch from its first to its last day. */
+export function formatDateRange(startStr: string, endStr: string | null | undefined, timeZone: string = 'Asia/Dubai'): string {
+  if (!endStr || endStr === startStr) return formatDateDisplay(startStr, timeZone);
+  try {
+    const toDate = (s: string) => {
+      const [y, m, d] = normalizeDateString(s).split('-').map((n) => parseInt(n, 10));
+      return new Date(Date.UTC(y, m - 1, d));
+    };
+    const fmt = new Intl.DateTimeFormat(currentLocale(), { timeZone, day: 'numeric', month: 'short', year: 'numeric' });
+    // formatRange is in every current browser; the TypeScript library here predates it
+    return (fmt as Intl.DateTimeFormat & { formatRange: (a: Date, b: Date) => string }).formatRange(toDate(startStr), toDate(endStr));
+  } catch {
+    return `${formatDateDisplay(startStr, timeZone)} – ${formatDateDisplay(endStr, timeZone)}`;
+  }
+}

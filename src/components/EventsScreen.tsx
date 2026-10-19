@@ -197,7 +197,7 @@ export const EventsScreen: React.FC = () => {
     return (
       <div key={e.id} className={`ui-card !p-4 space-y-3 ${timing === 'past' ? 'opacity-70' : ''}`}>
         <div className="flex gap-3">
-          <div aria-hidden="true" className="w-14 shrink-0 rounded-xl bg-emerald-50 text-center py-1.5">
+          <div aria-hidden="true" className="w-14 shrink-0 self-start rounded-xl bg-emerald-50 text-center py-1.5">
             <div className="text-lg font-bold leading-none text-emerald-700">{day}</div>
             <div className="text-sm uppercase text-emerald-800">{month}</div>
           </div>
@@ -205,6 +205,9 @@ export const EventsScreen: React.FC = () => {
             <div className="flex items-center gap-1.5 flex-wrap text-xs font-semibold uppercase tracking-wide text-stone-600">
               <span>{t(`events.kind.${e.kind}` as MsgKey)}</span>
               {timing === 'ongoing' && <span className="px-1.5 py-0.5 rounded-full bg-emerald-600 text-white normal-case tracking-normal">{t('events.now')}</span>}
+              {status && status !== 'registered' && (
+                <span className="px-1.5 py-0.5 rounded-full bg-stone-100 text-stone-700 normal-case tracking-normal">{t(`events.status.${status}` as MsgKey)}</span>
+              )}
               {!e.published && (
                 <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-stone-200 normal-case tracking-normal">
                   <EyeOff className="w-3 h-3" /> {t('events.draft')}
@@ -230,46 +233,46 @@ export const EventsScreen: React.FC = () => {
             )}
           </div>
         </div>
-        {e.description && <p className="text-sm text-stone-700 user-text">{e.description}</p>}
-        {status && status !== 'registered' && (
-          <span className="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-stone-100 text-stone-700">
-            {t(`events.status.${status}` as MsgKey)}
-          </span>
-        )}
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className={`inline-flex items-center gap-1 text-sm ${places.kind === 'full' ? 'font-semibold text-stone-800' : 'text-stone-600'}`}>
-            <Users className="w-4 h-4 shrink-0" aria-hidden="true" />
-            {places.kind === 'open'
-              ? t('events.openCount', { n: places.taken })
-              : places.kind === 'full'
-                ? t('events.fullOf', { total: places.total })
-                : t('events.placesOf', { left: places.left, total: places.total })}
-          </span>
-          <div className="flex flex-wrap items-center gap-2 ms-auto">
-            {isStaff && (
-              <button type="button" onClick={() => setManaging(e)} aria-label={t('events.manageFor', { title: e.title })} className="ui-btn-ghost !min-h-10 !py-2 !px-4">
-                {t('events.manage')}
-              </button>
-            )}
-            {timing !== 'past' && e.published && status === 'registered' && (
-              <button type="button" disabled={busyId === e.id} onClick={() => cancel(e)} aria-label={t('events.cancelPlaceFor', { title: e.title })} className="ui-btn-ghost !min-h-10 !py-2 !px-4">
-                {t('events.cancelPlace')}
-              </button>
-            )}
-            {canRegister && places.kind !== 'full' && (
-              <button
-                type="button"
-                disabled={busyId === e.id}
-                onClick={() => register(e)}
-                aria-label={t(status ? 'events.registerAgainFor' : 'events.registerFor', { title: e.title })}
-                className="ui-btn-primary !min-h-10 !py-2 !px-4"
-              >
-                {busyId === e.id ? t('events.registering') : status ? t('events.registerAgain') : t('events.register')}
-              </button>
-            )}
+        {/* Description on the left; places and the action stacked on the right, side by side */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            {e.description && <p className="text-sm text-stone-700 user-text">{e.description}</p>}
+          </div>
+          <div className="shrink-0 max-w-[55%] flex flex-col items-end gap-1.5 text-end">
+            <span className={`inline-flex items-start gap-1 text-sm ${places.kind === 'full' ? 'font-semibold text-stone-800' : 'text-stone-600'}`}>
+              <Users className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
+              {places.kind === 'open'
+                ? t('events.openCount', { n: places.taken })
+                : places.kind === 'full'
+                  ? t('events.fullOf', { total: places.total })
+                  : t('events.placesOf', { left: places.left, total: places.total })}
+            </span>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {isStaff && (
+                <button type="button" onClick={() => setManaging(e)} aria-label={t('events.manageFor', { title: e.title })} className="ui-btn-ghost !min-h-10 !py-2 !px-4">
+                  {t('events.manage')}
+                </button>
+              )}
+              {timing !== 'past' && e.published && status === 'registered' && (
+                <button type="button" disabled={busyId === e.id} onClick={() => cancel(e)} aria-label={t('events.cancelPlaceFor', { title: e.title })} className="ui-btn-ghost !min-h-10 !py-2 !px-4">
+                  {t('events.cancelPlace')}
+                </button>
+              )}
+              {canRegister && places.kind !== 'full' && (
+                <button
+                  type="button"
+                  disabled={busyId === e.id}
+                  onClick={() => register(e)}
+                  aria-label={t(status ? 'events.registerAgainFor' : 'events.registerFor', { title: e.title })}
+                  className="ui-btn-primary !min-h-10 !py-2 !px-4"
+                >
+                  {busyId === e.id ? t('events.registering') : status ? t('events.registerAgain') : t('events.register')}
+                </button>
+              )}
+            </div>
+            {canRegister && places.kind === 'full' && <p className="text-sm text-stone-700">{t('events.fullNote')}</p>}
           </div>
         </div>
-        {canRegister && places.kind === 'full' && <p className="text-sm text-stone-700">{t('events.fullNote')}</p>}
         {status === 'registered' && timing !== 'past' && (
           <p className="text-sm text-emerald-800">{t('events.registeredHelp')}</p>
         )}

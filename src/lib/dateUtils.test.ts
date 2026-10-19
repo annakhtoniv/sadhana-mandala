@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateDayNumber, getTodayInTimezone, isoToZonedInput, zonedInputToIso } from './dateUtils';
+import { addDays, calculateDayNumber, formatDateDisplay, formatDateRange, getTodayInTimezone, isoToZonedInput, zonedInputToIso } from './dateUtils';
 
 describe('calculateDayNumber', () => {
   const timezone = 'Asia/Dubai';
@@ -71,5 +71,16 @@ describe('zoned datetime inputs', () => {
   it('rejects malformed input', () => {
     expect(zonedInputToIso('', 'Asia/Dubai')).toBeNull();
     expect(zonedInputToIso('tomorrow', 'Asia/Dubai')).toBeNull();
+  });
+});
+
+describe('batch date ranges (Phase 20)', () => {
+  it('adds days across months and years', () => {
+    expect(addDays('2026-09-26', 39)).toBe('2026-11-04');
+    expect(addDays('2026-12-31', 1)).toBe('2027-01-01');
+  });
+  it('shows a range, or one date when start and end are the same day', () => {
+    expect(formatDateRange('2026-09-26', '2026-11-04', 'Asia/Dubai')).toMatch(/26.*4 Nov 2026/);
+    expect(formatDateRange('2026-10-17', '2026-10-17', 'Asia/Dubai')).toBe(formatDateDisplay('2026-10-17', 'Asia/Dubai'));
   });
 });

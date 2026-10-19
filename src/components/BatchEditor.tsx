@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { fetchCourses, generateJoinCode, updateBatch } from '../lib/batchService';
+import { defaultBatchEndDate } from '../lib/programmeUtils';
 import type { Batch, Course, Profile } from '../types/database';
 import { AlertTriangle } from 'lucide-react';
 import { Sheet } from './Sheet';
@@ -24,6 +25,7 @@ export const BatchEditor: React.FC<BatchEditorProps> = ({ batch, orgId, canChang
     courseId: batch.course_id,
     teacherId: batch.teacher_id,
     startDate: batch.start_date,
+    endDate: batch.end_date,
     joinCode: batch.join_code,
   });
   const [courses, setCourses] = useState<Course[]>([]);
@@ -45,6 +47,16 @@ export const BatchEditor: React.FC<BatchEditorProps> = ({ batch, orgId, canChang
   }, [orgId, canChangeTeacher]);
 
   const set = (key: keyof typeof form, value: string) => setForm((f) => ({ ...f, [key]: value }));
+  // A new first day or programme moves the last day along, unless it was changed by hand
+  const courseOf = (id: string) => courses.find((c) => c.id === id) || (id === batch.course_id ? batch.course : undefined);
+  const moveStart = (key: 'startDate' | 'courseId', value: string) =>
+    setForm((f) => {
+      const next = { ...f, [key]: value };
+      if (f.endDate === defaultBatchEndDate(courseOf(f.courseId), f.startDate)) {
+        next.endDate = defaultBatchEndDate(courseOf(next.courseId), next.startDate);
+      }
+      return next;
+    });
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,7 +92,7 @@ export const BatchEditor: React.FC<BatchEditorProps> = ({ batch, orgId, canChang
         </div>
         <div>
           <label className={labelClass} htmlFor="be-course">Programme</label>
-          <select id="be-course" className={inputClass} value={form.courseId} onChange={(e) => set('courseId', e.target.value)}>
+          <select id="be-course" className={inputClass} value={form.courseId} onChange={(e) => moveStart('courseId', e.target.value)}>
             {courses.length === 0 && <option value={batch.course_id}>{batch.course?.name || 'Current programme'}</option>}
             {courses.map((c) => (
               <option key={c.id} value={c.id}>{c.name}</option>
@@ -105,8 +117,14 @@ export const BatchEditor: React.FC<BatchEditorProps> = ({ batch, orgId, canChang
         <div className="grid grid-cols-2 gap-2.5">
           <div>
             <label className={labelClass} htmlFor="be-start">Start date (day 1)</label>
-            <input id="be-start" type="date" className={inputClass} value={form.startDate} onChange={(e) => set('startDate', e.target.value)} />
+            <input id="be-start" type="date" className={inputClass} value={form.startDate} onChange={(e) => moveStart('startDate', e.target.value)} />
           </div>
+          <div>
+            <label className={labelClass} htmlFor="be-end">End date (last day)</label>
+            <input id="be-end" type="date" min={form.startDate} className={inputClass} value={form.endDate} onChange={(e) => set('endDate', e.target.value)} />
+          </div>
+        </div>
+        <div>
           <div>
             <label className={labelClass} htmlFor="be-code">Join code</label>
             <div className="flex gap-1.5">

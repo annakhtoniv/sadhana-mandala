@@ -917,6 +917,21 @@ begin
   v_txt := coalesce(public.take_auth_handoff('f9000000-0000-0000-0000-000000000002')->>'code', 'none');
   r := r || array['Sign-in hand-over|code older than 10 minutes|none', v_txt];
 
+  -- ------------------------------------------------------------------ Batch end dates (phase 20)
+  select count(*) into v_n from public.batches where end_date is null or end_date < start_date;
+  r := r || array['Batch dates|batches without a valid end date|0', v_n::text];
+  select (end_date - start_date + 1)::text into v_txt from public.batches where id = v_autumn;
+  r := r || array['Batch dates|40-day practice batch ends on day 40|40', coalesce(v_txt, 'none')];
+  begin
+    update public.batches set end_date = start_date - 1 where id = v_autumn;
+    v_txt := 'allowed';
+  exception when others then v_txt := 'blocked'; end;
+  r := r || array['Batch dates|end date before the start date|blocked', v_txt];
+  insert into public.batches (org_id, course_id, teacher_id, name, start_date, join_code)
+  values (v_org_a, v_hp_course, v_ananda, 'Verify batch', date '2027-01-01', 'VERIFYEND')
+  returning end_date::text into v_txt;
+  r := r || array['Batch dates|new batch without an end date gets day 40|2027-02-09', v_txt];
+
   raise exception 'VERIFY_UNDO';
   exception when others then
     if sqlerrm <> 'VERIFY_UNDO' then raise; end if;

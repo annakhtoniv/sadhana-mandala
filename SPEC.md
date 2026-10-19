@@ -190,6 +190,11 @@ venue or online link, capacity, registration and attendance (QR check-in).
   success, red for a problem. Buttons say which event they are for (screen
   readers).
 
+### Batch dates
+- Every batch has a first and a last day. The last day defaults to the
+  programme's length (daily practice, else the programme itself) and can be
+  changed in the batch editor; it is never before the first day.
+
 ### Practice screen colours
 - Morning done: soft yellow (#FFF0C2) with dark text (#6B4A00); Evening done:
   soft purple (#E9E7FF) with dark text (#302777). Each done tile also has a

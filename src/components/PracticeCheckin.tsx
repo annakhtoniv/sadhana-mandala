@@ -152,7 +152,7 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
             {saving === slot ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : on ? <Check className="w-3.5 h-3.5" /> : null}
           </span>
         </div>
-        <div className="mt-5 text-base font-semibold">{slot === 'morning' ? t('checkin.morning') : t('checkin.evening')}</div>
+        <div className="mt-3 text-base font-semibold">{slot === 'morning' ? t('checkin.morning') : t('checkin.evening')}</div>
         <div className={`text-sm ${on ? 'font-medium' : 'text-stone-600'}`}>{on ? t('checkin.done') : t('checkin.tapWhenDone')}</div>
       </button>
     );

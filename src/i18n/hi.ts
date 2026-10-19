@@ -114,8 +114,6 @@ export const hi: Record<MsgKey, string> = {
   "home.nextUpcoming": "आपका कार्यक्रम {date} को शुरू होगा। आपके शिक्षक समय और स्थान बताएँगे।",
   "home.noBatch": "आप अभी किसी बैच में नहीं हैं",
   "home.noBatchHelp": "अपने शिक्षक का QR कोड स्कैन करें, या उनका दिया हुआ जॉइन कोड लिखें।",
-  "home.startedOn": "{date} को शुरू हुआ",
-  "home.startsOn": "{date} को शुरू होगा",
   "home.teacher": "शिक्षक:",
   "home.welcome": "स्वागत है",
   "home.welcomeTo": "{app} में आपका स्वागत है",

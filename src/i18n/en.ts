@@ -115,8 +115,6 @@ export const en = {
   "home.nextUpcoming": "Your programme starts on {date}. Your teacher will tell you the times and the place.",
   "home.noBatch": "You are not in a batch yet",
   "home.noBatchHelp": "Scan the QR code from your teacher, or type the join code they gave you.",
-  "home.startedOn": "Started on {date}",
-  "home.startsOn": "Starts on {date}",
   "home.teacher": "Teacher:",
   "home.welcome": "Welcome",
   "home.welcomeTo": "Welcome to {app}",

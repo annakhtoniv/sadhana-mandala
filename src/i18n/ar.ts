@@ -114,8 +114,6 @@ export const ar: Record<MsgKey, string> = {
   "home.nextUpcoming": "يبدأ برنامجك في {date}. سيخبرك معلّمك بالأوقات والمكان.",
   "home.noBatch": "لست في مجموعة بعد",
   "home.noBatchHelp": "امسح رمز QR من معلّمك، أو اكتب رمز الانضمام الذي أعطاك إياه.",
-  "home.startedOn": "بدأ في {date}",
-  "home.startsOn": "يبدأ في {date}",
   "home.teacher": "المعلّم:",
   "home.welcome": "أهلًا بك",
   "home.welcomeTo": "أهلًا بك في {app}",

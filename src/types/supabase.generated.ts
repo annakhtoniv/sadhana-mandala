@@ -20,6 +20,7 @@ export interface DbTables {
   batches: {
     course_id: string;
     created_at: string;
+    end_date: string;
     id: string;
     join_code: string;
     name: string;

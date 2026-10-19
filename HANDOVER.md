@@ -61,7 +61,7 @@ Postgres 16 on port 5499 with the Supabase roles and schema, PostgREST, and a sm
 
 ## 7. State right now
 
-- `main` = PR #24 merged (handover). Phase 19 (Events fixes + staying signed in on the iPhone Home Screen app) is in a draft PR on `claude/charming-bardeen-dbau1g`; after merging, run `phase19_signin_handoff.sql` and add the redirect URL (supabase/README.md step 18).
+- `main` = PR #24 merged (handover). Phase 19 (Events fixes + staying signed in on the iPhone Home Screen app) is in a draft PR on `claude/charming-bardeen-dbau1g`; after merging, run `phase19_signin_handoff.sql` and `phase20_batch_end_date.sql` and add the redirect URL (supabase/README.md steps 18 and 19).
 - Sign-in (Phase 19): PKCE (`lib/supabase.ts`); `lib/signInHandoff.ts` hands a sign-in that finished in the iPhone's Safari window to the Home Screen app through `put_auth_handoff` / `take_auth_handoff`; sign-out is this device only (`scope: 'local'`). The auth logs showed the PM's 18 Oct 22:40 sign-in landed in Safari (user agent with `Safari/604.1`) and the app never used it.
 - Live on 2026-10-18: PR #20 (handover branch name), #21 (the site updates itself; phones that had an older version need two reloads once), #22 + #23 (daily reminders).
 - Phases 11 to 18: Morning/Evening ticks and trail halves, past-day fill-in, study materials, profile photos, multi-role, People page, data-safety rules, faster RLS, CI, error reports, offline ticks, shared Sheet, larger text, three languages, daily push reminders (Morning 06:00 and Evening 19:00 Dubai by default, to everyone in a running practice batch who turned them on, also if they already ticked).

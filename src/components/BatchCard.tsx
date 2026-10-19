@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { calculateDayNumber, formatDateDisplay } from '../lib/dateUtils';
+import { calculateDayNumber, formatDateRange } from '../lib/dateUtils';
 import { hasPracticeTrack, programmeRunStatus } from '../lib/programmeUtils';
 import type { Batch } from '../types/database';
 import { Avatar } from './Avatar';
@@ -87,7 +87,7 @@ export const BatchCard: React.FC<BatchCardProps> = ({ batch, timeZone, onOpen, o
           </div>
         ) : null}
         <div className="text-xs text-stone-500">
-          {phase === 'upcoming' ? 'Starts' : 'Started'} {formatDateDisplay(batch.start_date, timeZone)}
+          {formatDateRange(batch.start_date, batch.end_date, timeZone)}
           {practice ? ` · ${batch.course?.practice_name || `${total}-day practice`}` : ''}
         </div>
       </div>

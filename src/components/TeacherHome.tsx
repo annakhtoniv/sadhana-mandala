@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { hasRole } from '../lib/roles';
 import { useAuth } from '../context/AuthContext';
 import { fetchTeacherBatches, fetchCourses, createBatch } from '../lib/batchService';
-import { formatDateDisplay, getTodayInTimezone, calculateDayNumber } from '../lib/dateUtils';
+import { formatDateDisplay, formatDateRange, getTodayInTimezone, calculateDayNumber } from '../lib/dateUtils';
+import { defaultBatchEndDate } from '../lib/programmeUtils';
 import { TeacherBatchDetail } from './TeacherBatchDetail';
 import { ProgrammesManager } from './ProgrammesManager';
 import type { Batch, Course } from '../types/database';
@@ -23,6 +24,8 @@ export const TeacherHome: React.FC = () => {
   const [selectedCourseId, setSelectedCourseId] = useState('');
   const [batchName, setBatchName] = useState('');
   const [startDate, setStartDate] = useState(getTodayInTimezone(organisation.timezone));
+  // Empty: the programme's usual last day (Phase 20)
+  const [endDate, setEndDate] = useState('');
   const [createError, setCreateError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
@@ -73,12 +76,14 @@ export const TeacherHome: React.FC = () => {
       teacherId: teacherIdToUse,
       name: batchName.trim(),
       startDate: startDate || getTodayInTimezone(organisation.timezone),
+      endDate: endDate || defaultBatchEndDate(courses.find((c) => c.id === courseIdToUse), startDate || getTodayInTimezone(organisation.timezone)),
     });
 
     if (result.success && result.data) {
       const newBatch = result.data;
       setShowCreateModal(false);
       setBatchName('');
+      setEndDate('');
       // Optimistically add to state immediately
       setBatches((prev) => [newBatch, ...prev.filter((b) => b.id !== newBatch.id)]);
       setSelectedBatch(newBatch);
@@ -197,6 +202,7 @@ export const TeacherHome: React.FC = () => {
                     <span className="min-w-0">
                       <span className="block font-semibold text-base text-stone-900 truncate user-text">{b.name}</span>
                       <span className="block text-sm text-stone-600 truncate">{b.course?.name || 'Programme'}</span>
+                      <span className="block text-sm text-stone-500">{formatDateRange(b.start_date, b.end_date, organisation.timezone)}</span>
                     </span>
                     <span className="flex items-center gap-1.5 shrink-0">
                       <span
@@ -263,17 +269,32 @@ export const TeacherHome: React.FC = () => {
               className="ui-input"
             />
           </div>
-          <div>
-            <label className="ui-label" htmlFor="cb-start">First day</label>
-            <input
-              id="cb-start"
-              type="date"
-              required
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="ui-input cursor-pointer"
-            />
+          <div className="grid grid-cols-2 gap-2.5">
+            <div>
+              <label className="ui-label" htmlFor="cb-start">First day</label>
+              <input
+                id="cb-start"
+                type="date"
+                required
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="ui-input cursor-pointer"
+              />
+            </div>
+            <div>
+              <label className="ui-label" htmlFor="cb-end">Last day</label>
+              <input
+                id="cb-end"
+                type="date"
+                required
+                min={startDate}
+                value={endDate || defaultBatchEndDate(courses.find((c) => c.id === (selectedCourseId || courses[0]?.id)), startDate)}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="ui-input cursor-pointer"
+              />
+            </div>
           </div>
+          <p className="text-xs text-stone-500 -mt-1">The last day follows the programme's length; change it if this batch is different.</p>
           {createError && (
             <p role="alert" className="text-sm text-red-700">
               {createError}
