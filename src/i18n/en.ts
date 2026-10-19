@@ -24,8 +24,6 @@ export const en = {
   "checkin.daysInRow": "days in a row",
   "checkin.done": "Done",
   "checkin.evening": "Evening",
-  "checkin.flameHelp": "Your practice flame. It grows each day you tick Morning or Evening, and starts again after a day with no tick.",
-  "checkin.forgotDay": "Forgot a day? Tap it to fill it in.",
   "checkin.legendBoth": "Both",
   "checkin.legendLate": "Added later",
   "checkin.legendMissed": "Not ticked",
@@ -37,7 +35,6 @@ export const en = {
   "checkin.opensDay1": "Check-ins open on day 1.",
   "checkin.pastDay": "Filling in a past day. Your teacher sees it was added later.",
   "checkin.pastQuestion": "Did you practise on day {day}?",
-  "checkin.practisedOf": "{done} of {total} days practised",
   "checkin.question": "Did you complete your daily practice today?",
   "checkin.savedOffline": "No connection: saved on this phone. It will be sent when you are back online.",
   "checkin.showAll": "Show all {total} days",
@@ -270,6 +267,14 @@ export const en = {
   "signin.handedOffText": "Go back to the {app} app on your Home Screen. If you see Done at the top of this window, tap it.",
   "signin.waiting": "Finishing your sign-in... After choosing your Google account, come back to this app.",
   "signin.startAgain": "Start again",
+  "checkin.flameHelp": "Your practice flame. A day counts when you tick Morning or Evening; days in a row make it grow. After a day with no tick it starts again.",
+  "checkin.forgotDay": "Forgot a day? Tap any earlier day to tick it. It counts, marked 'added later'.",
+  "checkin.weekCount": "{done} of {total} days",
+  "checkin.soFar": "So far: {done} of {total} days practised",
+  "checkin.legendMorningOnly": "Morning only",
+  "checkin.legendEveningOnly": "Evening only",
+  "join.placeholder": "From your teacher",
+  "join.empty": "Type the join code your teacher gave you.",
 } as const;
 
 export type MsgKey = keyof typeof en;

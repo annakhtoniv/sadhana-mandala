@@ -455,7 +455,7 @@ begin
      E'## Welcome\n\nPlaceholder lesson. Your teacher replaces this text on the **Programmes** screen.\n\n- What the programme covers\n- How the daily practice works\n- Who to ask for help',
      'course', v_course_a_id, v_mod_hp_before, 10, 5, true, v_teacher_a1_id),
     ('f2000000-0000-0000-0000-000000000002', v_org_a_id, 'How the daily check-in works',
-     E'Placeholder lesson.\n\n1. Open the app each day\n2. Answer **Done**, **Not yet** or **Rest day**\n3. Watch your streak grow',
+     E'Placeholder lesson.\n\n1. Open the app each day\n2. Tick **Morning** and **Evening** when you have practised\n3. Watch your streak grow',
      'course', v_course_a_id, v_mod_hp_before, 20, 3, true, v_teacher_a1_id),
     ('f2000000-0000-0000-0000-000000000003', v_org_a_id, 'Setting up a daily routine',
      E'Placeholder lesson about choosing a fixed time and place for practice.',

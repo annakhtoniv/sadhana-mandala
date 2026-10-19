@@ -126,7 +126,10 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
   // Handle joining batch with code
   const handleJoinByCode = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!joinCode.trim()) return;
+    if (!joinCode.trim()) {
+      setJoinError(t('join.empty'));
+      return;
+    }
 
     setJoining(true);
     setJoinError(null);
@@ -152,20 +155,24 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
           inputMode="text"
           autoCapitalize="characters"
           autoComplete="off"
-          placeholder="K7PM3QXA"
+          placeholder={t('join.placeholder')}
           value={joinCode}
-          onChange={(e) => setJoinCode(e.target.value.toUpperCase().replace(/\s/g, ''))}
+          onChange={(e) => {
+            setJoinCode(e.target.value.toUpperCase().replace(/\s/g, ''));
+            setJoinError(null);
+          }}
           maxLength={12}
-          required
-          className="ui-input flex-1 min-w-0 font-mono tracking-widest uppercase"
+          aria-invalid={joinError ? true : undefined}
+          aria-describedby={joinError ? `${id}-error` : undefined}
+          className="ui-input flex-1 min-w-0 font-mono tracking-widest uppercase placeholder:font-sans placeholder:tracking-normal placeholder:normal-case"
         />
-        <button type="submit" disabled={joining || !joinCode.trim()} className="ui-btn-primary shrink-0">
+        <button type="submit" disabled={joining} className="ui-btn-primary shrink-0">
           {joining ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>{t('join.button')}</span>}
           {!joining && <ArrowRight className="w-4 h-4 rtl:rotate-180" />}
         </button>
       </div>
       {joinError && (
-        <p role="alert" className="p-3 bg-red-50 rounded-xl text-sm text-red-700 flex items-start gap-2">
+        <p id={`${id}-error`} role="alert" className="p-3 bg-red-50 rounded-xl text-sm text-red-700 flex items-start gap-2">
           <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
           <span>{joinError}</span>
         </p>

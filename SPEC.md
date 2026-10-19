@@ -190,6 +190,13 @@ venue or online link, capacity, registration and attendance (QR check-in).
   success, red for a problem. Buttons say which event they are for (screen
   readers).
 
+### Practice screen colours
+- Morning done: soft yellow (#FFF0C2) with dark text (#6B4A00); Evening done:
+  soft purple (#E9E7FF) with dark text (#302777). Each done tile also has a
+  coloured edge, a filled tick and the word "Done".
+- The week strip shows that week's count; the overall "So far: x of y days
+  practised" sits under the flame.
+
 ### Staying signed in
 - Signing in once keeps a person signed in on that device until they sign
   out. Signing out on one device never signs out the others.
