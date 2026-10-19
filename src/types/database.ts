@@ -20,6 +20,11 @@ export interface Organisation {
   reminder_morning_text?: string;
   reminder_evening_time?: string;
   reminder_evening_text?: string;
+  /** Phase 22: the same texts in Arabic and Hindi (empty: a built-in translation or the English text) */
+  reminder_morning_text_ar?: string | null;
+  reminder_morning_text_hi?: string | null;
+  reminder_evening_text_ar?: string | null;
+  reminder_evening_text_hi?: string | null;
 }
 
 export interface Profile {
@@ -34,6 +39,10 @@ export interface Profile {
   /** Phase 12: profile picture (Google photo or an uploaded one) */
   avatar_url?: string | null;
   avatar_source?: 'google' | 'upload' | null;
+  /** Phase 21: an earned weekly badge shown as a frame around the photo */
+  avatar_frame?: string | null;
+  /** Phase 22: the language reminders are written in */
+  preferred_lang?: 'en' | 'ar' | 'hi' | null;
   created_at: string;
   updated_at: string;
 }
@@ -129,6 +138,9 @@ export interface Checkin {
   evening_at?: string | null;
   /** Written after its day */
   late?: boolean;
+  /** Phase 22: the student's short reflection */
+  mood?: string | null;
+  note?: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -39,7 +39,13 @@ export const OrganisationSettings: React.FC<OrganisationSettingsProps> = ({ orga
     reminder_morning_text: organisation.reminder_morning_text || 'Good morning. Time for your morning practice.',
     reminder_evening_time: hhmm(organisation.reminder_evening_time, '19:00'),
     reminder_evening_text: organisation.reminder_evening_text || 'Time for your evening practice.',
+    // Phase 22: optional texts for students who use the app in Arabic or Hindi
+    reminder_morning_text_ar: organisation.reminder_morning_text_ar || '',
+    reminder_morning_text_hi: organisation.reminder_morning_text_hi || '',
+    reminder_evening_text_ar: organisation.reminder_evening_text_ar || '',
+    reminder_evening_text_hi: organisation.reminder_evening_text_hi || '',
   });
+  const LANG_TEXTS = ['reminder_morning_text_ar', 'reminder_morning_text_hi', 'reminder_evening_text_ar', 'reminder_evening_text_hi'] as const;
   const [remindersOn, setRemindersOn] = useState(organisation.reminders_enabled !== false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,6 +81,10 @@ export const OrganisationSettings: React.FC<OrganisationSettingsProps> = ({ orga
         reminder_morning_text: form.reminder_morning_text.trim(),
         reminder_evening_time: form.reminder_evening_time,
         reminder_evening_text: form.reminder_evening_text.trim(),
+        // Only sent when changed, so saving works before supabase/phase22_engagement.sql has run
+        ...Object.fromEntries(
+          LANG_TEXTS.filter((k) => form[k].trim() !== (organisation[k] || '')).map((k) => [k, form[k].trim() || null])
+        ),
       })
       .eq('id', organisation.id)
       .select()
@@ -148,6 +158,32 @@ export const OrganisationSettings: React.FC<OrganisationSettingsProps> = ({ orga
               <input id="org-rem-e-text" className={inputClass} maxLength={200} disabled={!remindersOn} value={form.reminder_evening_text} onChange={(e) => set('reminder_evening_text', e.target.value)} />
             </div>
           </div>
+          <p className="text-xs text-stone-500">
+            The Evening reminder goes only to people who have not ticked yet that day. Each reminder adds a line about the person's week.
+          </p>
+          <details className="space-y-2">
+            <summary className="min-h-10 inline-flex items-center text-sm font-semibold text-stone-800 underline cursor-pointer">Texts in Arabic and Hindi (optional)</summary>
+            <p className="text-xs text-stone-500">
+              Students who use the app in Arabic or Hindi get these. Left empty: a built-in translation of the standard text, or the English text if you changed it.
+            </p>
+            {LANG_TEXTS.map((k) => (
+              <div key={k}>
+                <label className={labelClass} htmlFor={`org-${k}`}>
+                  {k.includes('morning') ? 'Morning' : 'Evening'} text in {k.endsWith('_ar') ? 'Arabic' : 'Hindi'}
+                </label>
+                <input
+                  id={`org-${k}`}
+                  dir={k.endsWith('_ar') ? 'rtl' : 'ltr'}
+                  lang={k.endsWith('_ar') ? 'ar' : 'hi'}
+                  className={inputClass}
+                  maxLength={200}
+                  disabled={!remindersOn}
+                  value={form[k]}
+                  onChange={(e) => set(k, e.target.value)}
+                />
+              </div>
+            ))}
+          </details>
         </fieldset>
 
         <p className="text-xs text-stone-500">Web address name: {organisation.slug} (fixed)</p>

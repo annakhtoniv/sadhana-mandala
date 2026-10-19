@@ -1,11 +1,12 @@
 -- ============================================================================
--- Sadhana Mandala: verification (phases 4 to 19)
+-- Sadhana Mandala: verification (phases 4 to 22)
 --
 -- Run in the Supabase SQL editor after phase4_security.sql,
 -- phase5_programmes.sql, phase6_lms.sql, phase7_followups.sql,
 -- phase8_events.sql, phase9_crm.sql, phase11_checkins.sql, phase12_media.sql,
 -- phase13_roles.sql, phase14_safety.sql, phase15_performance.sql,
--- phase18_reminders.sql, phase19_signin_handoff.sql and seed_dummy_data.sql. It signs in as the fictional seed users one at a time
+-- phase18_reminders.sql, phase19_signin_handoff.sql, phase20_batch_end_date.sql,
+-- phase21_badges.sql, phase22_engagement.sql and seed_dummy_data.sql. It signs in as the fictional seed users one at a time
 -- (by setting the same JWT claims Supabase sets for a real sign-in) and checks
 -- what each of them can see and change. Nothing is saved: every write attempt
 -- is rolled back immediately.
@@ -931,6 +932,94 @@ begin
   values (v_org_a, v_hp_course, v_ananda, 'Verify batch', date '2027-01-01', 'VERIFYEND')
   returning end_date::text into v_txt;
   r := r || array['Batch dates|new batch without an end date gets day 40|2027-02-09', v_txt];
+
+  -- ------------------------------------------------------------------ Weekly badges and photo frames (phase 21)
+  delete from public.checkins where batch_id = v_autumn and student_id = v_student21 and day_number between 1 and 7;
+  insert into public.checkins (org_id, batch_id, student_id, day_number, status, morning, evening)
+  select v_org_a, v_autumn, v_student21, d, 'done', d % 2 = 0, d % 2 = 1 from generate_series(1, 7) d;
+  v_txt := case when 'week1' = any (public.earned_badges(v_student21)) then 'earned' else 'not earned' end;
+  r := r || array['Badges|7 days ticked (Morning or Evening) earn week 1|earned', v_txt];
+  delete from public.checkins where batch_id = v_autumn and student_id = v_student21 and day_number = 4;
+  v_txt := case when 'week1' = any (public.earned_badges(v_student21)) then 'earned' else 'not earned' end;
+  r := r || array['Badges|a missed day in week 1|not earned', v_txt];
+  insert into public.checkins (org_id, batch_id, student_id, day_number, status, morning, evening)
+  values (v_org_a, v_autumn, v_student21, 4, 'done', true, false);
+  perform set_config('request.jwt.claims', json_build_object('sub', v_student21, 'email', 'student21@example.com', 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  begin
+    perform public.set_my_avatar_frame('week1');
+    select avatar_frame into v_txt from public.profiles where id = v_student21;
+  exception when others then v_txt := 'blocked: ' || sqlerrm; end;
+  r := r || array['Student 21|uses the week 1 badge as photo frame|week1', coalesce(v_txt, 'none')];
+  begin
+    perform public.set_my_avatar_frame('complete');
+    v_txt := 'allowed';
+  exception when others then v_txt := 'blocked'; end;
+  r := r || array['Student 21|uses a badge not earned yet|blocked', v_txt];
+  begin
+    update public.profiles set avatar_frame = 'complete' where id = v_student21;
+    get diagnostics v_n = row_count;
+    v_txt := case when v_n > 0 then 'allowed' else 'blocked' end;
+  exception when others then v_txt := 'blocked'; end;
+  r := r || array['Student 21|sets the frame directly, skipping the check|blocked', v_txt];
+  begin
+    perform public.earned_badges(v_ananda);
+    v_txt := 'allowed';
+  exception when others then v_txt := 'blocked'; end;
+  r := r || array['Student 21|reads another person''s badges|blocked', v_txt];
+  reset role;
+
+  -- ------------------------------------------------------------------ Practising together (phase 22)
+  -- Teacher Ananda (Autumn's teacher) encourages two students
+  perform set_config('request.jwt.claims', json_build_object('sub', v_ananda, 'email', 'teacher.ananda@example.com', 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  begin
+    v_n := public.send_encouragement(v_autumn, array[v_student01, v_student21], 'quiet', 'We miss you. Ten quiet minutes today?');
+    v_txt := v_n::text;
+  exception when others then v_txt := 'blocked: ' || sqlerrm; end;
+  r := r || array['Teacher A (Ananda)|encourages 2 students of her batch|2', v_txt];
+  select count(*) into v_n from public.batch_milestones(v_autumn);
+  r := r || array['Teacher A (Ananda)|milestones of her batch: finished weeks|3', v_n::text];
+  reset role;
+
+  perform set_config('request.jwt.claims', json_build_object('sub', v_student01, 'email', 'student01@example.com', 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  select count(*) into v_n from public.encouragements;
+  r := r || array['Student 01|encouragement messages visible (own only)|1', v_n::text];
+  begin
+    v_n := public.send_encouragement(v_autumn, array[v_student21], 'note', 'hello');
+    v_txt := 'allowed';
+  exception when others then v_txt := 'blocked'; end;
+  r := r || array['Student 01|sends encouragement as a student|blocked', v_txt];
+  select count(*) into v_n from public.batch_milestones(v_autumn);
+  r := r || array['Student 01|milestones of own batch (counts only)|3', v_n::text];
+  begin
+    update public.profiles set preferred_lang = 'ar' where id = v_student01;
+    select preferred_lang into v_txt from public.profiles where id = v_student01;
+  exception when others then v_txt := 'blocked: ' || sqlerrm; end;
+  r := r || array['Student 01|saves the reminder language|ar', v_txt];
+  begin
+    update public.checkins set mood = 'calm', note = 'Felt settled.'
+    where student_id = v_student01 and batch_id = v_autumn and day_number = public.batch_current_day(v_autumn) - 1;
+    get diagnostics v_n = row_count;
+    v_txt := v_n::text;
+  exception when others then v_txt := 'blocked: ' || sqlerrm; end;
+  r := r || array['Student 01|adds a reflection to yesterday''s practice|1', v_txt];
+  begin
+    update public.checkins set mood = 'angry'
+    where student_id = v_student01 and batch_id = v_autumn and day_number = public.batch_current_day(v_autumn) - 1;
+    v_txt := 'allowed';
+  exception when others then v_txt := 'blocked'; end;
+  r := r || array['Student 01|a mood that is not on the list|blocked', v_txt];
+  reset role;
+
+  perform set_config('request.jwt.claims', json_build_object('sub', v_marcus, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  select count(*) into v_n from public.batch_milestones(v_autumn);
+  r := r || array['Teacher B (Marcus)|milestones of another organisation''s batch|0', v_n::text];
+  select count(*) into v_n from public.encouragements;
+  r := r || array['Teacher B (Marcus)|Org A encouragement messages visible|0', v_n::text];
+  reset role;
 
   raise exception 'VERIFY_UNDO';
   exception when others then

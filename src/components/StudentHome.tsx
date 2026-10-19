@@ -6,6 +6,7 @@ import { ProgrammeLearning } from './ProgrammeLearning';
 import { ProgrammeMaterials } from './ProgrammeMaterials';
 import { ProgrammeFollowups } from './ProgrammeFollowups';
 import { PracticeCheckin } from './PracticeCheckin';
+import { EncouragementCard } from './EncouragementCard';
 import { RemindersCard } from './RemindersCard';
 import { calculateDayNumber, formatDateRange } from '../lib/dateUtils';
 import {
@@ -231,6 +232,8 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
         </p>
       </section>
 
+      {profile && <EncouragementCard userId={profile.id} />}
+
       {/* My programmes (a student can be in many programmes over time) */}
       {enrolments.length > 1 && (
         <section className="ui-card space-y-2">
@@ -316,6 +319,12 @@ export const StudentHome: React.FC<StudentHomeProps> = ({ onNavigateLessons }) =
             onCheckinsChange={setCheckins}
             loadError={checkinsError}
             onRetry={() => setReloadKey((k) => k + 1)}
+            studentName={profile.full_name || profile.email}
+            batchName={batch.name}
+            teacherName={batch.teacher?.full_name || batch.teacher?.email || ''}
+            endDate={batch.end_date}
+            orgName={organisation.name}
+            appName={organisation.app_name}
           />
         )
       )}

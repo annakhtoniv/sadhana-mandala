@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { currentLang } from '../i18n/locale';
-import { translate } from '../i18n';
+import { translate, useI18n } from '../i18n';
+import { saveReminderLanguage } from '../lib/engagementService';
 import type { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { fetchOrganisation, getResolvedOrgSlug, DEFAULT_ORGANISATION } from '../lib/organisation';
@@ -359,6 +360,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       subscription.unsubscribe();
     };
   }, []);
+
+  // Phase 22: reminders are written in the language the person uses the app in
+  const { lang } = useI18n();
+  useEffect(() => {
+    if (profile?.id && profile.preferred_lang !== lang) {
+      saveReminderLanguage(profile.id, lang).catch(() => {});
+      setProfile((p) => (p ? { ...p, preferred_lang: lang } : p));
+    }
+  }, [lang, profile?.id, profile?.preferred_lang]);
 
   // Signed in: ask the browser to keep this app's storage (and so the sign-in)
   // even when the phone runs low on space

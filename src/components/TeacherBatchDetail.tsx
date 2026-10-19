@@ -2,8 +2,10 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { currentLocale } from '../i18n/locale';
 import { fetchBatchEnrolments, fetchBatchInvites, addBatchInvites } from '../lib/batchService';
 import { fetchBatchCheckins, calculateStreak, isStudentQuiet } from '../lib/checkinService';
-import { hasEvening, hasMorning, isPractised } from '../lib/practiceUtils';
-import { formatDateDisplay, formatDateRange, calculateDayNumber } from '../lib/dateUtils';
+import { earnedBadges, fullWeeks, hasEvening, hasMorning, isPractised } from '../lib/practiceUtils';
+import { sendEncouragement, type EncouragementKind } from '../lib/engagementService';
+import { download } from '../lib/shareImage';
+import { addDays, formatDateDisplay, formatDateRange, calculateDayNumber } from '../lib/dateUtils';
 import { hasPracticeTrack, programmeRunStatus, RUN_STATUS_LABEL } from '../lib/programmeUtils';
 import { fetchProgrammeModules, fetchStudentsLessonProgress } from '../lib/lmsService';
 import { BatchFollowups } from './BatchFollowups';
@@ -27,6 +29,9 @@ import {
   Sun,
   ArrowUpDown,
   Pencil,
+  HeartHandshake,
+  FileSpreadsheet,
+  MessageCircle,
 } from 'lucide-react';
 
 interface TeacherBatchDetailProps {
@@ -47,6 +52,8 @@ const TICKS_ORDER: Record<string, number> = { both: 0, morning: 1, evening: 1, n
 function ticksLabel(m: boolean, e: boolean): string {
   return m && e ? 'morning and evening' : m ? 'morning' : e ? 'evening' : 'no tick';
 }
+
+const MOOD_LABEL: Record<string, string> = { calm: 'calm', joyful: 'joyful', grateful: 'grateful', restless: 'restless', tired: 'tired' };
 
 function formatShortDate(isoTimestamp: string, timeZone: string): string {
   try {
@@ -197,6 +204,9 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
         lastCheckinDay: lastCheckin?.day_number || null,
         lastCheckinStatus: lastCheckin ? ticksLabel(hasMorning(lastCheckin), hasEvening(lastCheckin)) : null,
         lastCheckinAt: lastCheckin?.updated_at || null,
+        // Phase 22: weeks completed and the latest reflection
+        badges: earnedBadges(studentChecks, durationDays),
+        reflection: [...studentChecks].reverse().find((c) => c.mood || c.note) || null,
       };
     });
   }, [enrolments, batchCheckins, currentDay, countsDay, durationDays, hasStarted, practice]);
@@ -219,6 +229,104 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
 
     return { morning, evening, both, none, quiet, total: studentMetrics.length };
   }, [studentMetrics]);
+
+  // Phase 21: day by day, how many students ticked Morning, Evening, both or nothing
+  const [showAllDays, setShowAllDays] = useState(false);
+  const dayReport = useMemo(() => {
+    if (!practice || !hasStarted) return [];
+    const students = new Set(enrolments.map((e) => e.student_id));
+    const rows = Array.from({ length: countsDay }, (_, i) => ({ day: i + 1, morning: 0, evening: 0, both: 0, one: 0, none: 0 }));
+    for (const c of batchCheckins) {
+      if (!students.has(c.student_id) || c.day_number < 1 || c.day_number > countsDay) continue;
+      const row = rows[c.day_number - 1];
+      const m = hasMorning(c);
+      const e = hasEvening(c);
+      if (m) row.morning++;
+      if (e) row.evening++;
+      if (m && e) row.both++;
+      else if (m || e) row.one++;
+    }
+    for (const row of rows) row.none = Math.max(0, students.size - row.both - row.one);
+    return rows.reverse(); // newest first
+  }, [practice, hasStarted, enrolments, batchCheckins, countsDay]);
+  const dayLabel = (day: number) => {
+    try {
+      const [y, m, d] = addDays(batch.start_date, day - 1).split('-').map((n) => parseInt(n, 10));
+      return new Intl.DateTimeFormat(currentLocale(), { timeZone: organisation.timezone, weekday: 'short', day: 'numeric', month: 'short' }).format(new Date(Date.UTC(y, m - 1, d, 12)));
+    } catch {
+      return '';
+    }
+  };
+
+  // Phase 22: per finished week, how many practised all 7 days
+  const finishedWeeks = practice ? Math.min(fullWeeks(durationDays), Math.max(0, Math.floor((currentDay - 1) / 7))) : 0;
+  const milestones = Array.from({ length: finishedWeeks }, (_, i) => ({
+    week: i + 1,
+    completed: studentMetrics.filter((s) => s.badges.includes(`week${i + 1}`)).length,
+  }));
+  const quietStudents = studentMetrics.filter((s) => s.isQuiet);
+  const weekCompleters = finishedWeeks ? studentMetrics.filter((s) => s.badges.includes(`week${finishedWeeks}`)) : [];
+  const [encourage, setEncourage] = useState<{ kind: EncouragementKind; ids: string[]; names: string[]; message: string } | null>(null);
+  const [encourageNote, setEncourageNote] = useState<{ ok: boolean; text: string } | null>(null);
+  const [sendingEncouragement, setSendingEncouragement] = useState(false);
+  const openEncourage = (kind: EncouragementKind, list: typeof studentMetrics) => {
+    setEncourageNote(null);
+    setEncourage({
+      kind,
+      ids: list.map((s) => s.enrolment.student_id),
+      names: list.map((s) => s.enrolment.student?.full_name || s.enrolment.student?.email || 'Student'),
+      message:
+        kind === 'quiet'
+          ? 'I have been thinking of you. Even ten quiet minutes today will bring you back to your practice. I am here if you need anything. 🙏'
+          : `Congratulations on completing week ${finishedWeeks} without a break! Keep going, you are doing beautifully. 🌸`,
+    });
+  };
+  const sendIt = async () => {
+    if (!encourage) return;
+    setSendingEncouragement(true);
+    const res = await sendEncouragement(batch.id, encourage.ids, encourage.kind, encourage.message);
+    setSendingEncouragement(false);
+    if (res.success) {
+      setEncourage(null);
+      setEncourageNote({ ok: true, text: `Sent to ${res.sent} student${res.sent === 1 ? '' : 's'}. They see it on their home screen${organisation.reminders_enabled === false ? '' : ', and as a notification if reminders are on'}.` });
+    } else {
+      setEncourageNote({ ok: false, text: res.error || 'The message could not be sent.' });
+    }
+  };
+
+  // Phase 22: the day-by-day table and the student list as an Excel file
+  const downloadReport = async () => {
+    const { buildXlsx } = await import('../lib/xlsx'); // loaded only when someone downloads a report
+    const days = [...dayReport].reverse();
+    const file = buildXlsx([
+      {
+        name: 'Day by day',
+        rows: [
+          ['Day', 'Date', 'Morning', 'Evening', 'Both', 'One tick', 'No tick', 'Students'],
+          ...days.map((r) => [r.day, addDays(batch.start_date, r.day - 1), r.morning, r.evening, r.both, r.one, r.none, summaryCounts.total]),
+        ],
+      },
+      {
+        name: 'Students',
+        rows: [
+          ['Name', 'Email', 'Days practised', 'Added later', 'Current streak', 'Quiet', 'Weeks completed', 'Last practice day', 'Latest mood', 'Latest reflection'],
+          ...studentMetrics.map((s) => [
+            s.enrolment.student?.full_name || '',
+            s.enrolment.student?.email || '',
+            s.practisedCount,
+            s.lateCount,
+            s.streak,
+            s.isQuiet ? 'Yes' : 'No',
+            s.badges.filter((b) => b.startsWith('week')).length,
+            s.lastCheckinDay,
+            s.reflection?.mood || '',
+            s.reflection?.note || '',
+          ]),
+        ],
+      },
+    ]);
+    download(new Blob([file as Uint8Array<ArrayBuffer>], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `${batch.name.replace(/[^\p{L}\p{N}]+/gu, '-')}-report.xlsx`);
+  };
 
   // Sorted roster
   const sortedRoster = useMemo(() => {
@@ -311,6 +419,122 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
         </section>
       )}
 
+      {/* Day by day (Phase 21): practice programmes only */}
+      {practice && dayReport.length > 0 && (
+        <section className="ui-card space-y-3" aria-label="Day by day">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="font-display text-lg font-semibold text-stone-950">Day by day</h2>
+            <button type="button" onClick={downloadReport} className="ui-btn-ghost !min-h-10 !py-2 !px-3">
+              <FileSpreadsheet className="w-4 h-4" aria-hidden="true" /> Download Excel
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-stone-600" aria-hidden="true">
+            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-emerald-700" /> Both</span>
+            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-emerald-400" /> Morning or Evening</span>
+            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-stone-300" /> No tick</span>
+          </div>
+          <table className="w-full text-sm">
+            <caption className="sr-only">Ticks per day: Morning, Evening, both and no tick</caption>
+            <thead className="text-stone-600">
+              <tr>
+                <th scope="col" className="text-start font-medium py-1.5">Day</th>
+                <th scope="col" className="font-medium py-1.5 px-1 w-10"><Sun className="w-4 h-4 mx-auto text-amber-600" aria-label="Morning" /></th>
+                <th scope="col" className="font-medium py-1.5 px-1 w-10"><Moon className="w-4 h-4 mx-auto text-indigo-700" aria-label="Evening" /></th>
+                <th scope="col" className="text-end font-medium py-1.5 w-12">No tick</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-stone-100">
+              {(showAllDays ? dayReport : dayReport.slice(0, 7)).map((r) => {
+                const total = r.both + r.one + r.none || 1;
+                return (
+                  <tr key={r.day} title={`Day ${r.day}: ${r.morning} morning, ${r.evening} evening, ${r.both} both, ${r.none} no tick`}>
+                    <td className="py-2 pe-2">
+                      <div className="font-medium text-stone-900">Day {r.day}{r.day === currentDay ? ' (today)' : ''}</div>
+                      <div className="text-xs text-stone-500">{dayLabel(r.day)}</div>
+                      <div className="mt-1 flex h-2 gap-[2px]" aria-hidden="true">
+                        {r.both > 0 && <span className="rounded-sm bg-emerald-700" style={{ width: `${(r.both / total) * 100}%` }} />}
+                        {r.one > 0 && <span className="rounded-sm bg-emerald-400" style={{ width: `${(r.one / total) * 100}%` }} />}
+                        {r.none > 0 && <span className="rounded-sm bg-stone-300" style={{ width: `${(r.none / total) * 100}%` }} />}
+                      </div>
+                    </td>
+                    <td className="py-2 text-center tabular-nums text-stone-900">{r.morning}</td>
+                    <td className="py-2 text-center tabular-nums text-stone-900">{r.evening}</td>
+                    <td className={`py-2 text-end tabular-nums ${r.none > 0 ? 'text-stone-900' : 'text-stone-400'}`}>{r.none}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {dayReport.length > 7 && (
+            <button type="button" onClick={() => setShowAllDays((v) => !v)} aria-expanded={showAllDays} className="ui-btn-ghost w-full">
+              {showAllDays ? 'Show the last 7 days' : `Show all ${dayReport.length} days`}
+            </button>
+          )}
+        </section>
+      )}
+
+      {/* Phase 22: milestones and encouragement */}
+      {practice && hasStarted && studentMetrics.length > 0 && (
+        <section className="ui-card space-y-3" aria-label="Practising together">
+          <h2 className="font-display text-lg font-semibold text-stone-950">Practising together</h2>
+          {milestones.length > 0 ? (
+            <ul className="space-y-1.5">
+              {milestones.map((m) => (
+                <li key={m.week} className="flex items-center justify-between gap-2 text-sm">
+                  <span className="text-stone-800">Week {m.week} completed without a break</span>
+                  <span className="font-semibold tabular-nums text-stone-950">{m.completed} of {studentMetrics.length}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-stone-600">Weekly milestones appear here once week 1 is over.</p>
+          )}
+          <p className="text-sm text-stone-600">Students see the latest milestone on their home screen (numbers only, never names).</p>
+          <div className="flex flex-wrap gap-2 pt-1">
+            <button type="button" disabled={quietStudents.length === 0} onClick={() => openEncourage('quiet', quietStudents)} className="ui-btn-primary">
+              <HeartHandshake className="w-4 h-4" aria-hidden="true" /> Encourage quiet students ({quietStudents.length})
+            </button>
+            {finishedWeeks > 0 && (
+              <button type="button" disabled={weekCompleters.length === 0} onClick={() => openEncourage('week', weekCompleters)} className="ui-btn-ghost">
+                Congratulate week {finishedWeeks} ({weekCompleters.length})
+              </button>
+            )}
+          </div>
+          {encourageNote && <p role={encourageNote.ok ? 'status' : 'alert'} className={`text-sm ${encourageNote.ok ? 'text-emerald-800' : 'text-red-700'}`}>{encourageNote.text}</p>}
+        </section>
+      )}
+
+      <Sheet
+        open={encourage !== null}
+        onClose={() => setEncourage(null)}
+        title={encourage?.kind === 'quiet' ? 'Encourage quiet students' : `Congratulate week ${finishedWeeks}`}
+        description={encourage ? `To: ${encourage.names.join(', ')}` : undefined}
+        busy={sendingEncouragement}
+        footer={
+          <>
+            <button type="button" onClick={() => setEncourage(null)} className="ui-btn-ghost">Cancel</button>
+            <button type="button" onClick={sendIt} disabled={sendingEncouragement || !encourage?.message.trim()} className="ui-btn-primary">
+              {sendingEncouragement ? 'Sending...' : 'Send'}
+            </button>
+          </>
+        }
+      >
+        {encourage && (
+          <div className="space-y-2">
+            <label htmlFor="encourage-text" className="ui-label">Message</label>
+            <textarea
+              id="encourage-text"
+              rows={4}
+              maxLength={300}
+              className="ui-input"
+              value={encourage.message}
+              onChange={(e) => setEncourage({ ...encourage, message: e.target.value })}
+            />
+            <p className="text-xs text-stone-500">Each student sees it on their home screen, and as a notification when their reminders are on. Up to 300 characters.</p>
+          </div>
+        )}
+      </Sheet>
+
       {/* Follow-ups of this batch (Phase 7) */}
       <BatchFollowups batch={batch} currentDay={currentDay} enrolments={enrolments} timeZone={organisation.timezone} />
 
@@ -380,13 +604,13 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
           <p className="text-sm text-stone-600 py-2">No students yet. Share the join code above to invite them.</p>
         ) : (
           <ul className="divide-y divide-stone-100">
-            {sortedRoster.map(({ enrolment: enr, todayMorning, todayEvening, streak, isQuiet, practisedCount, lateCount, lastCheckinDay, lastCheckinStatus, lastCheckinAt }) => {
+            {sortedRoster.map(({ enrolment: enr, todayMorning, todayEvening, streak, isQuiet, practisedCount, lateCount, lastCheckinDay, lastCheckinStatus, lastCheckinAt, reflection }) => {
               const name = enr.student?.full_name || enr.student?.email || 'Student';
               const email = enr.student?.email;
               const lessonsDone = lessonIds.filter((id) => lessonProgress.get(enr.student_id)?.has(id)).length;
               return (
                 <li key={enr.id} className="py-3.5 flex items-start gap-3">
-                  <Avatar name={name} url={enr.student?.avatar_url} size={40} />
+                  <Avatar name={name} url={enr.student?.avatar_url} frame={enr.student?.avatar_frame} size={40} />
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span dir="auto" className="font-semibold text-base text-stone-950 user-text">{name}</span>
@@ -432,6 +656,16 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
                     {lessonIds.length > 0 && (
                       <p className="text-sm text-stone-600">
                         Lessons: {lessonsDone} of {lessonIds.length}
+                      </p>
+                    )}
+                    {reflection && (
+                      <p className="text-sm text-stone-700 flex items-start gap-1.5">
+                        <MessageCircle className="w-4 h-4 mt-0.5 shrink-0 text-stone-500" aria-hidden="true" />
+                        <span>
+                          Day {reflection.day_number}
+                          {reflection.mood ? `: ${MOOD_LABEL[reflection.mood] || reflection.mood}` : ''}
+                          {reflection.note ? <> · <span dir="auto" className="user-text">“{reflection.note}”</span></> : null}
+                        </span>
                       </p>
                     )}
                   </div>

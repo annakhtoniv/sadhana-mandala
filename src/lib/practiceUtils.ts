@@ -138,3 +138,67 @@ export function upsertCheckinInMemory<
   }
   return [...existingCheckins, newCheckin].sort((a, b) => a.day_number - b.day_number);
 }
+
+/**
+ * Weekly badges (Phase 21). The practice is counted in weeks of the batch:
+ * days 1-7, 8-14, ... A week is complete when every one of its 7 days has a
+ * tick (Morning or Evening, also when filled in later; the same rule as the
+ * streak). The whole practice is complete when every day has a tick. The
+ * database has the same rule (my_earned_badges) and only lets a person use a
+ * frame they earned.
+ */
+export type BadgeId = `week${number}` | 'complete';
+
+/** The week (1, 2, ...) a practice day belongs to. */
+export function weekOfDay(day: number): number {
+  return Math.floor((Math.max(1, day) - 1) / 7) + 1;
+}
+
+/** Full 7-day weeks of a practice (a 40-day practice has 5; days 36 to 40 count for the 40-day badge). */
+export function fullWeeks(durationDays: number): number {
+  return Math.floor(Math.max(0, durationDays) / 7);
+}
+
+export function earnedBadges(checkins: PracticeMark[], durationDays: number): BadgeId[] {
+  const practised = new Set(checkins.filter(isPractised).map((c) => c.day_number));
+  const out: BadgeId[] = [];
+  for (let w = 1; w <= fullWeeks(durationDays); w++) {
+    let all = true;
+    for (let d = 7 * w - 6; d <= 7 * w; d++) if (!practised.has(d)) all = false;
+    if (all) out.push(`week${w}`);
+  }
+  if (durationDays > 0 && Array.from({ length: durationDays }, (_, i) => i + 1).every((d) => practised.has(d))) out.push('complete');
+  return out;
+}
+
+export interface WeekProgress {
+  week: number;
+  /** First and last day of this week (the last week can be shorter) */
+  firstDay: number;
+  lastDay: number;
+  /** Practised days of this week so far */
+  done: number;
+  /** Days of this week up to today */
+  openDays: number;
+  /** True while no day of this week has been missed so far (today may still be open) */
+  unbroken: boolean;
+  /** A full 7-day week (earns a badge) */
+  earnsBadge: boolean;
+}
+
+/** Where today sits in its week, for the practice card and the reminders. */
+export function weekProgress(checkins: PracticeMark[], todayDay: number, durationDays: number): WeekProgress | null {
+  if (todayDay < 1 || durationDays < 1) return null;
+  const day = Math.min(todayDay, durationDays);
+  const week = weekOfDay(day);
+  const firstDay = 7 * week - 6;
+  const lastDay = Math.min(7 * week, durationDays);
+  const practised = new Set(checkins.filter(isPractised).map((c) => c.day_number));
+  let done = 0;
+  let unbroken = true;
+  for (let d = firstDay; d <= day; d++) {
+    if (practised.has(d)) done++;
+    else if (d < todayDay) unbroken = false; // today is still open
+  }
+  return { week, firstDay, lastDay, done, openDays: day - firstDay + 1, unbroken, earnsBadge: week <= fullWeeks(durationDays) };
+}

@@ -190,6 +190,34 @@ venue or online link, capacity, registration and attendance (QR check-in).
   success, red for a problem. Buttons say which event they are for (screen
   readers).
 
+### Weekly badges and photo frames
+- The practice is counted in weeks of the batch (days 1-7, 8-14, ...). A week
+  is complete when each of its 7 days has a tick (Morning or Evening; days
+  filled in later count, like the streak). Each complete week earns a badge;
+  ticking every day of the practice earns the "whole practice" badge.
+- A person can put one earned badge around their profile photo as a frame
+  (Profile > Photo frame, or straight from the celebration). Only earned
+  badges are accepted.
+- The practice card shows where this week stands and the badges; each day on
+  the trail shows its weekday and date.
+- Reminders add a line about the person's week.
+- Teachers and admins see a day-by-day table of Morning, Evening and no tick
+  on the batch page.
+
+### Practising together (Phase 22)
+- Reminders are written in the language the person uses the app in; admins
+  can type the reminder texts in Arabic and Hindi too. The Evening reminder
+  goes only to people who have not ticked that day.
+- An earned badge can be shared as a picture (WhatsApp) with the site link.
+- Teachers send encouragement from the batch page to quiet students or to
+  those who just completed a week; students see it on their home screen and
+  as a notification.
+- Batch milestones show how many completed each week (numbers only).
+- Completing every day of the practice gives a downloadable PDF certificate.
+- Teachers download the day-by-day table and the student list as Excel.
+- After ticking, a student can add a mood and one line; only they, their
+  teacher and admins see it.
+
 ### Batch dates
 - Every batch has a first and a last day. The last day defaults to the
   programme's length (daily practice, else the programme itself) and can be
