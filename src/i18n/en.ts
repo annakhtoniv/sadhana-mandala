@@ -200,7 +200,6 @@ export const en = {
   "profile.organisation": "Organisation",
   "profile.photoHelp": "Photo from your Google account. Tap the camera to change it.",
   "profile.privacy": "Privacy and consent",
-  "profile.privacyHelp": "Your consent covers your daily practice ticks and when you made them, so your teacher can guide you.",
   "profile.role": "Role",
   "profile.signOut": "Sign out",
   "profile.switchFailed": "Could not switch.",
@@ -216,7 +215,6 @@ export const en = {
   "reminders.off": "Turn off reminders",
   "reminders.on": "Turn on reminders",
   "reminders.title": "Daily reminders",
-  "reminders.unsupported": "This browser cannot show reminders. Try Chrome, or the app on your Home Screen.",
   "role.admin": "Admin",
   "role.student": "Student",
   "role.teacher": "Teacher",
@@ -275,6 +273,14 @@ export const en = {
   "checkin.legendEveningOnly": "Evening only",
   "join.placeholder": "From your teacher",
   "join.empty": "Type the join code your teacher gave you.",
+  "reminders.notReady": "Daily reminders are not switched on for this app yet. Your organisation is setting them up; you can turn them on here soon.",
+  "reminders.unsupported": "This browser cannot show reminders (for example, a browser inside WhatsApp or Instagram). Open {site} in Chrome or Safari, or use the app on your Home Screen.",
+  "profile.consentAt": "{when} ({city} time)",
+  "profile.photoSaved": "Photo updated.",
+  "profile.privacyMore": "More about your data",
+  "profile.keepUntil": "We keep this until you delete your account. Deleting it (below) withdraws your consent and removes everything we keep about you.",
+  "profile.questions": "Questions: {email}.",
+  "profile.googleAccount": "Signed in with Google as {email}. To use another email, sign out and sign in with that Google account.",
 } as const;
 
 export type MsgKey = keyof typeof en;

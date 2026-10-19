@@ -197,6 +197,13 @@ venue or online link, capacity, registration and attendance (QR check-in).
 - The week strip shows that week's count; the overall "So far: x of y days
   practised" sits under the flame.
 
+### Profile
+- Privacy shows what is kept, who sees it, that it is kept until the account
+  is deleted, and that deleting the account withdraws consent. The consent
+  time names the organisation's time zone.
+- Reminders card: "not switched on yet" while the organisation has not set
+  reminders up; "this browser cannot" only for browsers without push.
+
 ### Staying signed in
 - Signing in once keeps a person signed in on that device until they sign
   out. Signing out on one device never signs out the others.

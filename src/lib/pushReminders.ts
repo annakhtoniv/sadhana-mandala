@@ -12,7 +12,8 @@ import { isIos, isStandalone } from './installPrompt';
 // Public half of the key pair; the private half is a Supabase secret
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || '';
 
-export type ReminderState = 'unsupported' | 'install-first' | 'blocked' | 'off' | 'on';
+/** not-ready: the organisation has not switched reminders on yet (no key in this build) */
+export type ReminderState = 'not-ready' | 'unsupported' | 'install-first' | 'blocked' | 'off' | 'on';
 
 /** The key in the form the browser wants it (URL-safe base64 to bytes). */
 export function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
@@ -43,9 +44,11 @@ async function save(sub: PushSubscription): Promise<void> {
 }
 
 export async function reminderState(): Promise<ReminderState> {
+  // Not this browser's fault: the app has no reminder key yet
+  if (!VAPID_PUBLIC_KEY) return 'not-ready';
   // On iPhone, a Safari tab has no push at all; the Home Screen app does
   if (isIos() && !isStandalone()) return 'install-first';
-  if (!pushSupported() || !VAPID_PUBLIC_KEY) return 'unsupported';
+  if (!pushSupported()) return 'unsupported';
   if (Notification.permission === 'denied') return 'blocked';
   if (Notification.permission !== 'granted') return 'off';
   return (await currentSubscription()) ? 'on' : 'off';

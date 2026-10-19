@@ -35,13 +35,15 @@ export const RemindersCard: React.FC<{ compact?: boolean }> = ({ compact = false
 
   if (state === null || dismissed) return null;
   if (compact && state !== 'off' && state !== 'install-first') return null;
-  if (!compact && state === 'unsupported') {
+  if (!compact && (state === 'unsupported' || state === 'not-ready')) {
     return (
       <section className="ui-card space-y-2">
         <h2 className="font-display text-lg font-semibold text-stone-950 flex items-center gap-2">
-          <BellOff className="w-5 h-5 text-stone-500" /> {t('reminders.title')}
+          <BellOff className="w-5 h-5 text-stone-500" aria-hidden="true" /> {t('reminders.title')}
         </h2>
-        <p className="text-base text-stone-600">{t('reminders.unsupported')}</p>
+        <p className="text-base text-stone-600">
+          {state === 'not-ready' ? t('reminders.notReady') : t('reminders.unsupported', { site: window.location.host })}
+        </p>
       </section>
     );
   }
