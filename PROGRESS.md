@@ -249,7 +249,19 @@
   - Reminders: `reminder_recipients` now returns each person's week; the sender adds a line under the organisation's text, e.g. "Day 10 · 2 of 7 days this week. Keep week 2 unbroken 🔥", "Last day of week 2: practise today… earn your badge 🏅", "Morning done ✓ …", or a kind line after a missed day (English, like the admin's text).
   - Tests: 146 unit tests; verify.sql 152 PASS twice (6 new: week earned, missed day, frame use, unearned frame refused, direct update refused, other people's badges hidden).
 
+- Phase 22 built on 2026-10-19 (practising together; [supabase/phase22_engagement.sql](supabase/phase22_engagement.sql)):
+  - Reminders in each student's language: the app saves the language the person uses (`profiles.preferred_lang`); Organisation settings has optional Arabic and Hindi texts (empty: a built-in translation of the standard text, or the English text if it was changed); the week line is written in English, Arabic or Hindi.
+  - The Evening reminder goes only to people with no tick that day (Morning still to everyone in a running practice).
+  - Share a badge: tapping an earned badge, or "Share" in the celebration, makes a picture ("I completed week 3 of my sadhana without a break 🌸") and opens the phone's share sheet (WhatsApp); where that is not possible the picture is saved and WhatsApp opens with the text and the site link.
+  - Teacher encouragement: the batch page has "Encourage quiet students (n)" and "Congratulate week N (n)" with a message to edit; students see it on their home screen ("A message from …", "Thank you 🙏") and as a notification when reminders are on (sent by `send-reminders`).
+  - Batch milestones: the batch page lists each finished week with how many completed it; the student's practice card shows "Together: 7 of 12 in your batch completed week 3 🌸" (counts only, from `batch_milestones`).
+  - Certificate: after ticking every day of the practice, "Download certificate" makes an A4 PDF (name, practice, batch, dates, teacher, organisation). The page is drawn as a picture so Arabic and Hindi names print correctly. The PDF library loads only when needed and is not stored on every phone.
+  - Excel report: "Download Excel" on the batch page gives a two-sheet .xlsx (Day by day; Students with days practised, streak, quiet, weeks completed, latest mood and reflection).
+  - Reflection: on a ticked day the student can choose a mood (calm, joyful, grateful, restless, tired) and write one line; only the student, their teacher and admins see it (checkins' own rules); the roster shows the latest one.
+  - Tests: 151 unit tests (reminder languages and evening rule, Excel file); verify.sql 162 PASS twice (10 new).
+
 ## Next
+- Phase 22 live set-up: run `phase22_engagement.sql` (after phase 21), re-run the seed and verify; redeploy `send-reminders`.
 - Phase 21 live set-up: run `phase21_badges.sql`, re-run the seed and verify; redeploy the Edge Function `send-reminders`.
 - Done 2026-10-19: `phase19_signin_handoff.sql` and `phase20_batch_end_date.sql` are live (verify 146 PASS after re-running the seed); the PM signed in on the iPhone Home Screen app, closed and reopened it, and stayed signed in. Still to confirm: `https://sadhana.zyxenai.com/**` in Supabase > Authentication > URL Configuration > Redirect URLs. Set the Art of Silence and Volunteer Training Program lengths (their batches end on the start day until then).
 - Phase 18 live set-up (see supabase/README.md, section Next), then PM: turn reminders on on an iPhone (Home Screen app) and an Android phone, and set a reminder time two minutes ahead in Admin > Organisation settings to see one arrive.

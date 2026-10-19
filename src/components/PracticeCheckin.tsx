@@ -12,14 +12,16 @@ import {
   weekProgress,
   type BadgeId,
 } from '../lib/practiceUtils';
-import { addDays, formatDateDisplay } from '../lib/dateUtils';
+import { addDays, formatDateDisplay, formatDateRange } from '../lib/dateUtils';
 import { currentLocale } from '../i18n/locale';
 import { badgeLook, badgesFor } from '../lib/badges';
 import { setMyAvatarFrame } from '../lib/avatarService';
 import { useAuth } from '../context/AuthContext';
+import { badgeImage, certificatePdf, download, sharePicture } from '../lib/shareImage';
+import { fetchBatchMilestones, MOODS, saveReflection, type Milestone, type Mood } from '../lib/engagementService';
 import { useI18n } from '../i18n';
 import type { Checkin } from '../types/database';
-import { Check, Flame, Loader2, Lock, Moon, Sparkles, Sun, History, Award } from 'lucide-react';
+import { Check, Flame, Loader2, Lock, Moon, Sparkles, Sun, History, Award, Share2, FileDown, Users } from 'lucide-react';
 
 interface PracticeCheckinProps {
   orgId: string;
@@ -36,6 +38,13 @@ interface PracticeCheckinProps {
   /** Set when the saved ticks could not be loaded: the tiles stay locked so nothing is overwritten */
   loadError?: string | null;
   onRetry?: () => void;
+  /** Phase 22: for the certificate and the shared badge picture */
+  studentName?: string;
+  batchName?: string;
+  teacherName?: string;
+  endDate?: string;
+  orgName?: string;
+  appName?: string;
 }
 
 /** The list with this day's row replaced (or added). */
@@ -82,12 +91,28 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
   onCheckinsChange,
   loadError = null,
   onRetry,
+  studentName = '',
+  batchName = '',
+  teacherName = '',
+  endDate,
+  orgName = '',
+  appName = '',
 }) => {
   const { t, lang } = useI18n();
   const { refreshProfile } = useAuth();
   // A badge just earned with a tick (Phase 21), and the result of using it as a frame
   const [celebrate, setCelebrate] = useState<BadgeId | null>(null);
   const [frameNote, setFrameNote] = useState<string | null>(null);
+  // Phase 22: the batch's milestones, the certificate and the reflection on the chosen day
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [certBusy, setCertBusy] = useState(false);
+  const [certError, setCertError] = useState<string | null>(null);
+  const [mood, setMood] = useState<Mood | null>(null);
+  const [note, setNote] = useState('');
+  const [reflectNote, setReflectNote] = useState<{ ok: boolean; text: string } | null>(null);
+  useEffect(() => {
+    fetchBatchMilestones(batchId).then(setMilestones).catch(() => setMilestones([]));
+  }, [batchId, todayDay]);
   const lastOpenDay = Math.min(todayDay, durationDays);
   const [selectedDay, setSelectedDay] = useState<number>(Math.max(1, lastOpenDay));
 
@@ -136,10 +161,61 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
       setFrameNote(t('frame.failed'));
     }
   };
+
+  const site = typeof window !== 'undefined' ? window.location.host : '';
+  const share = async (id: BadgeId) => {
+    const look = badgeLook(id);
+    if (!look) return;
+    const title = id === 'complete' ? t('share.allText', { total: durationDays }) : t('share.weekText', { w: id.slice(4) });
+    try {
+      const blob = await badgeImage({ look, title, subtitle: `${studentName}${batchName ? ` · ${batchName}` : ''}`, footer: `${appName} · ${site}`, rtl: lang === 'ar' });
+      await sharePicture(blob, `${id}.png`, `${title}\n${t('share.invite', { site: `https://${site}` })}`);
+    } catch {
+      // Sharing was cancelled or is not possible on this phone
+    }
+  };
+
+  const downloadCertificate = async () => {
+    const look = badgeLook('complete');
+    if (!look) return;
+    setCertBusy(true);
+    setCertError(null);
+    try {
+      const blob = await certificatePdf(
+        {
+          heading: t('cert.heading'),
+          certifies: t('cert.certifies'),
+          name: studentName,
+          completed: t('cert.completed', { total: durationDays, practice: practiceName }),
+          details: t('cert.details', { batch: batchName, dates: formatDateRange(startDate, endDate || addDays(startDate, durationDays - 1), timeZone) }),
+          teacher: teacherName ? t('cert.teacher', { teacher: teacherName }) : '',
+          org: orgName,
+        },
+        look,
+        lang === 'ar'
+      );
+      download(blob, `certificate-${batchName.replace(/[^\p{L}\p{N}]+/gu, '-')}.pdf`);
+    } catch {
+      setCertError(t('cert.failed'));
+    }
+    setCertBusy(false);
+  };
+
+  const saveMyReflection = async () => {
+    const res = await saveReflection(batchId, studentId, selectedDay, mood, note);
+    if (res.success && selected) onCheckinsChange(withDay(checkins, { ...selected, mood, note: note.trim() || null }));
+    setReflectNote(res.success ? { ok: true, text: t('reflect.saved') } : { ok: false, text: res.error || t('reflect.failed') });
+  };
+  const lastMilestone = milestones.length ? milestones[milestones.length - 1] : null;
   const selected = byDay.get(selectedDay);
   const morning = hasMorning(selected);
   const evening = hasEvening(selected);
   const isToday = selectedDay === todayDay;
+  useEffect(() => {
+    setMood((selected?.mood as Mood | null) || null);
+    setNote(selected?.note || '');
+    setReflectNote(null);
+  }, [selectedDay, selected?.id]);
   const notStarted = todayDay < 1;
   const finished = todayDay > durationDays;
 
@@ -311,6 +387,57 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
                     <button type="button" onClick={() => setCelebrate(null)} className="ui-btn-ghost !min-h-10 !py-2 !px-4">{t('celebrate.later')}</button>
                   </div>
                 )}
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" onClick={() => share(celebrate)} className="ui-btn-ghost !min-h-10 !py-2 !px-4">
+                    <Share2 className="w-4 h-4" aria-hidden="true" /> {t('share.button')}
+                  </button>
+                  {celebrate === 'complete' && (
+                    <button type="button" onClick={downloadCertificate} disabled={certBusy} className="ui-btn-ghost !min-h-10 !py-2 !px-4">
+                      <FileDown className="w-4 h-4" aria-hidden="true" /> {certBusy ? t('cert.preparing') : t('cert.button')}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Phase 22: a short reflection on a practised day */}
+            {(morning || evening) && !loadError && (
+              <div className="pt-3 border-t border-stone-100 space-y-2">
+                <div className="text-sm font-semibold text-stone-900">{t('reflect.title')}</div>
+                <div role="radiogroup" aria-label={t('reflect.title')} className="flex flex-wrap gap-1.5">
+                  {MOODS.map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      role="radio"
+                      aria-checked={mood === m}
+                      onClick={() => {
+                        setMood(mood === m ? null : m);
+                        setReflectNote(null);
+                      }}
+                      className={`min-h-10 px-3 rounded-full text-sm ring-1 cursor-pointer ${mood === m ? 'bg-stone-900 text-white ring-stone-900' : 'bg-white text-stone-700 ring-stone-300'}`}
+                    >
+                      {t(`reflect.mood.${m}` as 'reflect.mood.calm')}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    aria-label={t('reflect.placeholder')}
+                    className="ui-input flex-1 min-w-0"
+                    maxLength={280}
+                    placeholder={t('reflect.placeholder')}
+                    value={note}
+                    onChange={(e) => {
+                      setNote(e.target.value);
+                      setReflectNote(null);
+                    }}
+                  />
+                  <button type="button" onClick={saveMyReflection} className="ui-btn-ghost shrink-0">{t('reflect.save')}</button>
+                </div>
+                <p className={`text-xs ${reflectNote && !reflectNote.ok ? 'text-red-700' : 'text-stone-500'}`} role={reflectNote ? (reflectNote.ok ? 'status' : 'alert') : undefined}>
+                  {reflectNote ? reflectNote.text : t('reflect.private')}
+                </p>
               </div>
             )}
           </>
@@ -401,6 +528,12 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
         )}
 
         {weekNote && <p className="text-sm font-medium text-stone-800 text-center">{weekNote}</p>}
+        {lastMilestone && lastMilestone.students > 1 && (
+          <p className="text-sm text-stone-700 text-center flex items-center justify-center gap-1.5">
+            <Users className="w-4 h-4 shrink-0 text-emerald-700" aria-hidden="true" />
+            {t('together.line', { done: lastMilestone.completed, total: lastMilestone.students, w: lastMilestone.week })}
+          </p>
+        )}
 
         {badgeIds.length > 0 && (
           <div className="space-y-2">
@@ -413,19 +546,33 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
                 const got = earned.includes(id);
                 const label = id === 'complete' ? t('badges.all', { total: durationDays }) : t('badges.week', { n: id.slice(4) });
                 return (
-                  <li key={id} className="flex flex-col items-center gap-1 text-center" aria-label={`${label}: ${t(look.nameKey)}, ${got ? t('badges.earned') : t('badges.locked')}`}>
-                    <span
-                      aria-hidden="true"
-                      className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${got ? 'text-white shadow-sm' : 'bg-stone-100 text-stone-400 ring-1 ring-stone-900/10'}`}
-                      style={got ? { background: `conic-gradient(from 210deg, ${look.from}, ${look.to}, ${look.from})` } : undefined}
-                    >
-                      {got ? look.emblem : <Lock className="w-3.5 h-3.5" />}
-                    </span>
+                  <li key={id} className="flex flex-col items-center gap-1 text-center" aria-label={got ? undefined : `${label}: ${t(look.nameKey)}, ${t('badges.locked')}`}>
+                    {got ? (
+                      <button
+                        type="button"
+                        onClick={() => share(id)}
+                        aria-label={`${label}: ${t(look.nameKey)}, ${t('badges.earned')}. ${t('share.button')}`}
+                        className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white shadow-sm cursor-pointer"
+                        style={{ background: `conic-gradient(from 210deg, ${look.from}, ${look.to}, ${look.from})` }}
+                      >
+                        {look.emblem}
+                      </button>
+                    ) : (
+                      <span aria-hidden="true" className="w-10 h-10 rounded-full flex items-center justify-center bg-stone-100 text-stone-400 ring-1 ring-stone-900/10">
+                        <Lock className="w-3.5 h-3.5" />
+                      </span>
+                    )}
                     <span aria-hidden="true" className={`text-[11px] leading-tight ${got ? 'text-stone-800 font-medium' : 'text-stone-500'}`}>{label}</span>
                   </li>
                 );
               })}
             </ul>
+            {earned.includes('complete') && (
+              <button type="button" onClick={downloadCertificate} disabled={certBusy} className="ui-btn-primary w-full">
+                <FileDown className="w-4 h-4" aria-hidden="true" /> {certBusy ? t('cert.preparing') : t('cert.button')}
+              </button>
+            )}
+            {certError && <p role="alert" className="text-sm text-red-700">{certError}</p>}
           </div>
         )}
 

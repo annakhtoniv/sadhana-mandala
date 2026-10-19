@@ -36,8 +36,10 @@ export interface DbTables {
     evening_at: string | null;
     id: string;
     late: boolean;
+    mood: string | null;
     morning: boolean;
     morning_at: string | null;
+    note: string | null;
     org_id: string;
     status: string;
     student_id: string;
@@ -232,8 +234,12 @@ export interface DbTables {
     name: string;
     primary_colour: string;
     reminder_evening_text: string;
+    reminder_evening_text_ar: string | null;
+    reminder_evening_text_hi: string | null;
     reminder_evening_time: string;
     reminder_morning_text: string;
+    reminder_morning_text_ar: string | null;
+    reminder_morning_text_hi: string | null;
     reminder_morning_time: string;
     reminders_enabled: boolean;
     show_powered_by: boolean;
@@ -245,6 +251,7 @@ export interface DbTables {
   profiles: {
     avatar_frame: string | null;
     avatar_source: string | null;
+    preferred_lang: string;
     avatar_url: string | null;
     consent_at: string | null;
     created_at: string;

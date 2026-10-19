@@ -62,6 +62,8 @@ export default defineConfig({
         clientsClaim: true,
         // Shows the daily practice reminders (Phase 18)
         importScripts: ['push-handler.js'],
+        // The certificate's PDF library (Phase 22) is large and rarely used: phones fetch it only when needed
+        globIgnores: ['**/jspdf*.js', '**/html2canvas*.js', '**/purify*.js', '**/index.es-*.js'],
       },
     })
   ],
