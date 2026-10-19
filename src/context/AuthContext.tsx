@@ -12,6 +12,14 @@ import { friendlyError } from '../lib/errors';
 import { PENDING_CHECKIN_KEY, PENDING_JOIN_KEY, readLinkParams, savePending, takePending } from '../lib/joinLink';
 import { allowedRoleViews, defaultRoleView } from '../lib/roles';
 import { forgetRemindersOnThisPhone } from '../lib/pushReminders';
+import {
+  cleanSignInUrl,
+  clearHandoff,
+  collectSignIn,
+  passSignInToApp,
+  pendingHandoff,
+  readSignInCallback,
+} from '../lib/signInHandoff';
 import type { Organisation, Profile, UserRole, Enrolment } from '../types/database';
 
 interface AuthContextType {
@@ -42,6 +50,12 @@ interface AuthContextType {
   /** A one-off message for the user, e.g. the result of an event QR check-in */
   notice: { tone: 'success' | 'error'; text: string } | null;
   clearNotice: () => void;
+  /** The sign-in finished in the iPhone's Safari window and was passed to the Home Screen app: go back to it */
+  signInHandedOff: boolean;
+  /** The Home Screen app waits for a sign-in from the Safari window */
+  waitingForSignIn: boolean;
+  /** Start (true) or stop (false) waiting for that sign-in */
+  setWaitingForSignIn: (waiting: boolean) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -81,6 +95,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [organisation, setOrganisation] = useState<Organisation>(DEFAULT_ORGANISATION);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
+  const [signInHandedOff, setSignInHandedOff] = useState(false);
+  const [waitingForSignIn, setWaitingForSignInState] = useState<boolean>(() => pendingHandoff() !== null);
+  const setWaitingForSignIn = useCallback((waiting: boolean) => {
+    if (!waiting) clearHandoff();
+    setWaitingForSignInState(waiting && pendingHandoff() !== null);
+  }, []);
   // Good news goes away by itself after a few seconds; problems stay until closed
   useEffect(() => {
     if (notice?.tone !== 'success') return;
@@ -270,6 +290,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { data: { session: initialSession } } = await supabase.auth.getSession();
         if (isCancelled) return;
 
+        // Back from Google. Without a session here, the code reached a window
+        // that lacks its secret key: the iPhone's Safari window, not the app.
+        const callback = readSignInCallback(window.location.search);
+        if (callback) {
+          cleanSignInUrl();
+          const startedHere = callback.handoff !== null && pendingHandoff() === callback.handoff;
+          if (startedHere) {
+            // The code came back to the app itself (Android, computers)
+            clearHandoff();
+            setWaitingForSignInState(false);
+            if (!initialSession) setNotice({ tone: 'error', text: translate('signin.notFinished') });
+          } else if (!initialSession) {
+            const passed = await passSignInToApp(callback);
+            if (isCancelled) return;
+            if (passed) setSignInHandedOff(true);
+            else setNotice({ tone: 'error', text: translate('signin.notFinished') });
+          }
+        }
+
         setSession(initialSession);
 
         if (initialSession?.user) {
@@ -308,6 +347,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(newUser);
       if (event === 'SIGNED_IN' && loadedUserRef.current !== newUser.id) {
         loadedUserRef.current = newUser.id;
+        setIsLoading(true);
         setTimeout(() => {
           fetchProfileForUser(newUser, orgRef.current).finally(() => setIsLoading(false));
         }, 0);
@@ -319,6 +359,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       subscription.unsubscribe();
     };
   }, []);
+
+  // Signed in: ask the browser to keep this app's storage (and so the sign-in)
+  // even when the phone runs low on space
+  useEffect(() => {
+    if (user) navigator.storage?.persist?.().catch(() => {});
+  }, [user]);
+
+  // The Home Screen app picks up a sign-in finished in the Safari window: on
+  // return to the app and every few seconds while it is on screen
+  useEffect(() => {
+    if (user || !waitingForSignIn) return;
+    let stopped = false;
+    let busy = false;
+    const check = async () => {
+      if (stopped || busy || document.visibilityState !== 'visible') return;
+      const id = pendingHandoff();
+      if (!id) {
+        setWaitingForSignInState(false);
+        return;
+      }
+      busy = true;
+      try {
+        // Where the Safari window shares the app's storage, the sign-in is already here
+        const { data: { session: shared } } = await supabase.auth.getSession();
+        if (shared) {
+          clearHandoff();
+          window.location.reload();
+          return;
+        }
+        const result = await collectSignIn(id);
+        if (stopped || result === 'waiting') return;
+        setWaitingForSignInState(false);
+        if (result === 'failed') setNotice({ tone: 'error', text: translate('signin.notFinished') });
+      } catch {
+        // Offline for a moment: try again on the next check
+      } finally {
+        busy = false;
+      }
+    };
+    check();
+    const timer = setInterval(check, 2500);
+    document.addEventListener('visibilitychange', check);
+    window.addEventListener('focus', check);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', check);
+      window.removeEventListener('focus', check);
+    };
+  }, [user, waitingForSignIn]);
 
   // Consent counts only once the database has recorded it (and the consent log has a row)
   const giveConsent = async (): Promise<{ success: boolean; error?: string }> => {
@@ -340,7 +430,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await removeMyAvatarFiles(user.id);
     localStorage.removeItem('sadhana_active_role');
     loadedUserRef.current = null;
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: 'local' });
     setSession(null);
     setUser(null);
     setProfile(null);
@@ -358,7 +448,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // This phone stops getting this person's practice reminders
       await forgetRemindersOnThisPhone().catch(() => {});
     }
-    await supabase.auth.signOut();
+    // This device only: signing out on the computer never signs the phone out
+    await supabase.auth.signOut({ scope: 'local' });
     setSession(null);
     setUser(null);
     setProfile(null);
@@ -394,6 +485,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updateOrganisation,
         refreshEnrolment,
         joinBatch,
+        signInHandedOff,
+        waitingForSignIn,
+        setWaitingForSignIn,
       }}
     >
       {children}

@@ -1,11 +1,11 @@
 -- ============================================================================
--- Sadhana Mandala: verification (phases 4 to 18)
+-- Sadhana Mandala: verification (phases 4 to 19)
 --
 -- Run in the Supabase SQL editor after phase4_security.sql,
 -- phase5_programmes.sql, phase6_lms.sql, phase7_followups.sql,
 -- phase8_events.sql, phase9_crm.sql, phase11_checkins.sql, phase12_media.sql,
 -- phase13_roles.sql, phase14_safety.sql, phase15_performance.sql,
--- phase18_reminders.sql and seed_dummy_data.sql. It signs in as the fictional seed users one at a time
+-- phase18_reminders.sql, phase19_signin_handoff.sql and seed_dummy_data.sql. It signs in as the fictional seed users one at a time
 -- (by setting the same JWT claims Supabase sets for a real sign-in) and checks
 -- what each of them can see and change. Nothing is saved: every write attempt
 -- is rolled back immediately.
@@ -447,6 +447,24 @@ begin
   r := r || array['Student (Aarav)|register for a past event|false', v_txt];
 
   begin
+    perform public.register_for_event(v_ev_talk_next);
+    perform public.register_for_event(v_ev_talk_next);
+    select count(*)::text into v_txt from public.event_registrations where event_id = v_ev_talk_next and profile_id = auth.uid();
+    raise exception 'PROBE_DONE';
+  exception when others then if sqlerrm <> 'PROBE_DONE' then v_txt := 'error: ' || sqlerrm; end if; end;
+  r := r || array['Student (Aarav)|taps Register twice: one place|1', v_txt];
+
+  begin
+    perform public.register_for_event(v_ev_talk_next);
+    perform public.cancel_my_registration(v_ev_talk_next);
+    v_txt := (select status from public.event_registrations where event_id = v_ev_talk_next and profile_id = auth.uid());
+    v_txt := v_txt || ' -> ' || (public.register_for_event(v_ev_talk_next)->>'success');
+    v_txt := v_txt || ' -> ' || (select status from public.event_registrations where event_id = v_ev_talk_next and profile_id = auth.uid());
+    raise exception 'PROBE_DONE';
+  exception when others then if sqlerrm <> 'PROBE_DONE' then v_txt := 'error: ' || sqlerrm; end if; end;
+  r := r || array['Student (Aarav)|cancels the place, then registers again|cancelled -> true -> registered', v_txt];
+
+  begin
     v_txt := public.check_in_to_event('NOWCHECK')->>'success';
     raise exception 'PROBE_DONE';
   exception when others then if sqlerrm <> 'PROBE_DONE' then v_txt := 'error: ' || sqlerrm; end if; end;
@@ -790,6 +808,19 @@ begin
   r := r || array['Anonymous visitor|organisation name for the sign-in page|1', v_txt];
   v_txt := coalesce(public.batch_join_preview('autumn23')->>'batch_name', 'none');
   r := r || array['Anonymous visitor|batch QR shows the batch before sign-in|Autumn Awakening Cohort', v_txt];
+  -- Sign-in hand-over from the iPhone's Safari window to the Home Screen app (phase 19)
+  begin
+    perform public.put_auth_handoff('f9000000-0000-0000-0000-000000000001', 'verify-code', 'verify-flow');
+    perform public.put_auth_handoff('f9000000-0000-0000-0000-000000000001', 'attacker-code', null);
+    v_txt := coalesce(public.take_auth_handoff('f9000000-0000-0000-0000-000000000001')->>'code', 'none');
+    v_txt := v_txt || ', then ' || coalesce(public.take_auth_handoff('f9000000-0000-0000-0000-000000000001')->>'code', 'none');
+  exception when others then v_txt := 'error: ' || sqlerrm; end;
+  r := r || array['Anonymous visitor|sign-in hand-over: kept once, never overwritten|verify-code, then none', v_txt];
+  begin
+    select count(*) into v_n from public.auth_handoffs;
+    v_txt := 'readable';
+  exception when others then v_txt := 'blocked'; end;
+  r := r || array['Anonymous visitor|read the sign-in hand-overs table|blocked', v_txt];
   reset role;
 
   -- ------------------------------------------------------------------ Database rules (phase 14)
@@ -880,6 +911,11 @@ begin
   perform public.finish_reminder_send(v_org_a, 'morning', 1, array['https://fcm.googleapis.com/fcm/send/verify-student01']);
   select count(*) into v_n from public.push_subscriptions where endpoint like '%/verify-student01';
   r := r || array['Sender|phone that no longer exists is removed|0', v_n::text];
+
+  -- ------------------------------------------------------------------ Sign-in hand-over (phase 19)
+  insert into public.auth_handoffs (id, code, created_at) values ('f9000000-0000-0000-0000-000000000002', 'old-code', now() - interval '11 minutes');
+  v_txt := coalesce(public.take_auth_handoff('f9000000-0000-0000-0000-000000000002')->>'code', 'none');
+  r := r || array['Sign-in hand-over|code older than 10 minutes|none', v_txt];
 
   raise exception 'VERIFY_UNDO';
   exception when others then

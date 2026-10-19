@@ -12,7 +12,7 @@ Sadhana Mandala is a white-label web app (installable PWA) for a meditation orga
 | --- | --- |
 | Live site | https://sadhana.zyxenai.com (GitHub Pages, deploys on every push to `main` via `.github/workflows/pages.yml`) |
 | Repository | `annakhtoniv/sadhana-mandala` |
-| Working branch | `claude/gifted-lovelace-1qlelj` (restart it from `main` after each merged PR; the PM deletes it after merging) |
+| Working branch | `claude/charming-bardeen-dbau1g` (restart it from `main` after each merged PR; the PM deletes it after merging) |
 | Database | Supabase project `pshapxojprvgmwhdivim` (region ap-northeast-2, Seoul), free plan |
 | Organisations | Org A `sadhana-mandala` (the real one), Org B `prana-flow` (test second tenant) |
 | Real accounts | annakhtoniv@gmail.com (PM, admin); Shubham Ji blessedshubh@gmail.com (admin; teaches the real batch "Lotus"); the PM also has a real batch "AOS40" |
@@ -61,7 +61,8 @@ Postgres 16 on port 5499 with the Supabase roles and schema, PostgREST, and a sm
 
 ## 7. State right now
 
-- `main` = PR #23 merged (Phase 18 + test fix + public key from the Actions variable). Nothing open. Working branch equals `main`.
+- `main` = PR #24 merged (handover). Phase 19 (Events fixes + staying signed in on the iPhone Home Screen app) is in a draft PR on `claude/charming-bardeen-dbau1g`; after merging, run `phase19_signin_handoff.sql` and add the redirect URL (supabase/README.md step 18).
+- Sign-in (Phase 19): PKCE (`lib/supabase.ts`); `lib/signInHandoff.ts` hands a sign-in that finished in the iPhone's Safari window to the Home Screen app through `put_auth_handoff` / `take_auth_handoff`; sign-out is this device only (`scope: 'local'`). The auth logs showed the PM's 18 Oct 22:40 sign-in landed in Safari (user agent with `Safari/604.1`) and the app never used it.
 - Live on 2026-10-18: PR #20 (handover branch name), #21 (the site updates itself; phones that had an older version need two reloads once), #22 + #23 (daily reminders).
 - Phases 11 to 18: Morning/Evening ticks and trail halves, past-day fill-in, study materials, profile photos, multi-role, People page, data-safety rules, faster RLS, CI, error reports, offline ticks, shared Sheet, larger text, three languages, daily push reminders (Morning 06:00 and Evening 19:00 Dubai by default, to everyone in a running practice batch who turned them on, also if they already ticked).
 - Reminders are **built but not sending yet**. Done: tables and functions (live), Edge Function `send-reminders` deployed. Not done (checked 2026-10-19: pg_cron not installed, 0 phones, 0 sends): see open item 1.

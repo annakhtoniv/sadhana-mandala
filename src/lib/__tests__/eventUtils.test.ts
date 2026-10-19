@@ -6,7 +6,10 @@ import {
   eventEnd,
   eventTiming,
   placesLeft,
+  placesSummary,
   sortEvents,
+  timeZoneCity,
+  timeZoneOffset,
   validateEventInput,
   type EventInput,
 } from '../eventUtils';
@@ -125,5 +128,25 @@ describe('zonedInputToIso around daylight saving', () => {
     expect(isoToZonedInput(zonedInputToIso('2026-03-08T02:30', 'America/New_York') as string, 'America/New_York')).toBe('2026-03-08T03:30');
     // 01:30 happens twice on 1 November 2026; the first one is daylight time (UTC-4)
     expect(zonedInputToIso('2026-11-01T01:30', 'America/New_York')).toBe('2026-11-01T05:30:00.000Z');
+  });
+});
+
+describe('places and time zone wording', () => {
+  it('says open, some left, or full in one consistent way', () => {
+    expect(placesSummary(null, 10)).toEqual({ kind: 'open', taken: 10 });
+    expect(placesSummary(30, 8)).toEqual({ kind: 'left', left: 22, total: 30 });
+    expect(placesSummary(2, 2)).toEqual({ kind: 'full', total: 2 });
+    expect(placesSummary(2, 3)).toEqual({ kind: 'full', total: 2 });
+  });
+
+  it('names the city of the time zone in the reader\'s language', () => {
+    expect(timeZoneCity('Asia/Dubai', 'en')).toBe('Dubai');
+    expect(timeZoneCity('Asia/Dubai', 'ar')).toBe('دبي');
+    expect(timeZoneCity('America/New_York', 'hi')).toBe('New York');
+  });
+
+  it('gives the offset from GMT', () => {
+    expect(timeZoneOffset('Asia/Dubai', NOW)).toBe('GMT+4');
+    expect(timeZoneOffset('Not/AZone', NOW)).toBe('Not/AZone');
   });
 });

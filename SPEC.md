@@ -180,6 +180,22 @@ student.
 ### Events
 Intro talks, programme runs, satsangs and follow-up sessions: schedule,
 venue or online link, capacity, registration and attendance (QR check-in).
+- Places are said one way everywhere: "22 of 30 places left", "Full: all 30
+  places taken", or "10 registered · no limit". A full event says so where
+  the Register button would be.
+- A person's own status reads as their own ("You cancelled your place",
+  "You attended"); after cancelling they can "Register again".
+- Times name the organisation's city and offset ("Dubai time (GMT+4)").
+- The result of Register or Cancel appears on that event's card: green for
+  success, red for a problem. Buttons say which event they are for (screen
+  readers).
+
+### Staying signed in
+- Signing in once keeps a person signed in on that device until they sign
+  out. Signing out on one device never signs out the others.
+- On iPhone, Google sign-in from the Home Screen app opens in a Safari window;
+  the sign-in is handed over to the app (one-time code, picked up once, gone
+  after 10 minutes), so the app itself is signed in.
 
 ### CRM (for volunteers)
 - New role: volunteer (in addition to student, teacher, admin).
