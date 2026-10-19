@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { currentLocale } from '../i18n/locale';
+import { currentLang, currentLocale } from '../i18n/locale';
 import { useT, type MsgKey } from '../i18n';
 import { useAuth } from '../context/AuthContext';
 import { Sheet } from './Sheet';
@@ -9,7 +9,8 @@ import { LanguageChoices } from './LanguageSwitch';
 import { Avatar } from './Avatar';
 import { uploadAvatar, switchToGoogleAvatar } from '../lib/avatarService';
 import { rolesOf } from '../lib/roles';
-import { Camera, Loader2, Shield, CheckCircle2, LogOut, Trash2, Crown, GraduationCap, Languages } from 'lucide-react';
+import { timeZoneCity } from '../lib/eventUtils';
+import { Camera, Loader2, Shield, CheckCircle2, LogOut, Trash2, Crown, GraduationCap, Languages, ChevronDown } from 'lucide-react';
 
 interface ProfileScreenProps {
   onBack: () => void;
@@ -19,16 +20,16 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
   const { profile, user, organisation, role, setActiveRole, signOut, deleteAccount, refreshProfile } = useAuth();
   const t = useT();
   const [photoBusy, setPhotoBusy] = useState(false);
-  const [photoMessage, setPhotoMessage] = useState<string | null>(null);
+  const [photoMessage, setPhotoMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  const timeZone = organisation.timezone || 'Asia/Dubai';
   const formattedConsentDate = profile?.consent_at
-    ? new Date(profile.consent_at).toLocaleString(currentLocale(), {
-        timeZone: organisation.timezone || 'Asia/Dubai',
-        dateStyle: 'medium',
-        timeStyle: 'short',
+    ? t('profile.consentAt', {
+        when: new Date(profile.consent_at).toLocaleString(currentLocale(), { timeZone, dateStyle: 'medium', timeStyle: 'short' }),
+        city: timeZoneCity(timeZone, currentLang()),
       })
     : t('profile.consentNone');
   const roleNames = (profile ? rolesOf(profile) : [role]).map((r) => t(`role.${r}` as MsgKey)).join(', ');
@@ -72,8 +73,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
                   setPhotoMessage(null);
                   const res = await uploadAvatar(user.id, file);
                   setPhotoBusy(false);
-                  if (!res.success) setPhotoMessage(res.error || t('profile.uploadFailed'));
-                  else await refreshProfile();
+                  if (!res.success) setPhotoMessage({ ok: false, text: res.error || t('profile.uploadFailed') });
+                  else {
+                    await refreshProfile();
+                    setPhotoMessage({ ok: true, text: t('profile.photoSaved') });
+                  }
                 }}
               />
             </label>
@@ -90,8 +94,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
                   setPhotoBusy(true);
                   const res = await switchToGoogleAvatar(user.id);
                   setPhotoBusy(false);
-                  if (!res.success) setPhotoMessage(res.error || t('profile.switchFailed'));
-                  else await refreshProfile();
+                  if (!res.success) setPhotoMessage({ ok: false, text: res.error || t('profile.switchFailed') });
+                  else {
+                    await refreshProfile();
+                    setPhotoMessage({ ok: true, text: t('profile.photoSaved') });
+                  }
                 }}
                 className="mt-1 min-h-10 text-sm text-stone-700 underline cursor-pointer"
               >
@@ -101,8 +108,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
               <p className="mt-1 text-sm text-stone-600">{t('profile.photoHelp')}</p>
             )}
             {photoMessage && (
-              <p role="alert" className="mt-1 text-sm text-red-700">
-                {photoMessage}
+              <p role={photoMessage.ok ? 'status' : 'alert'} className={`mt-1 text-sm ${photoMessage.ok ? 'text-emerald-800' : 'text-red-700'}`}>
+                {photoMessage.text}
               </p>
             )}
           </div>
@@ -115,7 +122,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
           </div>
           <div className="p-3 bg-stone-50 rounded-xl">
             <dt className="text-sm text-stone-600">{t('profile.organisation')}</dt>
-            <dd className="text-base font-medium text-stone-900 mt-0.5 truncate">{organisation.name}</dd>
+            <dd className="text-base font-medium text-stone-900 mt-0.5 break-words">{organisation.name}</dd>
           </div>
         </dl>
 
@@ -175,10 +182,29 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
           </span>
           <span className="font-medium text-stone-900">{formattedConsentDate}</span>
         </div>
-        <p className="text-sm text-stone-600 leading-relaxed">{t('profile.privacyHelp')}</p>
+        <ul className="text-sm text-stone-700 leading-relaxed list-disc ps-5 space-y-1">
+          <li>{t('consent.name')}</li>
+          <li>{t('consent.ticks')}</li>
+          <li>{t('consent.more2')}</li>
+        </ul>
+        <details className="group">
+          <summary className="min-h-11 inline-flex items-center gap-1 text-sm font-semibold text-stone-800 underline cursor-pointer list-none">
+            {t('profile.privacyMore')}
+            <ChevronDown className="w-4 h-4 transition-transform group-open:rotate-180" aria-hidden="true" />
+          </summary>
+          <div className="text-sm text-stone-600 leading-relaxed space-y-2 pt-1">
+            <p>{t('consent.teacher')}</p>
+            <p>{t('consent.more1')}</p>
+          </div>
+        </details>
+        <p className="text-sm text-stone-700 leading-relaxed">
+          {t('profile.keepUntil')}
+          {organisation.support_email && ` ${t('profile.questions', { email: organisation.support_email })}`}
+        </p>
       </section>
 
       <section className="ui-card space-y-3">
+        <p className="text-sm text-stone-600">{t('profile.googleAccount', { email: user?.email || '' })}</p>
         <button type="button" onClick={signOut} className="ui-btn-ghost w-full">
           <LogOut className="w-4 h-4 rtl:rotate-180" />
           <span>{t('profile.signOut')}</span>

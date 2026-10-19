@@ -80,6 +80,8 @@ export interface Batch {
   teacher_id: string;
   name: string;
   start_date: string;
+  /** Last day of the batch (Phase 20); defaults from the programme's length */
+  end_date: string;
   join_code: string;
   created_at: string;
   // Joined relation fields for convenience

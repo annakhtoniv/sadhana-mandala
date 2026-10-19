@@ -103,3 +103,37 @@ export function sortEvents<T extends Pick<OrgEvent, 'starts_at' | 'ends_at'>>(ev
   const past = events.filter((e) => eventTiming(e, now) === 'past').sort((a, b) => b.starts_at.localeCompare(a.starts_at));
   return [...live, ...past];
 }
+
+export type PlacesSummary =
+  | { kind: 'open'; taken: number }
+  | { kind: 'left'; left: number; total: number }
+  | { kind: 'full'; total: number };
+
+/** One way to say how many places an event has: open to all, some left, or full. */
+export function placesSummary(capacity: number | null, taken: number): PlacesSummary {
+  if (capacity === null) return { kind: 'open', taken };
+  const left = placesLeft(capacity, taken)!;
+  return left === 0 ? { kind: 'full', total: capacity } : { kind: 'left', left, total: capacity };
+}
+
+// City names people read, for the organisation time zones in use
+const CITY_NAMES: Record<string, Record<string, string>> = {
+  'Asia/Dubai': { en: 'Dubai', ar: 'دبي', hi: 'दुबई' },
+};
+
+/** "Dubai" for Asia/Dubai: the city of a time zone, in the reader's language where known. */
+export function timeZoneCity(timeZone: string, lang: string): string {
+  return CITY_NAMES[timeZone]?.[lang] || CITY_NAMES[timeZone]?.en || (timeZone.split('/').pop() || timeZone).replace(/_/g, ' ');
+}
+
+/** "GMT+4" for Asia/Dubai (at the given moment, so summer time is right). */
+export function timeZoneOffset(timeZone: string, at: Date = new Date()): string {
+  try {
+    const part = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'shortOffset' })
+      .formatToParts(at)
+      .find((p) => p.type === 'timeZoneName');
+    return part?.value || timeZone;
+  } catch {
+    return timeZone;
+  }
+}

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { currentLocale } from '../i18n/locale';
+import { currentLang, currentLocale } from '../i18n/locale';
 import { hasRole } from '../lib/roles';
 import { useAuth } from '../context/AuthContext';
 import { Sheet, useConfirm } from './Sheet';
@@ -14,7 +14,15 @@ import {
   registerForEvent,
   saveEvent,
 } from '../lib/eventService';
-import { EVENT_KIND_LABEL, eventTiming, placesLeft, validateEventInput, type EventInput } from '../lib/eventUtils';
+import {
+  EVENT_KIND_LABEL,
+  eventTiming,
+  placesSummary,
+  timeZoneCity,
+  timeZoneOffset,
+  validateEventInput,
+  type EventInput,
+} from '../lib/eventUtils';
 import type { Course, EventKind, OrgEvent, RegistrationStatus } from '../types/database';
 import { EventManager } from './EventManager';
 import { CalendarDays, EyeOff, Globe, MapPin, PlusCircle, Users } from 'lucide-react';
@@ -60,7 +68,8 @@ export const EventsScreen: React.FC = () => {
   const [mine, setMine] = useState<Map<string, RegistrationStatus>>(new Map());
   const [courses, setCourses] = useState<Course[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  // The result of the last tap, shown on that event's card (eventId null: above the list)
+  const [message, setMessage] = useState<{ eventId: string | null; ok: boolean; text: string } | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [showPast, setShowPast] = useState(false);
   const [managing, setManaging] = useState<OrgEvent | null>(null);
@@ -99,7 +108,11 @@ export const EventsScreen: React.FC = () => {
     setMessage(null);
     const res = await registerForEvent(e.id);
     setBusyId(null);
-    setMessage(res.success ? t('events.registered', { title: e.title }) : res.message || t('events.registerFailed'));
+    setMessage({
+      eventId: e.id,
+      ok: res.success,
+      text: res.success ? t('events.registered', { title: e.title }) : res.message || t('events.registerFailed'),
+    });
     await load();
   };
 
@@ -108,7 +121,11 @@ export const EventsScreen: React.FC = () => {
     setMessage(null);
     const res = await cancelMyRegistration(e.id);
     setBusyId(null);
-    setMessage(res.success ? t('events.cancelled', { title: e.title }) : res.message || t('events.cancelFailed'));
+    setMessage({
+      eventId: e.id,
+      ok: res.success,
+      text: res.success ? t('events.cancelled', { title: e.title }) : res.message || t('events.cancelFailed'),
+    });
     await load();
   };
 
@@ -155,23 +172,32 @@ export const EventsScreen: React.FC = () => {
   const handleDelete = async (e: OrgEvent) => {
     if (!(await confirm({ title: `Delete "${e.title}"?`, message: 'All its registrations are deleted too.', confirmLabel: 'Delete', danger: true }))) return;
     const res = await deleteEvent(e.id);
-    setMessage(res.success ? `Deleted "${e.title}".` : `Could not delete: ${res.error}`);
+    setMessage({ eventId: null, ok: res.success, text: res.success ? `Deleted "${e.title}".` : `Could not delete: ${res.error}` });
     setManaging(null);
     await load();
   };
 
   const update = (patch: Partial<EventInput>) => setEditing((prev) => (prev ? { ...prev, ...patch } : prev));
 
+  const city = timeZoneCity(organisation.timezone, currentLang());
+
+  const messageBox = (m: { ok: boolean; text: string }) => (
+    <div role={m.ok ? 'status' : 'alert'} className={`p-3 rounded-xl text-sm ${m.ok ? 'bg-emerald-50 text-emerald-900' : 'bg-red-50 text-red-700'}`}>
+      {m.text}
+    </div>
+  );
+
   const eventCard = (e: OrgEvent) => {
     const timing = eventTiming(e, now);
-    const left = placesLeft(e.capacity, taken.get(e.id) || 0);
+    const places = placesSummary(e.capacity, taken.get(e.id) || 0);
     const status = mine.get(e.id);
     const holding = status === 'registered' || status === 'attended';
+    const canRegister = timing !== 'past' && e.published && status !== 'registered' && status !== 'attended';
     const { day, month } = dayBlock(e.starts_at, organisation.timezone);
     return (
       <div key={e.id} className={`ui-card !p-4 space-y-3 ${timing === 'past' ? 'opacity-70' : ''}`}>
         <div className="flex gap-3">
-          <div className="w-14 shrink-0 rounded-xl bg-emerald-50 text-center py-1.5">
+          <div aria-hidden="true" className="w-14 shrink-0 self-start rounded-xl bg-emerald-50 text-center py-1.5">
             <div className="text-lg font-bold leading-none text-emerald-700">{day}</div>
             <div className="text-sm uppercase text-emerald-800">{month}</div>
           </div>
@@ -179,6 +205,9 @@ export const EventsScreen: React.FC = () => {
             <div className="flex items-center gap-1.5 flex-wrap text-xs font-semibold uppercase tracking-wide text-stone-600">
               <span>{t(`events.kind.${e.kind}` as MsgKey)}</span>
               {timing === 'ongoing' && <span className="px-1.5 py-0.5 rounded-full bg-emerald-600 text-white normal-case tracking-normal">{t('events.now')}</span>}
+              {status && status !== 'registered' && (
+                <span className="px-1.5 py-0.5 rounded-full bg-stone-100 text-stone-700 normal-case tracking-normal">{t(`events.status.${status}` as MsgKey)}</span>
+              )}
               {!e.published && (
                 <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-stone-200 normal-case tracking-normal">
                   <EyeOff className="w-3 h-3" /> {t('events.draft')}
@@ -186,9 +215,11 @@ export const EventsScreen: React.FC = () => {
               )}
             </div>
             <div className="text-base font-semibold text-stone-900 user-text">{e.title}</div>
-            <div className="text-sm text-stone-700">{formatEventDate(e.starts_at, organisation.timezone)}</div>
+            <div className="text-sm text-stone-700">
+              {t('events.cardTime', { time: formatEventDate(e.starts_at, organisation.timezone), city })}
+            </div>
             {e.venue && (
-              <div className="inline-flex items-center gap-1 text-sm text-stone-600 me-3"><MapPin className="w-3.5 h-3.5" /><span className="user-text">{e.venue}</span></div>
+              <div className="inline-flex items-start gap-1 text-sm text-stone-600 me-3"><MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0" aria-hidden="true" /><span className="user-text">{e.venue}</span></div>
             )}
             {e.online_url && (
               <div className="inline-flex items-center gap-1 text-sm text-stone-600">
@@ -202,39 +233,50 @@ export const EventsScreen: React.FC = () => {
             )}
           </div>
         </div>
-        {e.description && <p className="text-sm text-stone-700 user-text">{e.description}</p>}
-        <div className="flex items-center justify-between gap-2">
-          <span className="inline-flex items-center gap-1 text-sm text-stone-600">
-            <Users className="w-4 h-4" />
-            {left === null ? t('events.registeredCount', { n: taken.get(e.id) || 0 }) : left === 0 ? t('events.full') : left === 1 ? t('events.oneLeft') : t('events.placesLeft', { n: left })}
-          </span>
-          <div className="flex items-center gap-2">
-            {status && status !== 'registered' && (
-              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-stone-100 text-stone-700">
-                {t(`events.status.${status}` as MsgKey)}
-              </span>
-            )}
-            {isStaff && (
-              <button type="button" onClick={() => setManaging(e)} className="ui-btn-ghost !min-h-10 !py-2 !px-4">
-                {t('events.manage')}
-              </button>
-            )}
-            {timing !== 'past' && e.published && (
-              status === 'registered' ? (
-                <button type="button" disabled={busyId === e.id} onClick={() => cancel(e)} className="ui-btn-ghost !min-h-10 !py-2 !px-4">
+        {/* Description on the left; places and the action stacked on the right, side by side */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            {e.description && <p className="text-sm text-stone-700 user-text">{e.description}</p>}
+          </div>
+          <div className="shrink-0 max-w-[55%] flex flex-col items-end gap-1.5 text-end">
+            <span className={`inline-flex items-start gap-1 text-sm ${places.kind === 'full' ? 'font-semibold text-stone-800' : 'text-stone-600'}`}>
+              <Users className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
+              {places.kind === 'open'
+                ? t('events.openCount', { n: places.taken })
+                : places.kind === 'full'
+                  ? t('events.fullOf', { total: places.total })
+                  : t('events.placesOf', { left: places.left, total: places.total })}
+            </span>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {isStaff && (
+                <button type="button" onClick={() => setManaging(e)} aria-label={t('events.manageFor', { title: e.title })} className="ui-btn-ghost !min-h-10 !py-2 !px-4">
+                  {t('events.manage')}
+                </button>
+              )}
+              {timing !== 'past' && e.published && status === 'registered' && (
+                <button type="button" disabled={busyId === e.id} onClick={() => cancel(e)} aria-label={t('events.cancelPlaceFor', { title: e.title })} className="ui-btn-ghost !min-h-10 !py-2 !px-4">
                   {t('events.cancelPlace')}
                 </button>
-              ) : status !== 'attended' && left !== 0 ? (
-                <button type="button" disabled={busyId === e.id} onClick={() => register(e)} className="ui-btn-primary !min-h-10 !py-2 !px-4">
-                  {busyId === e.id ? t('events.registering') : t('events.register')}
+              )}
+              {canRegister && places.kind !== 'full' && (
+                <button
+                  type="button"
+                  disabled={busyId === e.id}
+                  onClick={() => register(e)}
+                  aria-label={t(status ? 'events.registerAgainFor' : 'events.registerFor', { title: e.title })}
+                  className="ui-btn-primary !min-h-10 !py-2 !px-4"
+                >
+                  {busyId === e.id ? t('events.registering') : status ? t('events.registerAgain') : t('events.register')}
                 </button>
-              ) : null
-            )}
+              )}
+            </div>
+            {canRegister && places.kind === 'full' && <p className="text-sm text-stone-700">{t('events.fullNote')}</p>}
           </div>
         </div>
         {status === 'registered' && timing !== 'past' && (
           <p className="text-sm text-emerald-800">{t('events.registeredHelp')}</p>
         )}
+        {message?.eventId === e.id && messageBox(message)}
       </div>
     );
   };
@@ -339,7 +381,7 @@ export const EventsScreen: React.FC = () => {
           <CalendarDays className="w-3.5 h-3.5" /> {t('nav.events')}
         </span>
         <h1 className="font-display text-2xl font-semibold text-stone-950 mt-2">{t('events.comingUp', { count: coming.length })}</h1>
-        <p className="text-base text-stone-600">{t('events.subtitle', { tz: organisation.timezone })}</p>
+        <p className="text-base text-stone-600">{t('events.subtitle', { city, offset: timeZoneOffset(organisation.timezone) })}</p>
         {isStaff && (
           <button type="button" onClick={openNew} className="ui-btn-primary w-full mt-2">
             <PlusCircle className="w-4 h-4" />
@@ -348,7 +390,7 @@ export const EventsScreen: React.FC = () => {
         )}
       </section>
 
-      {message && <div role="status" className="p-3 rounded-xl bg-emerald-50 text-sm text-emerald-900">{message}</div>}
+      {message && message.eventId === null && messageBox(message)}
       {loadError && <div role="alert" className="p-3 rounded-xl bg-red-50 text-sm text-red-700">{t('events.loadFailed')}: {loadError}</div>}
 
       {coming.length === 0 && !loadError && <p className="text-base text-stone-600 text-center">{t('events.none')}</p>}

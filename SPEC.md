@@ -180,6 +180,41 @@ student.
 ### Events
 Intro talks, programme runs, satsangs and follow-up sessions: schedule,
 venue or online link, capacity, registration and attendance (QR check-in).
+- Places are said one way everywhere: "22 of 30 places left", "Full: all 30
+  places taken", or "10 registered · no limit". A full event says so where
+  the Register button would be.
+- A person's own status reads as their own ("You cancelled your place",
+  "You attended"); after cancelling they can "Register again".
+- Times name the organisation's city and offset ("Dubai time (GMT+4)").
+- The result of Register or Cancel appears on that event's card: green for
+  success, red for a problem. Buttons say which event they are for (screen
+  readers).
+
+### Batch dates
+- Every batch has a first and a last day. The last day defaults to the
+  programme's length (daily practice, else the programme itself) and can be
+  changed in the batch editor; it is never before the first day.
+
+### Practice screen colours
+- Morning done: soft yellow (#FFF0C2) with dark text (#6B4A00); Evening done:
+  soft purple (#E9E7FF) with dark text (#302777). Each done tile also has a
+  coloured edge, a filled tick and the word "Done".
+- The week strip shows that week's count; the overall "So far: x of y days
+  practised" sits under the flame.
+
+### Profile
+- Privacy shows what is kept, who sees it, that it is kept until the account
+  is deleted, and that deleting the account withdraws consent. The consent
+  time names the organisation's time zone.
+- Reminders card: "not switched on yet" while the organisation has not set
+  reminders up; "this browser cannot" only for browsers without push.
+
+### Staying signed in
+- Signing in once keeps a person signed in on that device until they sign
+  out. Signing out on one device never signs out the others.
+- On iPhone, Google sign-in from the Home Screen app opens in a Safari window;
+  the sign-in is handed over to the app (one-time code, picked up once, gone
+  after 10 minutes), so the app itself is signed in.
 
 ### CRM (for volunteers)
 - New role: volunteer (in addition to student, teacher, admin).

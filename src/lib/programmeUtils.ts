@@ -1,5 +1,5 @@
 import type { Course, Enrolment } from '../types/database';
-import { calculateDayNumber } from './dateUtils';
+import { addDays, calculateDayNumber } from './dateUtils';
 
 /**
  * Whether a programme has a daily practice track (check-ins, streak, trail).
@@ -109,4 +109,15 @@ export function sortProgrammes(courses: Course[]): Course[] {
   return [...courses].sort(
     (a, b) => (a.sort_order ?? 100) - (b.sort_order ?? 100) || a.name.localeCompare(b.name)
   );
+}
+
+/**
+ * The usual last day of a batch (same rule as the database, Phase 20): the
+ * last day of the daily practice, else of the programme itself, else the
+ * start date.
+ */
+export function defaultBatchEndDate(course: Course | null | undefined, startDate: string): string {
+  if (!startDate) return '';
+  const days = (hasPracticeTrack(course) ? course?.duration_days : course?.programme_days) || 1;
+  return addDays(startDate, Math.max(1, days) - 1);
 }

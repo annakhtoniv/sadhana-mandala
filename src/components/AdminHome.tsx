@@ -22,6 +22,7 @@ import {
 import {
   getTodayInTimezone,
 } from '../lib/dateUtils';
+import { defaultBatchEndDate } from '../lib/programmeUtils';
 import type { Profile, RoleGrant, UserRole, Course, Batch } from '../types/database';
 import {
   UserPlus,
@@ -74,6 +75,8 @@ export const AdminHome: React.FC = () => {
   const [batchCourseId, setBatchCourseId] = useState('');
   const [batchName, setBatchName] = useState('');
   const [batchStartDate, setBatchStartDate] = useState('');
+  // Empty: the programme's usual last day (Phase 20)
+  const [batchEndDate, setBatchEndDate] = useState('');
   const [batchTeacherId, setBatchTeacherId] = useState('');
   const [batchError, setBatchError] = useState<string | null>(null);
   const [isCreatingBatch, setIsCreatingBatch] = useState(false);
@@ -230,12 +233,14 @@ export const AdminHome: React.FC = () => {
       teacherId: teacherIdToUse,
       name: batchName.trim(),
       startDate: startDateToUse,
+      endDate: batchEndDate || defaultBatchEndDate(courses.find((c) => c.id === courseIdToUse), startDateToUse),
     });
 
     if (result.success && result.data) {
       const newBatch = result.data;
       setShowBatchModal(false);
       setBatchName('');
+      setBatchEndDate('');
       // Optimistically prepend to all batches
       setAllBatches((prev) => [newBatch, ...prev.filter((b) => b.id !== newBatch.id)]);
       setActiveTab('batches');
@@ -723,17 +728,32 @@ export const AdminHome: React.FC = () => {
                 ))}
             </select>
           </div>
-          <div>
-            <label className="ui-label" htmlFor="acb-start">First day</label>
-            <input
-              id="acb-start"
-              type="date"
-              required
-              value={batchStartDate}
-              onChange={(e) => setBatchStartDate(e.target.value)}
-              className="ui-input cursor-pointer"
-            />
+          <div className="grid grid-cols-2 gap-2.5">
+            <div>
+              <label className="ui-label" htmlFor="acb-start">First day</label>
+              <input
+                id="acb-start"
+                type="date"
+                required
+                value={batchStartDate}
+                onChange={(e) => setBatchStartDate(e.target.value)}
+                className="ui-input cursor-pointer"
+              />
+            </div>
+            <div>
+              <label className="ui-label" htmlFor="acb-end">Last day</label>
+              <input
+                id="acb-end"
+                type="date"
+                required
+                min={batchStartDate}
+                value={batchEndDate || defaultBatchEndDate(courses.find((c) => c.id === (batchCourseId || courses[0]?.id)), batchStartDate)}
+                onChange={(e) => setBatchEndDate(e.target.value)}
+                className="ui-input cursor-pointer"
+              />
+            </div>
           </div>
+          <p className="text-xs text-stone-500 -mt-1">The last day follows the programme's length; change it if this batch is different.</p>
           {batchError && (
             <p role="alert" className="text-sm text-red-700">
               {batchError}

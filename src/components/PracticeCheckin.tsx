@@ -76,6 +76,11 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
   const byDay = useMemo(() => new Map(checkins.map((c) => [c.day_number, c])), [checkins]);
   const streak = calculateStreak(checkins, todayDay, durationDays);
   const practised = countPractisedDays(checkins, lastOpenDay);
+  // The week on the trail, and how many of its open days were practised
+  const weekStart = Math.floor((Math.min(Math.max(todayDay, 1), durationDays) - 1) / 7) * 7 + 1;
+  const weekLastOpen = Math.min(weekStart + 6, lastOpenDay);
+  const weekOpenDays = Math.max(0, weekLastOpen - weekStart + 1);
+  const weekPractised = weekOpenDays ? countPractisedDays(checkins, weekLastOpen) - countPractisedDays(checkins, weekStart - 1) : 0;
   const selected = byDay.get(selectedDay);
   const morning = hasMorning(selected);
   const evening = hasEvening(selected);
@@ -132,8 +137,8 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
         className={`relative flex-1 rounded-[1.25rem] p-4 text-start transition-all active:scale-[0.98] disabled:opacity-60 cursor-pointer ${
           on
             ? slot === 'morning'
-              ? 'bg-amber-400 text-stone-950 shadow-[0_14px_30px_-14px_rgba(245,158,11,0.9)]'
-              : 'bg-indigo-600 text-white shadow-[0_14px_30px_-14px_rgba(79,70,229,0.9)]'
+              ? 'bg-[#FFF0C2] text-[#6B4A00] ring-2 ring-[#B07D00]'
+              : 'bg-[#E9E7FF] text-[#302777] ring-2 ring-[#6E63D9]'
             : 'bg-stone-900/[0.03] text-stone-700 ring-1 ring-stone-900/[0.07] hover:bg-stone-900/[0.05]'
         }`}
       >
@@ -141,14 +146,14 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
           <Icon className="w-5 h-5" />
           <span
             className={`w-6 h-6 rounded-full flex items-center justify-center transition-all ${
-              on ? 'bg-white/90 text-stone-900 scale-100' : 'ring-1 ring-stone-900/15 scale-90'
+              on ? `${slot === 'morning' ? 'bg-[#6B4A00]' : 'bg-[#302777]'} text-white scale-100` : 'ring-1 ring-stone-900/15 scale-90'
             }`}
           >
             {saving === slot ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : on ? <Check className="w-3.5 h-3.5" /> : null}
           </span>
         </div>
-        <div className="mt-5 text-base font-semibold">{slot === 'morning' ? t('checkin.morning') : t('checkin.evening')}</div>
-        <div className={`text-sm ${on ? 'opacity-90' : 'text-stone-600'}`}>{on ? t('checkin.done') : t('checkin.tapWhenDone')}</div>
+        <div className="mt-3 text-base font-semibold">{slot === 'morning' ? t('checkin.morning') : t('checkin.evening')}</div>
+        <div className={`text-sm ${on ? 'font-medium' : 'text-stone-600'}`}>{on ? t('checkin.done') : t('checkin.tapWhenDone')}</div>
       </button>
     );
   };
@@ -232,6 +237,9 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
             <div className="font-display text-2xl font-semibold text-stone-950 leading-none">
               {streak} <span className="text-base font-medium text-stone-500">{streak === 1 ? t('checkin.dayInRow') : t('checkin.daysInRow')}</span>
             </div>
+            <p className="text-sm font-medium text-stone-800 mt-1.5 tabular-nums">
+              {t('checkin.soFar', { done: practised, total: Math.max(0, lastOpenDay) })}
+            </p>
             <p className="text-sm text-stone-600 mt-1">
               {t('checkin.flameHelp')}
             </p>
@@ -240,15 +248,14 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
 
         <div className="flex items-center justify-between text-sm">
           <span className="font-semibold text-stone-900">{showAllDays ? t('checkin.allDays', { total: durationDays }) : t('checkin.thisWeek')}</span>
-          <span className="text-stone-600 tabular-nums">
-            {t('checkin.practisedOf', { done: practised, total: Math.max(0, lastOpenDay) })}
-          </span>
+          {!showAllDays && (
+            <span className="text-stone-600 tabular-nums">{t('checkin.weekCount', { done: weekPractised, total: weekOpenDays })}</span>
+          )}
         </div>
 
         <div id="tour-practice-trail" className="grid grid-cols-7 gap-1.5">
           {Array.from({ length: durationDays }).map((_, idx) => {
             const day = idx + 1;
-            const weekStart = Math.floor((Math.min(Math.max(todayDay, 1), durationDays) - 1) / 7) * 7 + 1;
             if (!showAllDays && (day < weekStart || day > weekStart + 6)) return null;
             const status = getTrailDayStatus(day, todayDay, byDay.get(day));
             const open = day <= lastOpenDay;
@@ -298,8 +305,8 @@ export const PracticeCheckin: React.FC<PracticeCheckinProps> = ({
 
         <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-sm text-stone-600">
           <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-emerald-500" /> {t('checkin.legendBoth')}</span>
-          <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full ring-1 ring-emerald-500/40 bg-[linear-gradient(to_bottom,#34d399_50%,#ecfdf5_50%)]" /> {t('checkin.morning')}</span>
-          <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full ring-1 ring-emerald-500/40 bg-[linear-gradient(to_top,#34d399_50%,#ecfdf5_50%)]" /> {t('checkin.evening')}</span>
+          <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full ring-1 ring-emerald-500/40 bg-[linear-gradient(to_bottom,#34d399_50%,#ecfdf5_50%)]" /> {t('checkin.legendMorningOnly')}</span>
+          <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full ring-1 ring-emerald-500/40 bg-[linear-gradient(to_top,#34d399_50%,#ecfdf5_50%)]" /> {t('checkin.legendEveningOnly')}</span>
           <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-white ring-1 ring-stone-900/15" /> {t('checkin.legendMissed')}</span>
           <span className="flex items-center gap-1.5"><History className="w-3 h-3" /> {t('checkin.legendLate')}</span>
         </div>

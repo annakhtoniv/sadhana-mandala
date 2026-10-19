@@ -22,10 +22,18 @@ export function batchJoinUrl(joinCode: string, origin: string): string {
   return `${origin.replace(/\/+$/, '')}/?code=${encodeURIComponent(cleanCode(joinCode))}`;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Google sign-in also returns with ?code=, but its code is a UUID; a batch join code never is. */
+export function isAuthCode(value: string | null): boolean {
+  return !!value && UUID_RE.test(value);
+}
+
 /** The batch join code and event check-in code in a URL query string, if any. */
 export function readLinkParams(search: string): { joinCode: string | null; eventCode: string | null } {
   const params = new URLSearchParams(search);
-  const join = params.get('code') || params.get('join');
+  const code = params.get('code');
+  const join = (isAuthCode(code) ? null : code) || params.get('join');
   const event = params.get('event');
   return {
     joinCode: join && cleanCode(join) ? cleanCode(join) : null,

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Languages } from 'lucide-react';
+import { Check, Languages } from 'lucide-react';
 import { LANGS, useI18n } from '../i18n';
 import { Sheet } from './Sheet';
 
@@ -19,10 +19,12 @@ export const LanguageChoices: React.FC<{ onPicked?: () => void }> = ({ onPicked 
             setLang(l.code);
             onPicked?.();
           }}
-          className={`min-h-12 px-2 rounded-2xl text-base font-semibold cursor-pointer ring-1 transition-colors ${
+          className={`min-h-12 px-2 rounded-2xl text-base font-semibold cursor-pointer ring-1 transition-colors inline-flex items-center justify-center gap-1.5 ${
             lang === l.code ? 'bg-stone-900 text-white ring-stone-900' : 'bg-white text-stone-800 ring-stone-300 hover:bg-stone-50'
           }`}
         >
+          {/* The tick shows the chosen language without relying on colour */}
+          {lang === l.code && <Check className="w-4 h-4 shrink-0" aria-hidden="true" />}
           {l.name}
         </button>
       ))}

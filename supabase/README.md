@@ -32,6 +32,12 @@ once. `verify.sql` must end with every row saying PASS.
     `VITE_VAPID_PUBLIC_KEY`, then publish the site again. The private key is
     never put in the repository or in a chat.
 17. `phase18_schedule.sql` (starts the sender every 5 minutes; live project only)
+18. `phase19_signin_handoff.sql` (the iPhone Home Screen app stays signed in),
+    then `verify.sql` again. Also in Supabase > Authentication > URL
+    Configuration > Redirect URLs, add `https://sadhana.zyxenai.com/**` (the
+    sign-in now returns to the site with a hand-over id in the address).
+19. `phase20_batch_end_date.sql` (every batch gets an end date from its
+    programme's length; batches that have one keep it), then `verify.sql`.
 
 ## Automatic checks (GitHub)
 

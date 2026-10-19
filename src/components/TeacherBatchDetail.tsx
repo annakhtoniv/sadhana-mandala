@@ -3,7 +3,7 @@ import { currentLocale } from '../i18n/locale';
 import { fetchBatchEnrolments, fetchBatchInvites, addBatchInvites } from '../lib/batchService';
 import { fetchBatchCheckins, calculateStreak, isStudentQuiet } from '../lib/checkinService';
 import { hasEvening, hasMorning, isPractised } from '../lib/practiceUtils';
-import { formatDateDisplay, calculateDayNumber } from '../lib/dateUtils';
+import { formatDateDisplay, formatDateRange, calculateDayNumber } from '../lib/dateUtils';
 import { hasPracticeTrack, programmeRunStatus, RUN_STATUS_LABEL } from '../lib/programmeUtils';
 import { fetchProgrammeModules, fetchStudentsLessonProgress } from '../lib/lmsService';
 import { BatchFollowups } from './BatchFollowups';
@@ -263,8 +263,8 @@ export const TeacherBatchDetail: React.FC<TeacherBatchDetailProps> = ({
             <span className="ui-eyebrow">{batch.course?.name || 'Programme'}</span>
             <h1 className="font-display text-2xl font-semibold text-stone-950 mt-3 user-text">{batch.name}</h1>
             <p className="text-sm text-stone-600 mt-1">
-              {hasStarted ? 'Started' : 'Starts'} {formatDateDisplay(batch.start_date, organisation.timezone)}
-              {practice ? ` · ${durationDays} days` : ''}
+              {formatDateRange(batch.start_date, batch.end_date, organisation.timezone)}
+              {practice ? ` · ${durationDays}-day practice` : ''}
             </p>
           </div>
           <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 text-xs font-semibold shrink-0">{statusLabel}</span>

@@ -11,10 +11,11 @@ import { GuidedTour } from './components/GuidedTour';
 import { ConfirmProvider } from './components/Sheet';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { clearPending, peekPending, PENDING_JOIN_KEY } from './lib/joinLink';
+import { pendingHandoff, signInRedirect } from './lib/signInHandoff';
 import { fetchBatchJoinPreview } from './lib/batchService';
 import { formatDateDisplay } from './lib/dateUtils';
 import type { BatchJoinPreview } from './types/database';
-import { AlertCircle, Loader2, ArrowUpRight, Flame, BookOpen, CalendarDays, HeartHandshake, QrCode } from 'lucide-react';
+import { AlertCircle, Loader2, ArrowUpRight, Flame, BookOpen, CalendarDays, HeartHandshake, QrCode, CheckCircle2 } from 'lucide-react';
 import { BrandMark } from './components/BrandMark';
 import { LanguageButton } from './components/LanguageSwitch';
 import { LanguageProvider, translate, useT } from './i18n';
@@ -65,7 +66,7 @@ function Toast() {
 }
 
 function MainApp() {
-  const { user, profile, activeRole, setActiveRole, hasConsent, isLoading, organisation } = useAuth();
+  const { user, profile, activeRole, setActiveRole, hasConsent, isLoading, organisation, signInHandedOff, waitingForSignIn, setWaitingForSignIn } = useAuth();
   const t = useT();
   const [currentTab, setCurrentTab] = useState<Tab>('home');
   // Volunteers come here for their leads: open on Leads once after sign-in
@@ -108,10 +109,13 @@ function MainApp() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin,
+          // The Home Screen app adds a hand-over id (lib/signInHandoff.ts)
+          redirectTo: signInRedirect(window.location.origin),
         },
       });
       if (error) throw error;
+      // On iPhone, Google opens in a Safari window over the app: wait for the sign-in from there
+      if (pendingHandoff()) setWaitingForSignIn(true);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : t('signin.failed');
       setAuthError(msg);
@@ -128,6 +132,19 @@ function MainApp() {
         <span className="text-sm tracking-wide flex items-center gap-2">
           <Loader2 className="w-4 h-4 animate-spin" /> {t('app.opening', { app: organisation.app_name })}
         </span>
+      </div>
+    );
+  }
+
+  // This is the iPhone's Safari window and the sign-in went to the Home Screen app
+  if (!user && signInHandedOff) {
+    return (
+      <div className="flex flex-col min-h-[100dvh] items-center justify-center px-4 text-stone-900">
+        <section role="status" className="ui-card w-full max-w-md text-center space-y-4 animate-fade-up">
+          <CheckCircle2 className="w-12 h-12 mx-auto text-emerald-600" />
+          <h1 className="font-display text-2xl font-semibold text-stone-950">{t('signin.handedOffTitle')}</h1>
+          <p className="text-base text-stone-700">{t('signin.handedOffText', { app: organisation.app_name })}</p>
+        </section>
       </div>
     );
   }
@@ -233,6 +250,17 @@ function MainApp() {
               </span>
             </button>
             <p className="text-center text-sm text-stone-600">{t('signin.noPassword')}</p>
+            {waitingForSignIn && (
+              <div role="status" className="p-3 bg-emerald-50 rounded-2xl text-sm text-emerald-900 space-y-2">
+                <p className="flex items-start gap-2">
+                  <Loader2 className="w-4 h-4 mt-0.5 shrink-0 animate-spin" />
+                  <span>{t('signin.waiting')}</span>
+                </p>
+                <button type="button" onClick={() => setWaitingForSignIn(false)} className="min-h-11 px-1 text-sm font-semibold underline cursor-pointer">
+                  {t('signin.startAgain')}
+                </button>
+              </div>
+            )}
             {authError && (
               <div role="alert" className="p-3 bg-red-50 rounded-2xl text-sm text-red-700 flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />

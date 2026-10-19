@@ -8,6 +8,7 @@ import {
   sortProgrammes,
   type ProgrammeInput,
 } from '../programmeUtils';
+import { defaultBatchEndDate } from '../programmeUtils';
 import type { Course, Enrolment } from '../../types/database';
 
 const course = (over: Partial<Course> = {}): Course => ({
@@ -34,6 +35,7 @@ const enrolment = (id: string, joinedAt: string, startDate: string, c: Course): 
     teacher_id: 't1',
     name: `Batch ${id}`,
     start_date: startDate,
+    end_date: startDate,
     join_code: id.toUpperCase(),
     created_at: joinedAt,
     course: c,
@@ -174,5 +176,15 @@ describe('sortProgrammes', () => {
       course({ id: 'a', name: 'A', sort_order: 20 }),
     ]);
     expect(sorted.map((c) => c.id)).toEqual(['z', 'a', 'b']);
+  });
+});
+
+describe('batch end dates (Phase 20)', () => {
+  it('follows the practice length, else the programme length, else one day', () => {
+    const base = { id: 'c', org_id: 'o', name: 'P', description: null, created_at: '' };
+    expect(defaultBatchEndDate({ ...base, duration_days: 40, has_practice_track: true, programme_days: 3 }, '2026-09-26')).toBe('2026-11-04');
+    expect(defaultBatchEndDate({ ...base, duration_days: 40, has_practice_track: false, programme_days: 4 }, '2026-10-17')).toBe('2026-10-20');
+    expect(defaultBatchEndDate({ ...base, duration_days: 40, has_practice_track: false, programme_days: null }, '2026-10-17')).toBe('2026-10-17');
+    expect(defaultBatchEndDate(null, '')).toBe('');
   });
 });

@@ -29,6 +29,7 @@ const BATCH_SELECT = `
   teacher_id,
   name,
   start_date,
+  end_date,
   join_code,
   created_at,
   course:courses(*),
@@ -135,9 +136,12 @@ export async function createBatch(params: {
   teacherId: string;
   name: string;
   startDate: string;
+  /** Empty: the database uses the programme's usual length */
+  endDate?: string;
 }): Promise<{ success: boolean; data?: Batch; error?: string }> {
   let joinCode = generateJoinCode();
   const startDate = params.startDate || new Date().toISOString().split('T')[0];
+  if (params.endDate && params.endDate < startDate) return { success: false, error: 'The last day cannot be before the first day.' };
 
   if (!params.orgId || !params.courseId || !params.teacherId) {
     return { success: false, error: 'Please choose a course before creating a batch.' };
@@ -152,6 +156,7 @@ export async function createBatch(params: {
         teacher_id: params.teacherId,
         name: params.name,
         start_date: startDate,
+        ...(params.endDate ? { end_date: params.endDate } : {}),
         join_code: joinCode,
       })
       .select(BATCH_SELECT)
@@ -174,12 +179,14 @@ export async function createBatch(params: {
  */
 export async function updateBatch(
   batchId: string,
-  changes: { name: string; courseId: string; teacherId: string; startDate: string; joinCode: string }
+  changes: { name: string; courseId: string; teacherId: string; startDate: string; endDate: string; joinCode: string }
 ): Promise<{ success: boolean; data?: Batch; error?: string }> {
   const joinCode = changes.joinCode.trim().toUpperCase();
   if (!changes.name.trim()) return { success: false, error: 'Please enter a batch name.' };
   if (!isValidJoinCode(joinCode)) return { success: false, error: 'The join code needs 4 to 12 letters or numbers.' };
   if (!changes.startDate) return { success: false, error: 'Please choose a start date.' };
+  if (!changes.endDate) return { success: false, error: 'Please choose an end date.' };
+  if (changes.endDate < changes.startDate) return { success: false, error: 'The end date cannot be before the start date.' };
 
   // Day numbers count from the start date: once students have ticked, moving the
   // start date or changing the programme would move their ticks to other days
@@ -201,6 +208,7 @@ export async function updateBatch(
       course_id: changes.courseId,
       teacher_id: changes.teacherId,
       start_date: changes.startDate,
+      end_date: changes.endDate,
       join_code: joinCode,
     })
     .eq('id', batchId)
